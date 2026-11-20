@@ -12,11 +12,12 @@ const none: UnreadCounts = { counts: {}, mentions: {}, muted: {} };
 /** Whether a live change can alter the viewer's unread counts. A message change
  * from someone else may be a new, finished or deleted message, or the viewer's
  * own seen receipt (receipts arrive as changes to their message, without saying
- * whose). Access changes cover archive, visibility and membership. Receipts and
+ * whose). Access changes cover archive, visibility and membership; a levels
+ * change can mute or unmute conversations (`muted`). Receipts and
  * reactions on the viewer's own messages, agent pauses and panel, sample or
  * event access never change what the viewer has unread. */
 export function changesUnread(change: Change, viewer: string | undefined): boolean {
-  if (change.kind === 'access' || change.kind === 'reset') return true;
+  if (change.kind === 'access' || change.kind === 'reset' || change.kind === 'levels') return true;
   return change.kind === 'message' && change.message?.author !== viewer;
 }
 
@@ -76,8 +77,8 @@ export function useUnreadCounts(): UnreadCounts {
   return useSyncExternalStore(subscribe, () => unread);
 }
 
-/** Reads the counts again after the viewer changes a bell level or their channel
- * default on this page: no live change announces it, and it changes `muted`. */
+/** Reads the counts again at once after the viewer changes a bell level or their
+ * channel default on this page, rather than when the live `levels` change arrives. */
 export function refreshUnread(): void { readAgain?.(); }
 
 /** What the rail's Chat icon shows. Muted conversations add only what is for the

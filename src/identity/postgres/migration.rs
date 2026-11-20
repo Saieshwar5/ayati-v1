@@ -147,6 +147,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::assistants::settings::learning::AssistantLearning),
             Box::new(super::assistants::memory::AssistantMemory),
             Box::new(super::assistants::setup::AgentSetups),
+            Box::new(super::chat_notification_migration::NotifyLevelChanges),
         ]
     }
 }

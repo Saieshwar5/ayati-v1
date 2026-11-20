@@ -112,8 +112,15 @@ page and opening Chat makes no second request. Each `/unread` entry also carries
 their channel default (direct messages always notify). Muting never changes a count.
 The rail adds every unread message of an unmuted conversation, and from a muted one
 only what is for you. Changing a bell or the channel default on this page reads the
-counts again; a change made on another device shows with the next read. A server
-without the flag mutes nothing.
+counts again at once. A server without the flag mutes nothing.
+
+Since schema 140 (`m20261120_000140_notify_level_changes`) a change to a bell or to
+the notification defaults also reaches the person's other devices. A trigger on
+`relay_chat_notify` and `relay_member_preferences` records a `levels` change whose
+audience is that person; the stream sends it only to them, with no conversation or
+level. Their open pages read the counts, the bells, the alert levels and Settings
+again. Apply the migration with the administrator procedure in
+[PostgreSQL setup](postgres-workspaces.md) before starting this version.
 
 ## Presence and status (schema 98, D245)
 

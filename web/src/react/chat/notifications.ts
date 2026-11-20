@@ -108,7 +108,8 @@ export function startDesktopAlerts() {
   void load().then(() => approvals(true));
   const unsubscribe = subscribeChanges(change => {
     if (stopped) return;
-    if (change.kind === 'access' || change.kind === 'reset') { window.clearTimeout(reload); reload = window.setTimeout(() => void load(), 500); return; }
+    // A levels change: a bell or the defaults changed, perhaps on another device.
+    if (change.kind === 'access' || change.kind === 'reset' || change.kind === 'levels') { window.clearTimeout(reload); reload = window.setTimeout(() => void load(), 500); return; }
     if (change.kind === 'message' && Notification.permission === 'granted') {
       void show(change);
       if (change.message?.progress?.state === 'approval') { window.clearTimeout(approval); approval = window.setTimeout(() => void approvals(false), 800); }

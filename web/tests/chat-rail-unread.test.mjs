@@ -115,3 +115,48 @@ test('the rail shows unread chat messages on every page, from one shared read', 
     throw new Error(`Unexpected request: ${path}`);
   } });
 });
+
+test('a mute set on another device reaches this page: its bell and the rail', async () => {
+  let stream, muted = false, cursor = 1;
+  const reads = { levels: 0, unread: 0 };
+  const original = Object.fromEntries(['indexedDB', 'Event', 'EventSource', 'Option', 'FormData', 'sessionStorage', 'matchMedia', 'requestAnimationFrame', 'cancelAnimationFrame', 'IntersectionObserver'].map(key => [key, globalThis[key]]));
+  await reactFixture(async ({ dom, render, update }) => {
+    dom.window.setInterval = () => 0; dom.window.clearInterval = () => {};
+    Object.assign(globalThis, { indexedDB: outboxStorage(), Event: dom.window.Event, Option: dom.window.Option, FormData: dom.window.FormData, sessionStorage: dom.window.sessionStorage,
+      requestAnimationFrame: handler => { handler(); return 0; }, cancelAnimationFrame: () => {}, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
+      IntersectionObserver: class { observe() {} unobserve() {} disconnect() {} },
+      EventSource: class { constructor(address) { this.listeners = new Map(); if (address.includes('message-events')) stream = this; } addEventListener(name, fn) { this.listeners.set(name, fn); } close() {} } });
+    try {
+      await (await import('../src/workspace-context.ts')).enterWorkspace();
+      const { WorkspaceApplication } = await import('../src/react/workspace-application.tsx');
+      await render(WorkspaceApplication);
+      const until = async condition => { for (let i = 0; i < 80 && !condition(); i++) await update(); assert.ok(condition(), `Expected UI did not appear: ${document.body.textContent}`); };
+      const count = () => document.querySelector('.workspace-rail [title=Chat] .workspace-nav-unread');
+      const row = () => [...document.querySelectorAll('a.chat-contact')].find(a => a.textContent.includes('quiet'));
+      await until(() => stream && count() && row());
+      assert.equal(count().textContent, '5');
+      assert.equal(row().querySelector('.chat-muted'), null);
+      const before = { ...reads };
+
+      // Muted on a phone: only the person's own levels change arrives.
+      muted = true;
+      await update(() => stream.listeners.get('changes')({ data: JSON.stringify({ cursor: ++cursor, events: [{ kind: 'levels' }] }) }));
+      await pause();
+      assert.equal(reads.levels, before.levels + 1, 'the bells are read again');
+      assert.equal(reads.unread, before.unread + 1, 'and the counts');
+      assert.ok(row().querySelector('.chat-muted'), 'the crossed bell shows');
+      assert.equal(count(), null, 'a muted conversation leaves the rail');
+    } finally {
+      await act(async () => { await Promise.resolve(); });
+      Object.assign(globalThis, original);
+    }
+  }, { url: `http://localhost/w/${w}/?view=chat`, fetch: async path => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.endsWith('/message-capabilities')) return response({ live: true });
+    if (path.endsWith('/chat-directory')) return response(directory);
+    if (path.endsWith('/chats')) return response({ chats: [channel('quiet')], preferences: { available: true, revision: 0, pins: [] } });
+    if (path.endsWith('/chat-notifications')) { reads.levels++; return response({ levels: muted ? { quiet: 'none' } : {} }); }
+    if (path.endsWith('/unread')) { reads.unread++; return response({ unread: [{ chat: 'quiet', count: 5, mentions: 0, muted }] }); }
+    throw new Error(`Unexpected request: ${path}`);
+  } });
+});

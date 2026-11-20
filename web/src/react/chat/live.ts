@@ -2,7 +2,8 @@ import { workspaceId, workspaceSession, storageScope } from '../../workspace-con
 import { chatRequest, type Message } from './model';
 import { flushOutbox, stopOutbox, subscribeSent } from './outbox';
 import { applyPresence } from './presence';
-export type Change = { kind: 'message' | 'access' | 'reset' | 'sample_access' | 'event_access' | 'panel_access' | 'agents'; source?: string; chat?: string; message?: Message };
+/** `levels`: this person changed a bell or their notification defaults, perhaps on another device (schema 140). */
+export type Change = { kind: 'message' | 'access' | 'reset' | 'sample_access' | 'event_access' | 'panel_access' | 'agents' | 'levels'; source?: string; chat?: string; message?: Message };
 const subscribers = new Set<(change: Change) => void>();
 const statusSubscribers = new Set<() => void>();
 let status = 'Connecting…';
