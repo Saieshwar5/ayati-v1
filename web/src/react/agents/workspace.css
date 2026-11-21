@@ -30,7 +30,6 @@
 .agent-identity-title h2 { font-size: 24px; margin: 0 0 4px; overflow-wrap: anywhere; }
 .agent-identity-title p { color: var(--muted); font-size: 13.5px; margin: 0; line-height: 1.5; }
 .agent-state-line strong { color: var(--text); font-weight: 500; }
-.agent-state-line .agent-line-dot { width: 8px; height: 8px; margin-right: 6px; }
 .agent-state-owner { white-space: nowrap; }
 .agent-owner-face.chat-avatar { display: inline-grid; width: 20px; height: 20px; margin: -3px 5px -1px 0; font-size: 9px; vertical-align: middle; }
 .agent-owner-face + .agent-owner-face { margin-left: -9px; }

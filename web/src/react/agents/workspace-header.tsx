@@ -34,7 +34,7 @@ export function AgentWorkspaceHeader({ agent, busy, back, openChat, choose }: {
     <div className="agent-identity-row"><AgentAvatar agent={agent} dot />
       <div className="agent-identity-title">
         <h2>{agent.name}</h2>
-        <p className="agent-state-line"><span className={`agent-line-dot agent-dot-${state}`} aria-hidden="true" />
+        <p className="agent-state-line">
           <strong>{paused ? 'Paused' : state === 'working' ? 'Working' : 'Ready'}</strong>
           {[detail, jobOf(agent)].filter(Boolean).map(part => <span key={part}> · {part}</span>)}
           {/* An assistant's line already names its person. */}

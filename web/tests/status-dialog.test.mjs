@@ -51,6 +51,7 @@ test('the status line opens Set a status; Save sends the choice once and the lin
   await shell(async ({ click, writes, update }) => {
     const line = () => document.querySelector('.account-menu-status');
     assert.equal(named(line()), 'Set a status Available');
+    assert.equal(line().querySelector('.presence-dot'), null, 'no green dot here: presence shows only on your photo');
     await click(line());
     assert.equal(dialog().querySelector('h2').textContent, 'Set a status');
     assert.equal(document.activeElement, dialog().querySelector('input[aria-label="Your own status"]'), 'focus starts in the text field');

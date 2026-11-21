@@ -62,13 +62,12 @@ export function ConversationHeader({ chat, directory, title, back, returnTo, sea
   </header>;
 }
 
-/** "● Ready · Answers customer questions", "● Working on your request…" or "○ Paused · Ananya Rao can resume it". */
+/** "Ready · Answers customer questions", "Working on your request…" or "Paused · Ananya Rao can resume it".
+ * The state's dot is on the face beside it, so the line is words only. */
 function AgentLine({ agent, working }: { agent: NonNullable<ReturnType<typeof directPartner>>['who']; working?: string }) {
   const ready = takesMessages(agent);
   const { label, detail } = agentStateText(agent);
-  const tone = ready ? (working ? 'working' : 'ready') : 'paused';
   return <small className="chat-kind agent-line">
-    <span className={`agent-line-dot agent-dot-${tone}`} aria-hidden="true" />
     <span className="agent-line-label">{ready && working ? working : label}</span>
     {!(ready && working) && detail && <span className="agent-line-detail"> · {detail}</span>}
   </small>;

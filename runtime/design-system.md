@@ -139,10 +139,12 @@ do not extend it under the sidebar's Chat title. Since D245 the header no longer
 shows your own connection ("Connected", "Reconnecting…"): a thin banner under it
 appears only while you are offline (warning colors, with Retry) or reconnecting
 (quiet, with a turning icon that stops under reduced motion). A direct message's
-header shows the other person instead: "● Online · 🗓️ In a meeting · until 11:30 AM",
+header shows the other person instead: "Online · 🗓️ In a meeting · until 11:30 AM",
 "Last seen 9:58 AM" (or a date), or their job title when nothing is known; an agent
-shows its state (below): "● Ready · its job", "● Working on your request…" or
-"○ Paused · Ananya Rao can resume it". The face, name and that line are one target
+shows its state (below): "Ready · its job", "Working on your request…" or
+"Paused · Ananya Rao can resume it". These lines are words only (2026-11-21): the
+dot is on the face beside them, so one person or agent never shows two dots in one
+place. The face, name and that line are one target
 with a small ▾ that opens the profile (direct messages) or Details (channels), as on
 phones; there is no separate Profile or Details button. The name is a button named
 "orders, details" or "Meera Iyer, profile". Then, borderless: an agent's settings
@@ -171,6 +173,9 @@ it after the job. Rows read "Meera Iyer, online, In a meeting" to screen readers
 Status text is shown only as text. Set a status is a native dialog opened from the
 status line in the account menu: preset rows with a radio each, your own text with
 an emoji picker, Clear after as segmented radios, then Clear status, Cancel and Save.
+With no status, that line's mark is a neutral face icon, not a green dot (2026-11-21):
+green is only presence, on your photo, and goes when you hide it. The dot beside the
+Available choice inside the dialog stays.
 
 People and agents share the same lists and the same round avatars (`faces.tsx`).
 People show their photo or initials on a tinted circle; agents show an uploaded
@@ -262,7 +267,9 @@ A thread line with replies you have not read shows a small "N new" pill in the a
 colour, red when one is for you, so a conversation's unread count always points at
 something to open. It goes as the replies are seen in the thread.
 The thread drawer keeps its reply box at the bottom: only the messages scroll, opening at
-the newest reply, under a "No replies yet" or "N replies" divider. The routing note and a
+the newest reply, under a "No replies yet" or "N replies" divider. Its title bar matches the
+conversation header (56 px, a 16 px title, a borderless 36 px Close; 44 px on touch), not
+the taller header of a form dialog. The routing note and a
 compact Follow / Following button sit on one line above the reply box. The message toolbar
 always grows leftward from the message's right edge, on your own messages too, so a short
 message never pushes it past the edge of the conversation.

@@ -23,7 +23,7 @@ pub(crate) const MAX_TEXT: usize = 16_000;
 /// Most of one transcript an agent reads, so older messages still fit.
 const AGENT_TEXT: usize = 8_000;
 /// What the web client sends for a message that only shares files.
-const FILES_ONLY: &str = "Shared files";
+pub(super) const FILES_ONLY: &str = "Shared files";
 
 pub(crate) struct Transcripts;
 impl MigrationName for Transcripts {
@@ -98,6 +98,20 @@ pub(super) async fn queue_in(tx: &DatabaseTransaction, w: &str, object: &str) ->
         tx,
         "INSERT INTO relay_object_transcripts(workspace,object) VALUES($1,$2)",
         vec![w.into(), object.into()],
+    )
+    .await?;
+    Ok(())
+}
+
+/// A forwarded audio file's copy keeps its transcript; one still waiting is
+/// transcribed again for the copy.
+pub(super) async fn copy_in(tx: &DatabaseTransaction, w: &str, from: &str, to: &str) -> Result<()> {
+    execute(
+        tx,
+        "INSERT INTO relay_object_transcripts(workspace,object,status,text,duration_ms,model,finished_ms)
+         SELECT workspace,$3,status,text,duration_ms,model,finished_ms FROM relay_object_transcripts
+         WHERE workspace=$1 AND object=$2 ON CONFLICT DO NOTHING",
+        vec![w.into(), from.into(), to.into()],
     )
     .await?;
     Ok(())

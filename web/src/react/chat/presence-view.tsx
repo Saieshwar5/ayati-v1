@@ -1,6 +1,7 @@
 // How presence and status read on screen (designs/chat-and-account screens 2, 3
 // and 10): a green dot on the face, the status emoji after the name, and one
-// line in a direct message's header. Status text is the person's own words, so
+// line in a direct message's header. The dot is on the face only; the line
+// beside it says "Online" in words. Status text is the person's own words, so
 // it is only ever rendered as text.
 import { Fragment } from 'react';
 import { activeStatus, shownOnline, usePresence, type Presence, type Status, type StatusKind } from './presence';
@@ -88,7 +89,8 @@ export function PresenceWords({ id }: { id: string }) {
   return words ? <span className="presence-hidden">, {words}</span> : null;
 }
 
-/** "● Online · 🗓️ In a meeting · until 11:30 AM", "Last seen 9:58 AM", or the fallback. */
+/** "Online · 🗓️ In a meeting · until 11:30 AM", "Last seen 9:58 AM", or the fallback.
+ * The word has no dot of its own: the face beside it already shows one. */
 export function PresenceLine({ id, fallback }: { id: string; fallback: string }) {
   const presence = usePresence(id);
   const status = activeStatus(presence);
@@ -97,7 +99,7 @@ export function PresenceLine({ id, fallback }: { id: string; fallback: string })
   if (!online && !status && !seen) return <small className="chat-kind">{fallback}</small>;
   const ends = status ? clearsLabel(status) : '';
   const parts = [
-    online && <span key="online" className="presence-online"><span className="presence-dot inline" aria-hidden="true" />Online</span>,
+    online && <span key="online" className="presence-online">Online</span>,
     seen && <span key="seen">{seen}</span>,
     status && <span key="status"><span aria-hidden="true">{statusEmoji(status)} </span>{statusLabel(status)}</span>,
     ends && <span key="ends">{ends}</span>,

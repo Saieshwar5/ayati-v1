@@ -54,6 +54,7 @@ test('a ready agent shows a green dot in the list and header, its role, and the 
     await until(() => line());
     assert.equal(line(), 'Ready · Answers customer questions');
     assert.ok(headerDot().classList.contains('agent-dot-ready'));
+    assert.equal(document.querySelectorAll('.chat-pane-header [class*="agent-dot-"]').length, 1, 'one dot, on the face; the line is words only');
     assert.ok(listDot().classList.contains('agent-dot-ready'));
     assert.ok(document.querySelector('.message-composer textarea'));
     assert.equal(document.querySelector('.chat-paused-bar'), null);

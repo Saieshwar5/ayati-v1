@@ -122,7 +122,7 @@ function Owners({ agent, directory }: { agent: Participant; directory: Directory
 function AgentStateLine({ agent }: { agent: Participant }) {
   const { label, detail } = agentStateText(agent);
   const ready = takesMessages(agent);
-  return <p className="profile-card-presence"><span className={`agent-line-dot agent-dot-${ready ? 'ready' : 'paused'}`} aria-hidden="true" />{label}{!ready && <span className="profile-card-detail"> · {detail}</span>}</p>;
+  return <p className="profile-card-presence">{label}{!ready && <span className="profile-card-detail"> · {detail}</span>}</p>;
 }
 
 /** Its owners and admins resume a paused agent right here; the change reaches every open page. */
@@ -143,7 +143,7 @@ function ProfilePresence({ id, name }: { id: string; name: string }) {
   const self = id === workspaceSession?.user?.id;
   const ends = status ? clearsLabel(status) : '';
   return <>
-    {online ? <p className="profile-card-presence"><span className="presence-dot inline" aria-hidden="true" />Online</p>
+    {online ? <p className="profile-card-presence">Online</p>
       : status?.kind !== 'away' && presence?.last_seen ? <p className="profile-card-presence">{lastSeenLabel(presence.last_seen)}</p> : null}
     {status && <div className="profile-card-status">
       <strong><span aria-hidden="true">{statusEmoji(status)}</span> {statusLabel(status)}</strong>
