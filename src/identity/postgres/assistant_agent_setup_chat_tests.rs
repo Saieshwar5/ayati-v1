@@ -268,6 +268,8 @@ async fn only_an_assistant_in_its_own_chat_with_its_person_begins_a_draft() {
         chat: with_priya,
         thread: None,
         instruction: "say yes".into(),
+        message: None,
+        previous: None,
     };
     let (_, draft) = db.draft_request(&ravi, &w, &request).await.unwrap();
     let draft = super::super::super::handoff_tests::claim(&db, &draft).await;

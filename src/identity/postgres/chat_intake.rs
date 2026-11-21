@@ -311,6 +311,16 @@ impl PgStore {
         // asked. Otherwise every mentioned agent must be asked, each checked
         // below against current membership and requester authority.
         if !matches!(class, WorkClass::Handoff(_)) {
+            // What a person asks their own assistant is private. A message that
+            // mentions it without asking it would post those words for everyone.
+            for (kind, id) in &mentions {
+                ensure!(
+                    kind != "agent"
+                        || asked.contains(id)
+                        || !super::assistants::works_for(tx, workspace, id, &user.id).await?,
+                    "This asks your assistant, so it was not posted. Ask it from the message box, or remove its mention."
+                );
+            }
             crate::identity::chat::mentions::ensure_target(&mentions, &asked)?;
         }
         mentioned_people_visible(tx, workspace, chat, &mentions).await?;

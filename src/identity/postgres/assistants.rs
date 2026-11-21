@@ -55,6 +55,25 @@ pub(super) async fn is_assistant(db: &impl ConnectionTrait, w: &str, agent: &str
     .is_some())
 }
 
+/// Whether `agent` is the assistant of `user`.
+pub(super) async fn works_for(
+    db: &impl ConnectionTrait,
+    w: &str,
+    agent: &str,
+    user: &str,
+) -> Result<bool> {
+    if !ready(db).await? {
+        return Ok(false);
+    }
+    Ok(query(
+        db,
+        "SELECT 1 AS found FROM relay_assistants WHERE workspace=$1 AND agent=$2 AND user_id=$3",
+        vec![w.into(), agent.into(), user.into()],
+    )
+    .await?
+    .is_some())
+}
+
 /// SQL for "agent `a` is an assistant", or `false` before schema 127.
 pub(super) async fn flag(db: &impl ConnectionTrait) -> Result<&'static str> {
     Ok(if ready(db).await? {
