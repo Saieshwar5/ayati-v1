@@ -20,7 +20,7 @@ import { agentChatNote, agentRuleNote, chatRequest, conversationName, directPart
 import { ShowProfile, useShowProfile } from './profile-card';
 import { AssistantRoom, ThreadPill, TookOverLine } from './assistant-threads';
 import { threadIn, useThreads } from './assistant-threads-model';
-import { useAssistantDraft } from './assistant-draft';
+import { useAssistantAsk } from './assistant-ask';
 import { AssistantIntro, ExampleRequests } from './assistant-start';
 import { AssistantSettingsLink } from './assistant-settings';
 import { ConversationHeader, type DetailsControl } from './conversation-header';
@@ -174,30 +174,36 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   };
   const draftSent = useRef<(message: string) => void>(undefined);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
+  /** Puts `content` in the outbox as this person's message; resolves with its ID once accepted. */
+  const post = async (content: string, quote: string | undefined, attachments: string[]): Promise<string | undefined> => {
+    if (chat.archived || pending.current) return undefined;
+    pending.current = true; setBusy(true); setError('');
+    try {
+      let agents = requestAgents(content, directAgent);
+      // Replying to an agent's message asks that agent, unless the text names others.
+      const quoted = quote ? allMessages.find(message => message.id === quote) : undefined;
+      if (!agents.length && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) agents = [quoted.author];
+      const asked = agents.length ? agents : undefined;
+      // The same payload keeps its ID, so a retried send can't post twice.
+      if (!attempt.current || attempt.current.content !== content || JSON.stringify(attempt.current.agents) !== JSON.stringify(asked) || attempt.current.reply_to !== quote || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, agents: asked, reply_to: quote, attachments };
+      const submission = attempt.current;
+      await enqueue(chat.id, submission);
+      attempt.current = undefined; bottom.current = true;
+      return submission.id;
+    } catch (e) { if (alive.current) setError(errorMessage(e)); return undefined; }
+    finally { pending.current = false; if (alive.current) setBusy(false); }
+  };
   /** Resolves true once the message is in the outbox; a voice recording joins the draft's files. */
   const send = async (voice?: Attachment): Promise<boolean> => {
-    if (chat.archived) return false;
+    // A draft that mentions your assistant asks it, where only you see it. Nothing is posted.
+    if (assist.asking && !voice) { const asked = await assist.ask(); if (asked && alive.current) setReplyTo(undefined); return asked; }
     const attachments = (voice ? [...files, voice] : files).map(f => f.id);
-    if (pending.current || (!draft.trim() && !attachments.length)) return false;
-    pending.current = true; setBusy(true); setError('');
-    let agents: string[];
-    try { agents = requestAgents(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
-    // Replying to an agent's message asks that agent, unless the text names others.
-    const quoted = replyTo ? allMessages.find(message => message.id === replyTo) : undefined;
-    if (!agents.length && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) agents = [quoted.author];
-    const asked = agents.length ? agents : undefined;
-    const content = draft || filesOnlyContent;
-    // The same payload keeps its ID, so a retried send can't post twice.
-    if (!attempt.current || attempt.current.content !== content || JSON.stringify(attempt.current.agents) !== JSON.stringify(asked) || attempt.current.reply_to !== replyTo || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, agents: asked, reply_to: replyTo, attachments };
-    const submission = attempt.current;
-    try {
-      await enqueue(chat.id, submission);
-      draftSent.current?.(submission.id);
-      if (!alive.current) return true;
-      updateDraft(''); setFiles([]); setReplyTo(undefined); attempt.current = undefined; bottom.current = true;
-      return true;
-    } catch (e) { if (alive.current) setError(errorMessage(e)); return false; }
-    finally { pending.current = false; if (alive.current) setBusy(false); }
+    if (!draft.trim() && !attachments.length) return false;
+    const id = await post(draft || filesOnlyContent, replyTo, attachments);
+    if (!id) return false;
+    draftSent.current?.(id);
+    if (alive.current) { updateDraft(''); setFiles([]); setReplyTo(undefined); }
+    return true;
   };
   const olderCursor = cursor === undefined ? history?.next_before : cursor;
   /** Scrolling near the top calls this on its own; the button passes `explicit`, which also retries a failed read. */
@@ -228,17 +234,19 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   const place = chat.kind === 'direct' ? 'Direct message' : chat.kind === 'group' ? 'Group' : `#${chat.name}`;
   const showProfile = useShowProfile();
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
-  // Your assistant in this chat: a draft in the message box, and a chat handed over to it (schema 136).
+  // Your assistant in this chat: asked from the message box, and a chat handed over to it (schema 136).
   const assistant = directory.agents.find(agent => agent.assistant && agent.yours);
   const assistantName = assistant?.name ?? 'Your assistant';
   const { threads, room } = useThreads();
   const handed = threadIn(threads, chat.id);
-  const assist = useAssistantDraft({ chat: chat.id, name: assistantName, value: draft, change: updateDraft, sent: draftSent, disabled: busy || Boolean(chat.archived) });
+  const composerField = () => section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea');
+  const assist = useAssistantAsk({ chat: chat.id, where: chat.kind === 'direct' ? `to ${title}` : chat.kind === 'group' ? 'in this group' : `in #${chat.name}`, direct: chat.kind === 'direct',
+    assistant, viewer, value: draft, change: updateDraft, messages: timeline, quote: replyTo, post: (text, quote) => post(text, quote, []), sent: draftSent,
+    focusBox: () => composerField()?.focus(), disabled: busy || Boolean(chat.archived) });
   // Only a direct chat with one other side, and only from a message that side sent.
   const canHandOver = Boolean(assistant && partner) && !partner?.who.assistant && !chat.archived && chat.users.length + chat.agents.length === 2 && handed?.state !== 'running';
   // Your own assistant's chat before its first message: who it is, examples to start from, the cursor ready.
   const emptyAssistant = partner?.kind === 'agent' && partner.who.assistant && partner.who.yours && history?.messages.length === 0 ? partner.who : undefined;
-  const composerField = () => section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea');
   useEffect(() => {
     // Not on touch screens, where focusing would cover the page with the keyboard.
     if (emptyAssistant && window.matchMedia?.('(pointer: fine)').matches) composerField()?.focus();
@@ -279,8 +287,9 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
     {emptyAssistant && !draft && !chat.archived && agentFree && <ExampleRequests use={startExample} />}
+    {assist.card}
     {!agentFree && partner?.kind === 'agent' ? <PausedBar agent={partner.who} admin={directory.role === 'Admin'} /> : <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
-      placeholder="Message…" tools={assist.tool} notice={assist.notice}
+      placeholder="Message…" tools={assist.tool} notice={assist.notice} assistant={assist.mention}
       candidates={[
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),

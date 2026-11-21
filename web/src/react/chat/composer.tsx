@@ -9,12 +9,15 @@ export type ComposerProps = {
   value: string; change: (value: string) => void; send: () => void;
   maxLength?: number; disabled?: boolean; sendDisabled?: boolean; placeholder?: string; label?: string;
   candidates?: Mention[]; media?: ReactNode; attachments?: ReactNode; trailing?: ReactNode;
+  /** The person's own assistant: first in the @ list, also found as "assistant" or "my".
+   * A draft that mentions it is a private request, so Send reads "Ask <name>". */
+  assistant?: Mention;
   /** A voice recording in progress replaces the text field; the draft stays. Enter sends and
    * Escape calls `cancel` (when given) anywhere in the composer except on its buttons. */
   voice?: { row: ReactNode; cancel?: () => void };
 };
 /** Shared UI; each conversation adapter owns its authorized transport and durable draft. */
-export function Composer({ value, change, send, disabled = false, sendDisabled = false, maxLength = 12000, placeholder = 'Message…', label = 'Message', candidates = [], media, attachments, trailing, voice }: ComposerProps) {
+export function Composer({ value, change, send, disabled = false, sendDisabled = false, maxLength = 12000, placeholder = 'Message…', label = 'Message', candidates = [], media, attachments, trailing, voice, assistant }: ComposerProps) {
   const input = useRef<HTMLTextAreaElement>(null);
   const restoreFocus = useRef(false);
   const submit = () => { if (!disabled && !sendDisabled) { restoreFocus.current = true; send(); } };
@@ -23,13 +26,21 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
   const { text, mentions } = decodeMentions(value);
   const query = /(?:^|\s)@([^@\n]{0,60})$/.exec(text.slice(0, caret));
   const start = query ? caret-query[1].length-1 : -1;
+  const own = (item: Mention) => assistant !== undefined && item.kind === 'agent' && item.id === assistant.id;
+  const offered = assistant ? [assistant, ...candidates.filter(item => !own(item))] : candidates;
+  // Whatever it is named, a person's own assistant is also found by what it is.
+  const matches = (item: Mention, typed: string) => item.name.toLocaleLowerCase().includes(typed)
+    || (own(item) && typed !== '' && ['assistant', 'my assistant'].some(word => word.startsWith(typed)));
   const choices = query && !dismissed && !voice && !mentions.some(m => start >= m.start && start < m.end)
-    ? candidates.filter(m => m.name.toLocaleLowerCase().includes(query[1].toLocaleLowerCase())).slice(0,8) : [];
+    ? offered.filter(m => matches(m, query[1].toLocaleLowerCase())).slice(0,8) : [];
   const selected = Math.min(active, Math.max(0, choices.length-1));
+  // Mentioning your own assistant asks it alone, privately; nothing here is posted.
+  const asking = mentions.some(own);
   // A message asks up to `maxAgents` agents; each one mentioned is asked.
-  const asked = new Set(mentions.filter(m => m.kind === 'agent').map(m => m.id));
-  const blocked = (item: Mention) => item.kind === 'agent' && !asked.has(item.id) && asked.size >= maxAgents;
-  const agentNote = (item: Mention) => asked.has(item.id) ? 'Already asked' : blocked(item) ? `Up to ${maxAgents} agents per message` : asked.size ? 'Also asks this agent' : 'Asks this agent to work';
+  const asked = new Set(mentions.filter(m => m.kind === 'agent' && !own(m)).map(m => m.id));
+  const blocked = (item: Mention) => !asking && !own(item) && item.kind === 'agent' && !asked.has(item.id) && asked.size >= maxAgents;
+  const agentNote = (item: Mention) => own(item) ? 'Your assistant · Only you see what you ask' : asking ? 'Named only, not asked'
+    : asked.has(item.id) ? 'Already asked' : blocked(item) ? `Up to ${maxAgents} agents per message` : asked.size ? 'Also asks this agent' : 'Asks this agent to work';
   const recording = Boolean(voice), wasRecording = useRef(false);
   useLayoutEffect(() => {
     const node = input.current; if (!node) return;
@@ -70,14 +81,14 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     restore.current = at+emoji.length; setCaret(restore.current); caretKnown.current = true;
     change(editMentions(value, next));
   };
-  return <form className={`message-composer${voice ? ' is-recording' : ''}`} aria-label="Message composer" onSubmit={event => { event.preventDefault(); submit(); }}
+  return <form className={`message-composer${voice ? ' is-recording' : ''}${asking ? ' is-asking' : ''}`} aria-label="Message composer" onSubmit={event => { event.preventDefault(); submit(); }}
     onKeyDown={voice && (event => {
       if (event.nativeEvent.isComposing) return;
       if (event.key === 'Escape' && voice.cancel) { event.preventDefault(); event.stopPropagation(); voice.cancel(); }
       else if (event.key === 'Enter' && (event.target as HTMLElement).tagName !== 'BUTTON') { event.preventDefault(); submit(); }
     })}>
     {choices.length > 0 && <div className="mention-menu" id={menuId} role="listbox" aria-label="Mention suggestions">
-      {choices.map((item,index) => <button type="button" role="option" id={`${menuId}-${index}`} aria-selected={index === selected} aria-disabled={blocked(item) || undefined} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
+      {choices.map((item,index) => <button type="button" role="option" className={own(item) ? 'mention-own' : undefined} id={`${menuId}-${index}`} aria-selected={index === selected} aria-disabled={blocked(item) || undefined} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
         <ParticipantFace kind={item.kind} who={item} presence /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? agentNote(item) : item.title || 'Person'}</small>
         {item.kind === 'user' && <MentionStatus id={item.id} />}
       </button>)}
@@ -98,6 +109,8 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
       }} />
     {voice?.row}
     {attachments && <div className="composer-attachments">{attachments}</div>}
-    <div className="composer-toolbar"><div className="composer-media">{media}</div><div className="composer-actions"><EmojiPicker insert={insertEmoji} disabled={disabled} />{trailing}<Button primary type="submit" aria-label="Send message" disabled={disabled || sendDisabled}>↑</Button></div></div>
+    <div className="composer-toolbar"><div className="composer-media">{media}</div><div className="composer-actions"><EmojiPicker insert={insertEmoji} disabled={disabled} />{trailing}{asking && assistant
+      ? <Button primary type="submit" className="composer-ask" aria-label={`Ask ${assistant.name}`} disabled={disabled || sendDisabled}>Ask {assistant.name}</Button>
+      : <Button primary type="submit" aria-label="Send message" disabled={disabled || sendDisabled}>↑</Button>}</div></div>
   </form>;
 }
