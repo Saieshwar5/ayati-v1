@@ -139,10 +139,12 @@ do not extend it under the sidebar's Chat title. Since D245 the header no longer
 shows your own connection ("Connected", "Reconnecting…"): a thin banner under it
 appears only while you are offline (warning colors, with Retry) or reconnecting
 (quiet, with a turning icon that stops under reduced motion). A direct message's
-header shows the other person instead: "● Online · 🗓️ In a meeting · until 11:30 AM",
+header shows the other person instead: "Online · 🗓️ In a meeting · until 11:30 AM",
 "Last seen 9:58 AM" (or a date), or their job title when nothing is known; an agent
-shows its state (below): "● Ready · its job", "● Working on your request…" or
-"○ Paused · Ananya Rao can resume it". The face, name and that line are one target
+shows its state (below): "Ready · its job", "Working on your request…" or
+"Paused · Ananya Rao can resume it". These lines are words only (2026-11-21): the
+dot is on the face beside them, so one person or agent never shows two dots in one
+place. The face, name and that line are one target
 with a small ▾ that opens the profile (direct messages) or Details (channels), as on
 phones; there is no separate Profile or Details button. The name is a button named
 "orders, details" or "Meera Iyer, profile". Then, borderless: an agent's settings

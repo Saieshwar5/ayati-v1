@@ -1,11 +1,9 @@
 /* An agent's state (agent-state.tsx): where a person's online dot is, with an
    agent's meaning. Green: takes your message now. Purple, pulsing: working for
    you here. Hollow: paused. */
-.presence-dot.agent-dot-ready, .agent-line-dot.agent-dot-ready { background: var(--online); }
-.presence-dot.agent-dot-working, .agent-line-dot.agent-dot-working { background: var(--working); animation: agent-working 1.4s ease-in-out infinite; }
-.presence-dot.agent-dot-paused, .agent-line-dot.agent-dot-paused { background: var(--surface); border: 2px solid var(--muted); }
-.agent-line-dot { display: inline-block; width: 7px; height: 7px; box-sizing: border-box; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
-.agent-line-dot.agent-dot-paused { border-width: 1.5px; }
+.presence-dot.agent-dot-ready { background: var(--online); }
+.presence-dot.agent-dot-working { background: var(--working); animation: agent-working 1.4s ease-in-out infinite; }
+.presence-dot.agent-dot-paused { background: var(--surface); border: 2px solid var(--muted); }
 .agent-line { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agent-line-label { color: var(--text); }
 .agent-line-detail { color: var(--muted); }

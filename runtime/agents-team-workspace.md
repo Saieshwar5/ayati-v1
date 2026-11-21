@@ -11,8 +11,9 @@
 > "Needs an owner"), in its text and its accessible name. The search box appears
 > from nine agents on. The footer line is gone.
 >
-> **The header** is the face with its dot, the name and one line: "● Ready · its
-> job · owned by <faces> You", "● Working · 2 requests · …", "○ Paused · …".
+> **The header** is the face with its dot, the name and one line: "Ready · its
+> job · owned by <faces> You", "Working · 2 requests · …", "Paused · …". The line
+> has no dot of its own (2026-11-21); the face carries it.
 > Someone who cannot resume a paused agent reads who can. An assistant is named
 > by whose it is. **Message** (was Open in Chat) shows only when the server says
 > the viewer may talk to it (`can_talk`). **Pause** and **Resume** are buttons
