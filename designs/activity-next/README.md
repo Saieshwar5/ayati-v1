@@ -32,6 +32,35 @@ is not:
 Recommended: build A and use B's agent rows as A's Work tab. C's "now" line can go on
 the Planned tab later.
 
+## Design A as a working prototype
+
+`design-a/prototype.html` is Design A at full size with sample data, light and dark,
+and a phone layout below 860 px. It is plain HTML, CSS and scripts with no build step
+(`data.js`, then `ui.js`, one script per tab, and `app.js`); open the file in a browser.
+The **Guide** button (or `?`) explains the rules and lists things to try.
+
+What it shows beyond the first mockup:
+
+- The same two parts on every list tab (Needs you, Work, History): the list on the
+  left, the picked thing on the right. Nothing opens in a dialog.
+- Every item type from the built page, with the built page's own wording and choices:
+  an approval (Approve this action, Reject, Request changes), several approvals for the
+  same action, a choice question, a browser hand-over, a stopped connection, a failed
+  request, an unconfirmed action ("Did this go out?") and a late task.
+- Keyboard: J / K to move, A / R / C to decide, `/` to search the current tab.
+- After a decision: the item leaves, the next one opens, the decision is written to
+  History, and "Decided today" keeps it readable. There is no Undo because the first
+  decision counts.
+- A request that arrives while you read joins its group without moving your row.
+- Work: flat agent rows whose state follows the same items as Needs you, so deciding
+  there changes it here; Tasks; Pause all agents inside the ⋯ menu.
+- Planned starts at a "Now" line. History opens on the log with totals as one line.
+  Insights holds Review and the charts.
+- My agents / All agents appears only on the tabs it changes (Work, Planned).
+
+Two things in it are new behaviour, not just layout, and need a decision: search is one
+box that searches the current tab, and decided items stay listed under "Decided today".
+
 ## Decisions for the owner before building
 
 - Whether Fix items count in the rail's red number. The design system currently defines

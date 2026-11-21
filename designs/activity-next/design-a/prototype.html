@@ -1,0 +1,120 @@
+<title>Activity One Queue</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="prototype.css">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M19 5a8 8 0 1 0 2 9"/><circle cx="16.5" cy="7.5" r="2.4"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14v10H10l-5 4z"/></symbol>
+  <symbol id="i-act" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="2"/><path d="M12 8V5M9 13h.01M15 13h.01"/></symbol>
+  <symbol id="i-lib" viewBox="0 0 24 24"><path d="M6 4v16M10 4v16M14 5l4 15"/></symbol>
+  <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></symbol>
+</svg>
+
+<div class="app">
+  <div class="shell">
+    <nav class="rail" aria-label="Workspace">
+      <span class="logo"><svg><use href="#i-logo"/></svg></span>
+      <button type="button" data-go="Home" aria-label="Home"><svg><use href="#i-home"/></svg></button>
+      <button type="button" data-go="Chat" aria-label="Chat"><svg><use href="#i-chat"/></svg></button>
+      <span class="on" aria-label="Activity, current page"><svg><use href="#i-act"/></svg><b id="rail-count"></b></span>
+      <button type="button" data-go="Agents" aria-label="Agents"><svg><use href="#i-bot"/></svg></button>
+      <button type="button" data-go="Library" aria-label="Library"><svg><use href="#i-lib"/></svg></button>
+      <span class="grow"></span>
+      <button type="button" data-go="Settings" aria-label="Settings"><svg><use href="#i-set"/></svg></button>
+      <span class="me" aria-label="Meera Iyer">MI</span>
+    </nav>
+    <main class="frame">
+      <div id="banner" class="banner" role="status" hidden><span></span><button type="button" class="btn sm">Resume agents</button></div>
+      <header class="head">
+        <h1>Activity</h1>
+        <div id="tabs" class="tabs" role="tablist" aria-label="Activity views"></div>
+        <label class="search"><span class="sr">Search</span><input id="search" type="search" autocomplete="off"><kbd>/</kbd></label>
+      </header>
+      <div id="view" class="view" role="tabpanel" aria-label="Activity"></div>
+      <div id="toast" class="toast" role="status" hidden></div>
+    </main>
+  </div>
+  <footer id="demo" class="demo">
+    <span><b>Prototype of Design A.</b> <span class="hide-s">Sample data. You are Meera Iyer, an admin who manages six agents. Nothing here is saved.</span></span>
+    <span class="grow"></span>
+    <button type="button" class="btn sm" data-demo="guide">Guide <kbd>?</kbd></button>
+    <button type="button" class="btn sm" data-demo="arrive">New request arrives</button>
+    <button type="button" class="btn sm" data-demo="reset">Start over</button>
+  </footer>
+</div>
+
+<dialog id="guide" aria-labelledby="guide-title">
+  <div class="dialog-head"><h2 id="guide-title">How Design A works</h2><button type="button" class="btn sm" data-close>Close</button></div>
+  <div class="dialog-body">
+    <section><h3>Try these, in order</h3>
+      <ol>
+        <li>Press <kbd>J</kbd> and <kbd>K</kbd> to move down and up the list. The right side changes; the list stays.</li>
+        <li>On “Approve a 12% discount”, press <kbd>A</kbd>. The item leaves, the count drops, the next one opens, and a line at the bottom says what happened.</li>
+        <li>Open “3 × Refund order”. Reject one, then press “Approve all 2”.</li>
+        <li>Open “Which courier…”. Send answer stays off until you pick one.</li>
+        <li>Press “New request arrives” below. It joins the list quietly and your place does not move.</li>
+        <li>Open “Decided today” at the bottom of the list to see what you did.</li>
+        <li>Go to Work, pick Nova, and press a row under “Needs you”. It takes you to that exact item.</li>
+        <li>Go to Planned and pause “Bank reconciliation”, then Undo.</li>
+        <li>Clear everything in Needs you to see the empty state. “Start over” brings it back.</li>
+      </ol></section>
+    <section><h3>The layout</h3>
+      <p>Every tab that has a list uses the same two parts: the list on the left, the thing you picked on the right. Needs you, Work and History all behave this way, so you learn it once. Nothing opens in a dialog and nothing dims the list.</p></section>
+    <section><h3>The list</h3>
+      <ul>
+        <li><b>Three groups, by what you must do:</b> Decide (approve or reject), Answer (give a fact), Fix (something is broken or late).</li>
+        <li><b>One count.</b> The number on the tab and on the rail is every item in the three groups. “3 × Refund order” counts as 3.</li>
+        <li><b>Order.</b> Items an admin can already step in on come first, then the longest waiting. Fix items are ordered by how much they block.</li>
+        <li><b>Rows have no buttons.</b> The title gets the full width. A dot and bold text mean you have not opened it yet.</li>
+        <li><b>Rows hold still.</b> A new request joins its group; it never moves the row you are on.</li>
+      </ul></section>
+    <section><h3>The right side</h3>
+      <ul>
+        <li>Top to bottom it answers: what state is it in, what is being asked, who asked, the exact fields, why it needs you, and what the agent did so far.</li>
+        <li>The buttons are fixed at the bottom, so they are in the same place for every item.</li>
+        <li>The first button is always the usual choice. Each item type has its own: Approve this action, Send answer, Take over the browser, Reconnect, Mark reviewed, Save answer, Mark done.</li>
+        <li>A button that cannot work yet is off, with the reason next to it.</li>
+      </ul></section>
+    <section><h3>After you decide</h3>
+      <p>Approvals are final in Cuckoo: the first decision counts. So there is no Undo. Instead the decision is written to History at once, a line at the bottom links to it, and “Decided today” keeps it in the list where you can re-read it.</p></section>
+    <section><h3>Keys</h3>
+      <dl class="keys"><dt><kbd>J</kbd> <kbd>K</kbd> or arrows</dt><dd>Next and previous row</dd><dt><kbd>A</kbd></dt><dd>Approve (or approve all in a group)</dd><dt><kbd>R</kbd></dt><dd>Reject</dd><dt><kbd>C</kbd></dt><dd>Request changes</dd>
+        <dt><kbd>/</kbd></dt><dd>Search the current tab</dd><dt><kbd>Esc</kbd></dt><dd>Clear search, or go back on a phone</dd><dt><kbd>?</kbd></dt><dd>This guide</dd></dl>
+      <p>Keys do nothing while you type in a field.</p></section>
+    <section><h3>The other tabs</h3>
+      <ul>
+        <li><b>Work</b> is today’s Now and Tasks. Agents are flat rows; an agent’s state comes from the same list as Needs you, so approving something there changes it here.</li>
+        <li><b>Planned</b> is today’s Upcoming, starting at a “Now” line.</li>
+        <li><b>History</b> opens on the log. The totals are one line, and “6 need a look” is a filter you can press.</li>
+        <li><b>Insights</b> is today’s Review plus the charts from History. It sits apart because it is read weekly, not hourly.</li>
+        <li><b>Pause all agents</b> moved into the ⋯ menu on Work. It still asks first.</li>
+        <li><b>My agents / All agents</b> shows only on the tabs it changes.</li>
+      </ul></section>
+    <section><h3>On a phone</h3>
+      <p>Make this window narrow to see it. The list fills the screen. Tapping a row opens it full screen with the buttons at the bottom and a Back link at the top. After a decision the next item opens; after the last one you return to the list.</p></section>
+  </div>
+</dialog>
+
+<dialog id="pause-all" aria-labelledby="pause-title">
+  <form id="pause-form">
+    <div class="dialog-head"><h2 id="pause-title">Pause all agents?</h2></div>
+    <div class="dialog-body">
+      <p>Every agent stops at once. Requests that are running or waiting will be stopped and won’t restart on their own.</p>
+      <p>Until an admin resumes, no agent takes new requests, schedules skip their runs and events from connected tools are not handled.</p>
+      <label class="field">Reason <small>everyone in the workspace sees it</small><input id="pause-note" maxlength="300" placeholder="For example: wrong emails going out"></label>
+    </div>
+    <div class="dialog-foot"><button type="button" class="btn" data-close>Cancel</button><button type="submit" class="btn danger">Pause all agents</button></div>
+  </form>
+</dialog>
+
+<script src="data.js"></script>
+<script src="ui.js"></script>
+<script src="needs.js"></script>
+<script src="work.js"></script>
+<script src="planned.js"></script>
+<script src="history.js"></script>
+<script src="insights.js"></script>
+<script src="app.js"></script>
