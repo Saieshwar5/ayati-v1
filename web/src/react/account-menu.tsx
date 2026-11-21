@@ -11,13 +11,14 @@ import { activeStatus, applyPresence, usePresence } from './chat/presence';
 import { clearsPhrase, PresenceDot, statusEmoji, statusLabel } from './chat/presence-view';
 import { StatusDialog } from './chat/status-dialog';
 
-type IconName = 'check' | 'workspaces' | 'settings' | 'sign-out';
+type IconName = 'check' | 'workspaces' | 'settings' | 'sign-out' | 'status';
 function MenuIcon({ name }: { name: IconName }) {
   return <svg className="account-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
     {name === 'check' && <path d="m5 12.5 4.5 4.5L19 7.5" />}
     {name === 'workspaces' && <><path d="M4 21V4h10v17M14 9h6v12M2 21h20" /><path d="M7.5 8h3M7.5 12h3M7.5 16h3M17 13v.01M17 17v.01" /></>}
     {name === 'settings' && <><path d="M3 6h18M3 12h18M3 18h18" /><circle cx="8" cy="6" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="9" cy="18" r="2" /></>}
     {name === 'sign-out' && <><path d="M14 4H5v16h9" /><path d="M10 12h11m-4-4 4 4-4 4" /></>}
+    {name === 'status' && <><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5v.01M15 9.5v.01" strokeLinecap="round" /></>}
   </svg>;
 }
 
@@ -40,13 +41,15 @@ function useMyPhoto(userId: string | undefined, reads: number) {
   return photo;
 }
 
-/** Your status under your name (screen 9, note 2); it opens Set a status. */
+/** Your status under your name (screen 9, note 2); it opens Set a status. With no
+ * status the mark is a neutral face, not a green dot: green is only ever your
+ * presence, on your photo above, and goes when you hide it. */
 function StatusLine({ choose }: { choose: () => void }) {
   const status = activeStatus(usePresence(workspaceSession?.user?.id));
   const ends = status ? clearsPhrase(status) : '';
   return <button type="button" className="workspace-menu-action account-menu-status" onClick={choose}
     aria-label={status ? `Status: ${statusLabel(status)}${ends ? `, ${ends}` : ''}. Change status` : 'Set a status'}>
-    <span className="account-menu-status-mark" aria-hidden="true">{status ? statusEmoji(status) : <span className="presence-dot inline" />}</span>
+    <span className="account-menu-status-mark" aria-hidden="true">{status ? statusEmoji(status) : <MenuIcon name="status" />}</span>
     <span className="account-menu-text"><strong>{status ? statusLabel(status) : 'Set a status'}</strong>{' '}
       <small>{status ? `${ends ? `${ends} · ` : ''}change` : 'Available'}</small></span>
     <svg className="account-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>

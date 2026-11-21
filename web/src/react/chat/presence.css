@@ -3,7 +3,7 @@
 
 /* The green dot on a face's edge; a ring of the surface keeps it apart from the photo. */
 .presence-dot { position: absolute; right: -1px; bottom: -1px; width: 26%; height: 26%; min-width: 8px; min-height: 8px; max-width: 11px; max-height: 11px; box-sizing: border-box; border-radius: 50%; background: var(--online); box-shadow: 0 0 0 2px var(--surface); }
-/* Standing in for a status emoji, where there is no face: the account menu and Set a status. */
+/* Standing in for a status emoji beside the Available choice in Set a status, where there is no face. */
 .presence-dot.inline { position: static; display: inline-block; flex: none; width: 7px; height: 7px; min-width: 0; min-height: 0; margin-right: 5px; box-shadow: none; vertical-align: 1px; }
 .profile-card-face .presence-dot { right: 4px; bottom: 4px; width: 22px; height: 22px; max-width: none; max-height: none; box-shadow: 0 0 0 3px var(--surface); }
 .account-menu-face .presence-dot { width: 12px; height: 12px; }
@@ -43,7 +43,6 @@
 .workspace-profile .workspace-menu-action.account-menu-status { margin-top: 2px; background: var(--soft); }
 .workspace-profile .workspace-menu-action.account-menu-status:hover { background: var(--selection); }
 .account-menu-status-mark { display: grid; place-items: center; flex: none; width: 28px; height: 28px; font-size: 18px; }
-.account-menu-status-mark .presence-dot.inline { width: 10px; height: 10px; margin: 0; }
 
 /* Set a status (screen 3). */
 .status-dialog { display: grid; gap: 16px; }

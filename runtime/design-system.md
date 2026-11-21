@@ -173,6 +173,9 @@ it after the job. Rows read "Meera Iyer, online, In a meeting" to screen readers
 Status text is shown only as text. Set a status is a native dialog opened from the
 status line in the account menu: preset rows with a radio each, your own text with
 an emoji picker, Clear after as segmented radios, then Clear status, Cancel and Save.
+With no status, that line's mark is a neutral face icon, not a green dot (2026-11-21):
+green is only presence, on your photo, and goes when you hide it. The dot beside the
+Available choice inside the dialog stays.
 
 People and agents share the same lists and the same round avatars (`faces.tsx`).
 People show their photo or initials on a tinted circle; agents show an uploaded
