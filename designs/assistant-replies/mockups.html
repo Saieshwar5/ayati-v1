@@ -1,0 +1,526 @@
+<title>Assistant Reply Switch</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: the proposal reads on Cuckoo's grey canvas; every mockup sits in the product's
+   white rounded frame, so "grey outside, white inside" carries through the page. */
+:root {
+  --bg: #f3f4f5; --paper: #ffffff; --ink: #22252a; --ink-2: #5f6670;
+  --line: #e5e7ea; --line-2: #d1d6dd; --line-3: #aeb8c5; --soft: #f7f8f9; --sel: #eef0f2;
+  --accent: #22252a; --on-accent: #ffffff; --danger: #a42f35; --warn: #945b10; --warn-bg: #fff3e2;
+  --ok: #26745c; --work: #6257cf; --online: #1f9d55; --shade: rgb(23 33 43 / 10%);
+  --text-font: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --head-font: "Space Grotesk", Inter, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111318; --paper: #1c1f26; --ink: #f0f1f5; --ink-2: #abb1bf;
+  --line: #303540; --line-2: #414956; --line-3: #697487; --soft: #252a34; --sel: #303540;
+  --accent: #f0f1f5; --on-accent: #20222a; --danger: #ffadaf; --warn: #efbc77; --warn-bg: #423222;
+  --ok: #85c9a7; --work: #afa5ff; --online: #4cc38a; --shade: rgb(0 0 0 / 32%); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111318; --paper: #1c1f26; --ink: #f0f1f5; --ink-2: #abb1bf;
+  --line: #303540; --line-2: #414956; --line-3: #697487; --soft: #252a34; --sel: #303540;
+  --accent: #f0f1f5; --on-accent: #20222a; --danger: #ffadaf; --warn: #efbc77; --warn-bg: #423222;
+  --ok: #85c9a7; --work: #afa5ff; --online: #4cc38a; --shade: rgb(0 0 0 / 32%); color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--text-font); }
+.page { max-width: 1120px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 56px; }
+section { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+h1, h2, h3 { font-family: var(--head-font); font-weight: 600; margin: 0; text-wrap: balance; line-height: 1.2; }
+h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.01em; }
+h2 { font-size: 26px; }
+h3 { font-size: 18px; }
+p { margin: 0; max-width: 68ch; }
+.lead { font-size: 18px; }
+.muted { color: var(--ink-2); }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--work); outline-offset: 2px; }
+.mark { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+.scroll-x { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 16px 10px 0; border-bottom: 1px solid var(--line); }
+thead th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); border-bottom-color: var(--line-2); }
+tbody th { font-weight: 600; white-space: nowrap; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 28px; }
+.cols > div { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+ul.plain li, ol.plain li { max-width: 68ch; }
+
+/* Diagrams */
+figure { margin: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+figcaption { color: var(--ink-2); font-size: 14px; max-width: 72ch; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+.d-box { fill: var(--paper); stroke: var(--line-3); }
+.d-hot { fill: color-mix(in srgb, var(--work) 9%, var(--paper)); stroke: var(--work); }
+.d-t { fill: var(--ink); font: 600 14px var(--text-font); }
+.d-s { fill: var(--ink-2); font: 12px var(--text-font); }
+.d-k { fill: var(--ink-2); font: 700 10px var(--text-font); letter-spacing: .08em; }
+.d-a { stroke: var(--ink-2); stroke-width: 1.4; fill: none; }
+.d-a.hot { stroke: var(--work); }
+.d-head { fill: var(--ink-2); } .d-head-hot { fill: var(--work); }
+.d-l.hot { fill: var(--work); font-weight: 600; }
+
+/* The product frame and a chat inside it */
+.frame { background: var(--paper); border-radius: 18px; box-shadow: 0 8px 24px var(--shade); overflow: hidden; font-size: 14px; line-height: 1.45; }
+.chat { display: grid; grid-template-columns: 232px minmax(0, 1fr); height: 600px; }
+.list { border-right: 1px solid var(--line-2); padding: 0 8px 12px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.list h4 { margin: 0; height: 56px; display: flex; align-items: center; padding: 0 8px; font: 600 16px var(--head-font); }
+.list small { padding: 14px 8px 4px; color: var(--ink-2); font-size: 12px; font-weight: 600; }
+.row { display: flex; align-items: center; gap: 8px; min-height: 30px; padding: 3px 8px; border: 0; border-radius: 8px; background: none; text-align: left; width: 100%; }
+button.row { cursor: pointer; }
+button.row:hover { background: var(--soft); }
+.row[aria-current="true"], button.row[aria-current="true"]:hover { background: var(--sel); }
+.row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .mark.on { color: var(--online); } .row .mark.ask { color: var(--ink-2); }
+.face { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 9.5px; font-weight: 700; background: color-mix(in srgb, var(--work) 18%, var(--paper)); color: var(--ink); }
+.face.b { background: color-mix(in srgb, var(--ok) 22%, var(--paper)); } .face.c { background: color-mix(in srgb, var(--warn) 22%, var(--paper)); }
+.face.big { width: 36px; height: 36px; font-size: 12.5px; }
+.ai { font-size: 10px; font-weight: 700; padding: 0 4px; border-radius: 4px; background: var(--sel); color: var(--ink-2); }
+.pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.head { height: 56px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+.head .who { flex: 1; min-width: 0; display: grid; }
+.head .who b { font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.head .who span { color: var(--ink-2); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msgs { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.msg { max-width: min(78%, 520px); display: flex; gap: 8px; }
+.msg.them { align-self: flex-start; } .msg.me { align-self: flex-end; flex-direction: column; align-items: flex-end; gap: 2px; }
+.msg p { padding: 8px 12px; border-radius: 14px; max-width: none; background: var(--soft); border: 1px solid var(--line); overflow-wrap: anywhere; }
+.msg.me p { background: var(--sel); border-color: transparent; }
+.msg .meta { color: var(--ink-2); font-size: 11.5px; display: flex; align-items: center; gap: 4px; }
+.thin { display: flex; align-items: center; gap: 10px; color: var(--ink-2); font-size: 11.5px; }
+.thin::before, .thin::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.thin span { display: inline-flex; align-items: center; gap: 5px; } .thin .mark { color: var(--online); width: 12px; height: 12px; }
+
+/* The switch: a quiet icon when off, a pill when on, one menu for everything */
+.ctl { position: relative; flex: none; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 12.5px; white-space: nowrap; cursor: pointer; }
+.pill:hover { background: var(--sel); color: var(--ink); }
+.pill.ask { background: var(--sel); color: var(--ink); }
+.pill.auto { background: color-mix(in srgb, var(--online) 13%, var(--paper)); color: var(--ink); }
+.pill.auto .mark { color: var(--online); }
+.menu { position: absolute; top: calc(100% + 8px); right: 0; z-index: 5; width: min(330px, calc(100vw - 56px)); padding: 12px; display: grid; gap: 4px;
+  border: 1px solid var(--line-2); border-radius: 12px; background: var(--paper); box-shadow: 0 8px 24px var(--shade); }
+.menu > small { color: var(--ink-2); font-size: 12px; padding: 0 6px 4px; }
+.opt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 6px; border-radius: 8px; cursor: pointer; }
+.opt:hover { background: var(--soft); } .opt:has(input:checked) { background: var(--sel); }
+.opt input { margin: 3px 0 0; accent-color: var(--accent); }
+.opt span { display: grid; gap: 1px; } .opt small { color: var(--ink-2); font-size: 12.5px; }
+.menu input[type="text"] { width: 100%; padding: 8px 10px; border: 1px solid var(--line-3); border-radius: 9px; background: var(--paper); font-size: 13px; }
+.menu .foot { border-top: 1px solid var(--line); margin-top: 6px; padding: 8px 6px 0; color: var(--ink-2); font-size: 12px; }
+
+/* The message box, with the one-line bar on top that drafts already use */
+.composer { flex: none; margin: 0 16px 14px; border: 1px solid var(--line-3); border-radius: 18px; box-shadow: 0 2px 8px var(--shade); padding: 8px 10px; display: grid; gap: 6px; }
+.notice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 0 2px 6px; border-bottom: 1px solid var(--line); color: var(--ink-2); font-size: 12.5px; }
+.notice .mark { color: var(--work); } .notice b { color: var(--ink); font-weight: 600; } .notice > span { flex: 1; min-width: 160px; }
+.notice.flag { color: var(--warn); } .notice.flag .mark { color: var(--warn); }
+.composer textarea { width: 100%; border: 0; outline: 0; resize: none; background: transparent; padding: 2px 4px; min-height: 44px; }
+.tools { display: flex; align-items: center; gap: 4px; }
+.icon { width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--ink-2); cursor: pointer; }
+.icon:hover { background: var(--sel); color: var(--ink); } .icon .mark { width: 17px; height: 17px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 30px; padding: 4px 12px; border: 1px solid var(--line-3); border-radius: 9px; background: var(--paper); font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+.btn.small { min-height: 0; padding: 2px 9px; border-radius: 999px; font-size: 12px; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+span.btn { cursor: default; }
+
+/* Controls around the prototype */
+.sim { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.sim .btn { min-height: 38px; padding: 6px 16px; font-size: 14px; }
+.happened { padding: 12px 14px; border-left: 3px solid var(--work); background: color-mix(in srgb, var(--work) 7%, var(--paper)); border-radius: 0 10px 10px 0; font-size: 15px; }
+.happened b { display: block; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+
+/* Static screens */
+.screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 28px; align-items: start; }
+.still { padding: 14px 16px; display: grid; gap: 10px; }
+.still .head { height: auto; padding: 0 0 10px; }
+.strip { padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--soft); display: grid; gap: 6px; font-size: 13px; }
+.strip h5 { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+.strip h5 .mark { color: var(--online); }
+.item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.item > .grow { flex: 1; min-width: 150px; display: grid; } .item.end { justify-content: flex-end; } .item small, .strip small { color: var(--ink-2); font-size: 12px; }
+.strip q { display: block; padding-left: 8px; border-left: 2px solid var(--line-3); quotes: none; }
+.flat { display: flex; gap: 10px; align-items: flex-start; padding: 10px 6px; border-bottom: 1px solid var(--line); }
+.flat.open { background: var(--sel); border-radius: 8px; border-color: transparent; }
+.flat > span { flex: 1; min-width: 0; display: grid; } .flat small { color: var(--ink-2); font-size: 12.5px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); margin-top: 6px; flex: none; }
+.tabs { display: flex; gap: 16px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--ink-2); overflow-x: auto; }
+.tabs span { padding: 0 0 8px; white-space: nowrap; } .tabs .on { color: var(--ink); font-weight: 600; border-bottom: 2px solid var(--ink); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--line-2); border-radius: 999px; font-size: 12.5px; }
+.chip.sel { background: var(--sel); border-color: var(--line-3); } .chip.add { border-style: dashed; color: var(--ink-2); }
+.chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--online); } .chip i.off { background: none; border: 1.5px solid var(--ink-2); }
+.label { width: 86px; flex: none; color: var(--ink-2); font-size: 12.5px; padding-top: 5px; }
+
+@media (max-width: 760px) {
+  .chat { grid-template-columns: minmax(0, 1fr); height: 560px; } .list { display: none; }
+  .pill.ask span, .pill.auto span { display: none; }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="mark" viewBox="0 0 24 24"><path d="M11 4l1.8 5.2L18 11l-5.2 1.8L11 18l-1.8-5.2L4 11l5.2-1.8z"/><path d="M19 16v4M17 18h4"/></symbol>
+  <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head" d="M0 0L10 5L0 10z"/></marker>
+  <marker id="ah-hot" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="d-head-hot" d="M0 0L10 5L0 10z"/></marker>
+</defs></svg>
+
+<main class="page">
+  <section>
+    <span class="eyebrow">Proposal · 2026-11-21 · nothing is built yet</span>
+    <h1>One switch decides how your assistant handles a chat</h1>
+    <p class="lead">Today you start a "thread" in two different ways, give an instruction each time, and manage it with Stop, Resume and Delete. The proposal replaces all of that with one switch in the chat's header that has three positions.</p>
+    <p class="muted">The chat below is a working example with canned replies. No model runs and nothing in the app has changed.</p>
+  </section>
+
+  <section>
+    <h2>The three positions</h2>
+    <figure class="diagram scroll-x">
+      <svg viewBox="0 0 900 200" role="img" aria-label="Three positions: Off, Ask me first and Reply for me. You move between them by choice. Reply for me steps down to Ask me first by itself.">
+        <rect class="d-box" x="30" y="30" width="220" height="74" rx="12"/><text class="d-t" x="140" y="62" text-anchor="middle">Off</text><text class="d-s" x="140" y="84" text-anchor="middle">Ayati does nothing here</text>
+        <rect class="d-box" x="340" y="30" width="220" height="74" rx="12"/><text class="d-t" x="450" y="62" text-anchor="middle">Ask me first</text><text class="d-s" x="450" y="84" text-anchor="middle">Ayati writes, you send</text>
+        <rect class="d-box" x="650" y="30" width="220" height="74" rx="12"/><text class="d-t" x="760" y="62" text-anchor="middle">Reply for me</text><text class="d-s" x="760" y="84" text-anchor="middle">Ayati sends as you</text>
+        <path class="d-a" d="M256 67H334" marker-start="url(#ah)" marker-end="url(#ah)"/><text class="d-s" x="295" y="58" text-anchor="middle">you choose</text>
+        <path class="d-a" d="M566 67H644" marker-start="url(#ah)" marker-end="url(#ah)"/><text class="d-s" x="605" y="58" text-anchor="middle">you choose</text>
+        <path class="d-a hot" d="M760 104V150H450V110" marker-end="url(#ah-hot)"/>
+        <text class="d-s d-l hot" x="605" y="172" text-anchor="middle">by itself: matter settled · 30 messages sent · a problem</text>
+      </svg>
+      <figcaption>You can pick any position at any time. "Reply for me" never lasts forever: it steps down to "Ask me first" by itself, so nothing is ever left in a "stopped" state for you to resume or delete.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Try it</h2>
+    <p>Press the button to have the other side write. Change the position with the <svg class="mark" viewBox="0 0 24 24" aria-label="assistant mark" role="img"><use href="#mark"/></svg> control in the chat's header. Open HR Desk in the list to see the same thing with an agent.</p>
+    <div class="sim">
+      <button class="btn primary" id="simIn">Meera sends a message</button>
+      <button class="btn" id="simReset">Start over</button>
+      <span class="muted" id="simLeft"></span>
+    </div>
+    <div class="frame"><div class="chat">
+      <nav class="list" aria-label="Example chat list">
+        <h4>Chat</h4>
+        <div class="row"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg><span class="nm">Ayati</span></div>
+        <small>Channels</small>
+        <div class="row"><span class="muted">#</span><span class="nm">orders</span></div>
+        <div class="row"><span class="muted">#</span><span class="nm">finance</span></div>
+        <small>Direct messages</small>
+        <div id="rows"></div>
+        <div class="row"><span class="face c">RM</span><span class="nm">Ravi Menon</span></div>
+      </nav>
+      <div class="pane">
+        <header class="head">
+          <span class="face big" id="hFace"></span>
+          <div class="who"><b id="hName"></b><span id="hSub"></span></div>
+          <div class="ctl">
+            <button class="pill" id="ctlBtn" aria-haspopup="true" aria-expanded="false"></button>
+            <div class="menu" id="menu" hidden>
+              <small>Ayati in this chat</small>
+              <label class="opt"><input type="radio" name="mode" id="mOff" value="off"><span><b>Off</b><small>Ayati does nothing here unless you ask for a draft.</small></span></label>
+              <label class="opt"><input type="radio" name="mode" id="mAsk" value="ask"><span><b>Ask me first</b><small>Ayati writes each reply into your message box. You send it.</small></span></label>
+              <label class="opt"><input type="radio" name="mode" id="mAuto" value="auto"><span><b>Reply for me</b><small>Ayati sends replies as you, and asks when it needs your decision.</small></span></label>
+              <input type="text" id="mInstr" maxlength="1000" aria-label="What should Ayati do? Optional" placeholder="What should Ayati do? (optional)" hidden>
+              <div class="foot" id="mFoot"></div>
+            </div>
+          </div>
+        </header>
+        <div class="msgs" id="msgs" aria-live="polite"></div>
+        <div class="composer">
+          <div class="notice" id="notice" hidden></div>
+          <textarea id="box" rows="2" aria-label="Message"></textarea>
+          <div class="tools">
+            <button class="icon" id="draftBtn" aria-label="Draft with Ayati" title="Draft with Ayati. It writes a reply for you to check. Nothing is sent."><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg></button>
+            <span style="flex:1"></span>
+            <button class="btn primary" id="send">Send</button>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <p class="happened" id="happened" role="status"></p>
+  </section>
+
+  <section>
+    <h2>How each position works</h2>
+    <figure class="diagram scroll-x">
+      <h3>Ask me first</h3>
+      <svg viewBox="0 0 940 240" role="img" aria-label="Ask me first: they write, Ayati reads the chat and writes a reply into your message box, and you send it, edit it or discard it.">
+        <rect class="d-box" x="10" y="88" width="150" height="64" rx="10"/><text class="d-t" x="85" y="116" text-anchor="middle">They write</text><text class="d-s" x="85" y="136" text-anchor="middle">a person or an agent</text>
+        <rect class="d-box" x="230" y="88" width="170" height="64" rx="10"/><text class="d-t" x="315" y="116" text-anchor="middle">Ayati reads</text><text class="d-s" x="315" y="136" text-anchor="middle">the last 20 messages</text>
+        <rect class="d-hot" x="470" y="88" width="200" height="64" rx="10"/><text class="d-t" x="570" y="116" text-anchor="middle">Reply waits in your box</text><text class="d-s" x="570" y="136" text-anchor="middle">only you see it</text>
+        <rect class="d-box" x="740" y="10" width="190" height="56" rx="10"/><text class="d-t" x="835" y="34" text-anchor="middle">You send</text><text class="d-s" x="835" y="53" text-anchor="middle">posted as your message</text>
+        <rect class="d-box" x="740" y="92" width="190" height="56" rx="10"/><text class="d-t" x="835" y="116" text-anchor="middle">You edit, then send</text><text class="d-s" x="835" y="135" text-anchor="middle">Ayati learns how you write</text>
+        <rect class="d-box" x="740" y="174" width="190" height="56" rx="10"/><text class="d-t" x="835" y="198" text-anchor="middle">You discard</text><text class="d-s" x="835" y="217" text-anchor="middle">nothing is sent</text>
+        <path class="d-a" d="M160 120H224" marker-end="url(#ah)"/><text class="d-s" x="193" y="111" text-anchor="middle">wakes</text>
+        <path class="d-a" d="M400 120H464" marker-end="url(#ah)"/><text class="d-s" x="433" y="111" text-anchor="middle">writes</text>
+        <path class="d-a" d="M670 108L734 42" marker-end="url(#ah)"/><path class="d-a" d="M670 120H734" marker-end="url(#ah)"/><path class="d-a" d="M670 132L734 198" marker-end="url(#ah)"/>
+      </svg>
+      <figcaption>Nothing leaves without you. This is today's "Draft with Ayati", written without you asking each time. A reply that shares something new, or decides something for you, is flagged in the bar above the box.</figcaption>
+    </figure>
+    <figure class="diagram scroll-x">
+      <h3>Reply for me</h3>
+      <svg viewBox="0 0 940 300" role="img" aria-label="Reply for me: they write, Ayati reads and checks whether it can answer. If yes it sends as you and waits for the next message. If it needs your decision it asks you and sends nothing. When the matter is settled it steps down to Ask me first.">
+        <rect class="d-box" x="10" y="120" width="150" height="64" rx="10"/><text class="d-t" x="85" y="148" text-anchor="middle">They write</text><text class="d-s" x="85" y="168" text-anchor="middle">a person or an agent</text>
+        <rect class="d-box" x="230" y="120" width="170" height="64" rx="10"/><text class="d-t" x="315" y="148" text-anchor="middle">Ayati reads</text><text class="d-s" x="315" y="168" text-anchor="middle">the last 20 messages</text>
+        <rect class="d-box" x="470" y="120" width="200" height="64" rx="10"/><text class="d-t" x="570" y="148" text-anchor="middle">Can it answer?</text><text class="d-s" x="570" y="168" text-anchor="middle">from what you agreed to share</text>
+        <rect class="d-box" x="740" y="40" width="190" height="66" rx="10"/><text class="d-k" x="835" y="58" text-anchor="middle">YES</text><text class="d-t" x="835" y="77" text-anchor="middle">Sends as you</text><text class="d-s" x="835" y="95" text-anchor="middle">marked for you only</text>
+        <rect class="d-hot" x="740" y="124" width="190" height="66" rx="10"/><text class="d-k" x="835" y="142" text-anchor="middle">NEEDS YOUR DECISION</text><text class="d-t" x="835" y="161" text-anchor="middle">Asks you in that chat</text><text class="d-s" x="835" y="179" text-anchor="middle">nothing is sent</text>
+        <rect class="d-box" x="740" y="208" width="190" height="66" rx="10"/><text class="d-k" x="835" y="226" text-anchor="middle">SETTLED · 30 SENT · PROBLEM</text><text class="d-t" x="835" y="245" text-anchor="middle">Steps down</text><text class="d-s" x="835" y="263" text-anchor="middle">to Ask me first</text>
+        <path class="d-a" d="M160 152H224" marker-end="url(#ah)"/><path class="d-a" d="M400 152H464" marker-end="url(#ah)"/>
+        <path class="d-a" d="M670 140L734 78" marker-end="url(#ah)"/><path class="d-a" d="M670 154H734" marker-end="url(#ah)"/><path class="d-a" d="M670 168L734 236" marker-end="url(#ah)"/>
+        <path class="d-a" stroke-dasharray="5 4" d="M835 40V22H85V114" marker-end="url(#ah)"/><text class="d-s" x="460" y="14" text-anchor="middle">then waits for their next message</text>
+      </svg>
+      <figcaption>The loop on top is what makes it run on its own. When Ayati needs you, its question appears above the message box of that same chat and in Activity → Needs you. You no longer look for it in Ayati's own chat.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2>Today and proposed</h2>
+    <div class="scroll-x"><table>
+      <thead><tr><th></th><th>Today</th><th>Proposed</th></tr></thead>
+      <tbody>
+        <tr><th>Ways to start</th><td>Two: a suggestion you Start, or "take over" from a message</td><td>One: the switch in the chat's header</td></tr>
+        <tr><th>What you write</th><td>An instruction, every time</td><td>Nothing. An instruction is optional</td></tr>
+        <tr><th>States</th><td>Suggested, running, stopped, deleted</td><td>Off, Ask me first, Reply for me</td></tr>
+        <tr><th>Buttons</th><td>Start, Dismiss, Stop, Resume, Delete</td><td>The three choices</td></tr>
+        <tr><th>Seeing a reply first</th><td>Only a suggested opening message</td><td>Every reply, in Ask me first</td></tr>
+        <tr><th>When Ayati needs you</th><td>It says so in its own chat</td><td>It asks in the chat where the question came up</td></tr>
+        <tr><th>When it stops by itself</th><td>"Stopped": you Resume or Delete</td><td>Steps down to Ask me first</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section>
+    <h2>The other places it shows</h2>
+    <p class="muted">Pictures only. These are not clickable.</p>
+    <div class="screens">
+      <figure>
+        <div class="frame still" aria-hidden="true">
+          <div class="head"><span class="face big"><svg class="mark" viewBox="0 0 24 24"><use href="#mark"/></svg></span><div class="who"><b>Ayati</b><span>Your assistant · Ready</span></div></div>
+          <div class="strip">
+            <h5><svg class="mark" viewBox="0 0 24 24"><use href="#mark"/></svg>Working in 2 of your chats</h5>
+            <div class="item"><span class="grow"><b>Meera Iyer</b><small>Replying for you · 2 sent</small></span><span class="btn small">Open</span><span class="btn small">Turn off</span></div>
+            <div class="item"><span class="grow"><b>HR Desk</b><small>Asks you first · 1 reply ready</small></span><span class="btn small">Open</span><span class="btn small">Turn off</span></div>
+          </div>
+          <div class="strip">
+            <span><b>Ayati suggests asking HR Desk about your leave</b></span>
+            <q>Hi, I'd like leave from 22 to 26 December.</q>
+            <small>Review opens your chat with HR Desk with this in the message box. You send it.</small>
+            <div class="item end"><span class="btn small primary">Review</span><span class="btn small">Dismiss</span></div>
+          </div>
+        </div>
+        <figcaption><b>Ayati's own chat.</b> One list of every chat it works in, with Open and Turn off. A suggestion no longer sends anything when you accept it: it becomes a reply waiting in that chat's message box.</figcaption>
+      </figure>
+      <figure>
+        <div class="frame still" aria-hidden="true">
+          <div class="tabs"><span class="on">Needs you 2</span><span>Work</span><span>Planned</span><span>History</span><span>Insights</span></div>
+          <div class="flat open"><i class="dot"></i><span><b>Reply ready for HR Desk</b><small>"Annual leave, please." · Ayati · 2 min ago</small></span></div>
+          <div class="flat"><i class="dot"></i><span><b>Ayati needs you: Meera Iyer</b><small>She asks for the new supplier's budget · 10 min ago</small></span></div>
+          <div class="strip"><small>Opened item</small><q>Annual leave, please.</q><div class="item end"><span class="btn small primary">Send</span><span class="btn small">Edit in chat</span><span class="btn small">Discard</span></div></div>
+        </div>
+        <figcaption><b>Activity → Needs you.</b> A reply waiting for you, or a question from Ayati, appears here when you are not in that chat, so nothing waits unseen.</figcaption>
+      </figure>
+      <figure>
+        <div class="frame still" aria-hidden="true">
+          <div class="item"><span class="label">On its own</span><div class="chips" style="flex:1;min-width:0">
+            <span class="chip"><i></i>Regular checks · every 2 h</span>
+            <span class="chip sel"><i></i>Agents' messages · Ask me first</span>
+            <span class="chip"><i class="off"></i>People's messages · Off</span>
+            <span class="chip add">＋</span></div></div>
+          <div class="strip"><b>When an agent writes to you</b>
+            <span class="chips"><span class="chip"><i class="off"></i>Off</span><span class="chip sel"><i></i>Ask me first</span><span class="chip"><i class="off"></i>Reply for me</span></span>
+            <small>A chat's own switch always wins over this.</small></div>
+        </div>
+        <figcaption><b>Ayati's page, a later step.</b> A starting position for every chat, set once: one for agents and one for people. People would offer only Off and Ask me first here; "Reply for me" for a person is always chosen in that chat.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>What stays, what goes, what is new</h2>
+    <div class="cols">
+      <div><h3>Stays</h3><ul class="plain">
+        <li>Replies are your own messages. Only you see Ayati's mark beside the time; admins have the Audit log.</li>
+        <li>One per chat, never with another assistant, and a stop after 30 sent messages.</li>
+        <li>The mark on the chat's row in the list, and "Draft with Ayati" beside Attach.</li>
+        <li>You can always write in the chat yourself.</li></ul></div>
+      <div><h3>Goes</h3><ul class="plain">
+        <li>The "take over from here" window and the mark on each message's toolbar.</li>
+        <li>Stop, Resume and Delete, and the stopped and deleted states.</li>
+        <li>A first reply that goes out before you have seen anything Ayati wrote.</li>
+        <li>Titles. A chat has a position, not a named matter.</li></ul></div>
+      <div><h3>New</h3><ul class="plain">
+        <li>Ask me first: every reply waits in your message box.</li>
+        <li>The step-down rule, in place of "stopped".</li>
+        <li>Ayati's questions shown in the same chat and in Needs you.</li>
+        <li>A flag on a reply that shares something new or decides for you.</li>
+        <li>Later: starting positions for agents and for people.</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Agents and people are different risks</h2>
+    <div class="cols">
+      <div><h3>Messages from agents</h3><p>Mostly follow-up questions with a factual answer: which dates, which account, who covers. A wrong answer is cheap to correct. "Reply for me" is reasonable here, and "Ask me first" is a safe default for all of them.</p></div>
+      <div><h3>Messages from people</h3><p>A wrong tone or a wrong promise is hard to take back, and the other person believes you wrote it. Start with "Ask me first". Move one chat to "Reply for me" for one matter, after you have seen that the drafts are good.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Building it in steps</h2>
+    <div class="scroll-x"><table>
+      <thead><tr><th>Step</th><th>What you get</th><th>What changes underneath</th></tr></thead>
+      <tbody>
+        <tr><th>1</th><td>Ask me first in a chat: replies wait in the message box</td><td>A position on each thread; a reply is saved as waiting instead of posted; the existing draft bar shows it</td></tr>
+        <tr><th>2</th><td>The header switch replaces take-over, Stop, Resume and Delete; the step-down rule</td><td>One menu in the web client; "stopped" becomes "Ask me first" on the server</td></tr>
+        <tr><th>3</th><td>Ayati's questions in the same chat and in Needs you; the flag on sensitive replies</td><td>A waiting question kept on the thread, read by the chat and by Activity</td></tr>
+        <tr><th>4</th><td>Starting positions for agents and for people</td><td>Two settings on the assistant's page</td></tr>
+      </tbody>
+    </table></div>
+    <h3>Decisions for you</h3>
+    <ol class="plain">
+      <li><b>Sent as you, or as Ayati?</b> I would keep "as you". Ask me first already removes most of the risk, and changing it reverses an earlier decision.</li>
+      <li><b>After a matter is settled:</b> step down to Ask me first (my choice) or to Off?</li>
+      <li><b>Remove "take over" from a message's toolbar?</b> I would. The cost is that you can no longer pick an older message to start from; Ayati starts from the newest unanswered one.</li>
+      <li><b>Cost.</b> Ask me first runs the model once for each incoming message in the chats where it is on, against your assistant's budget.</li>
+    </ol>
+  </section>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const MARK = '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg>';
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* Two example chats with canned replies: a person and an agent. */
+function fresh() { return {
+  meera: { name: 'Meera Iyer', first: 'Meera', ai: false, sub: 'Online · Finance lead', init: 'MI', face: '', mode: 'ask', step: 0, sent: 0, clock: 640, box: '', pending: null,
+    msgs: [{ who: 'me', text: 'Are we still on for the vendor review on Friday?', at: '10:38 AM' }],
+    script: [
+      { in: "Can we move Friday's vendor review to 3 pm? My morning is full.", out: "3 pm on Friday works for me. I'll move the invite." },
+      { in: 'Great. Can you bring the Q3 vendor list?', out: "Yes. I'll bring the Q3 list with the renewals marked." },
+      { in: 'One more thing: what budget did we approve for the new supplier?', out: 'We approved 18 lakh for the first year.', ask: "Meera asks for the new supplier's budget. You have not shared that figure with her before.", yes: 'Share it', flag: 'It shares a figure Meera has not seen before.' },
+      { in: 'Thanks, that is all I needed. See you Friday.', out: 'See you Friday.', done: 'review moved to Friday, 3 pm' }] },
+  hr: { name: 'HR Desk', first: 'HR Desk', ai: true, sub: 'Ready · Leave and policies', init: 'HR', face: 'b', mode: 'off', step: 0, sent: 0, clock: 550, box: '', pending: null,
+    msgs: [{ who: 'me', text: "I'd like leave from 22 to 26 December.", at: '9:08 AM' }],
+    script: [
+      { in: 'Which leave type should I use: annual or unpaid?', out: 'Annual leave, please.' },
+      { in: 'Who covers your work that week?', out: 'Ravi Menon covers for me that week.' },
+      { in: 'Your manager must approve it. Shall I send the request to Ananya Rao now?', out: 'Yes, please send it to Ananya.', ask: 'HR Desk wants to send your leave request to your manager. That is your decision.', yes: 'Yes, send it', flag: 'It makes a decision for you.' },
+      { in: 'Ananya approved your leave for 22 to 26 December.', out: 'Thank you.', done: 'leave approved for 22 to 26 December' }] } }; }
+let chats = fresh(), cur = 'meera', run = 0;
+const MODE = { off: 'Off', ask: 'Ask me first', auto: 'Reply for me' };
+const stamp = c => { c.clock += 2; const h = Math.floor(c.clock / 60), m = c.clock % 60; return `${h > 12 ? h - 12 : h}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`; };
+const say = text => { $('happened').innerHTML = '<b>What just happened</b>' + text; };
+const add = (c, msg) => c.msgs.push({ at: stamp(c), ...msg });
+const unanswered = c => { const last = c.msgs.filter(m => m.who !== 'line').pop(); return last && last.who === 'them' && c.step > 0 ? c.script[c.step - 1] : null; };
+
+function render() {
+  const c = chats[cur];
+  $('rows').innerHTML = Object.entries(chats).map(([id, x]) => `<button class="row" data-chat="${id}" aria-current="${id === cur}">
+    <span class="face ${x.face}">${x.init}</span><span class="nm">${x.name}</span>${x.ai ? '<span class="ai">AI</span>' : ''}
+    ${x.mode === 'off' ? '' : `<span role="img" aria-label="${x.mode === 'auto' ? 'Ayati is replying for you' : 'Ayati asks you first'}" title="${x.mode === 'auto' ? 'Ayati is replying for you' : 'Ayati asks you first'}" style="display:inline-grid"><svg class="mark ${x.mode === 'auto' ? 'on' : 'ask'}" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg></span>`}</button>`).join('');
+  $('hFace').className = 'face big ' + c.face; $('hFace').textContent = c.init;
+  $('hName').innerHTML = esc(c.name) + (c.ai ? ' <span class="ai">AI</span>' : ''); $('hSub').textContent = c.sub;
+  const writing = c.pending?.type === 'writing';
+  $('ctlBtn').className = 'pill ' + c.mode;
+  $('ctlBtn').innerHTML = MARK + (c.mode === 'off' ? '' : `<span>${c.mode === 'ask' ? 'Ayati asks you first' : writing ? 'Ayati is writing…' : 'Ayati is replying'}</span>`) + '<span aria-hidden="true">▾</span>';
+  $('ctlBtn').setAttribute('aria-label', `Ayati in this chat: ${MODE[c.mode]}. Change`);
+  $({ off: 'mOff', ask: 'mAsk', auto: 'mAuto' }[c.mode]).checked = true;
+  $('mInstr').hidden = c.mode !== 'auto';
+  $('mFoot').textContent = `${c.sent} ${c.sent === 1 ? 'message' : 'messages'} sent as you by Ayati. Only you and admins can tell.`;
+  $('msgs').innerHTML = c.msgs.map(m => m.who === 'line' ? `<p class="thin" title="Only you see this"><span>${MARK}${esc(m.text)}</span></p>`
+    : m.who === 'them' ? `<div class="msg them"><span class="face big ${c.face}">${c.init}</span><div><p>${esc(m.text)}</p><span class="meta">${m.at}</span></div></div>`
+    : `<div class="msg me"><p>${esc(m.text)}</p><span class="meta">${m.by ? MARK + 'Ayati · ' : ''}${m.at}</span></div>`).join('');
+  $('msgs').scrollTop = $('msgs').scrollHeight;
+  const p = c.pending, n = $('notice');
+  n.hidden = !p; n.className = 'notice' + (p?.flag ? ' flag' : '');
+  if (p?.type === 'writing') n.innerHTML = `${MARK}<span><b>Ayati is writing a reply…</b> Nothing is sent.</span>`;
+  if (p?.type === 'draft') n.innerHTML = `${MARK}<span><b>Reply from Ayati</b> · ${p.flag ? esc(p.flag) + ' Check before you send.' : 'Only you see this. Edit it, then send.'}</span><button class="btn small" data-act="discard">Discard</button>`;
+  if (p?.type === 'ask') n.innerHTML = `${MARK}<span><b>Ayati needs you</b> · ${esc(p.s.ask)} Nothing was sent.</span><button class="btn small primary" data-act="yes">${esc(p.s.yes)}</button><button class="btn small" data-act="no">I'll answer</button>`;
+  $('box').placeholder = 'Message ' + c.first;
+  const left = c.script.length - c.step;
+  $('simIn').textContent = `${c.first} sends a message`; $('simIn').disabled = !left;
+  $('simLeft').textContent = left ? `${left} of ${c.script.length} left in this example` : 'End of this example. Start over to try another position.';
+}
+
+/* Ayati sends s.out as the person (Reply for me), then steps down if the matter is settled. */
+function sendAs(id, s) {
+  const c = chats[id]; add(c, { who: 'me', text: s.out, by: true }); c.sent += 1; c.pending = null;
+  if (s.done && c.mode === 'auto') { c.mode = 'ask'; add(c, { who: 'line', text: `Ayati finished: ${s.done}. It asks you first now.` });
+    say('Ayati sent the last reply, saw the matter was settled, and stepped down to Ask me first by itself.'); }
+  else say(`Ayati sent the reply as you. ${c.first} sees an ordinary message from you. Only you see the mark beside its time.`);
+}
+/* What Ayati does with one incoming message, by the chat's position. */
+function handle(id, s, how, instant) {
+  const c = chats[id], token = run;
+  const finish = () => {
+    if (token !== run || c.pending?.s !== s) return;
+    if (how === 'ask') { c.pending = { type: 'draft', s, flag: s.flag }; c.box = s.out; if (id === cur) $('box').value = s.out;
+      say(`Ayati wrote a reply and put it in your message box. Only you see it. ${s.flag ? 'It warns you that this reply ' + s.flag.slice(3) + ' ' : ''}Press Send, change it first, or Discard it.`); }
+    else if (s.ask) { c.pending = { type: 'ask', s }; say('Ayati sent nothing. It needs your decision first, so it asks you above the message box of this chat.'); }
+    else sendAs(id, s);
+    if (id === cur) render();
+  };
+  c.pending = { type: 'writing', s };
+  if (instant) finish(); else { say('Ayati is reading the chat and writing. Nothing is sent yet.'); setTimeout(finish, 1100); }
+}
+function incoming() {
+  const c = chats[cur]; if (c.step >= c.script.length) return;
+  if (c.pending?.type === 'draft') { c.box = ''; $('box').value = ''; }
+  const s = c.script[c.step++]; c.pending = null; add(c, { who: 'them', text: s.in });
+  if (c.mode === 'off') say(`Nothing on Ayati's side: it is off in this chat. You answer yourself, or press the assistant mark in the message box to ask for one draft.`);
+  else handle(cur, s, c.mode);
+  render();
+}
+function setMode(mode) {
+  const c = chats[cur]; if (c.mode === mode) return;
+  c.mode = mode;
+  if (c.pending) { if (c.pending.type === 'draft') { c.box = ''; $('box').value = ''; } c.pending = null; }
+  if (mode === 'auto') add(c, { who: 'line', text: 'Ayati replies for you from here' });
+  const s = unanswered(c);
+  if (mode !== 'off' && s) handle(cur, s, mode);
+  else say(mode === 'off' ? 'Ayati is off in this chat. It writes nothing here unless you ask for a draft.'
+    : mode === 'ask' ? `From now on, Ayati writes a reply into your message box each time ${c.first} writes. You send it.`
+    : `From now on, Ayati answers ${c.first} as you. It asks you when it needs a decision, and steps down when the matter is settled.`);
+  render();
+}
+function send() {
+  const c = chats[cur], text = $('box').value.trim(); if (!text) return;
+  const drafted = c.pending?.type === 'draft';
+  add(c, { who: 'me', text, by: drafted }); c.pending = null; c.box = ''; $('box').value = '';
+  say(drafted ? 'You sent the reply Ayati wrote. It is your message. Only you see the mark beside its time.' : 'You sent this yourself. You can always write here, in any position.');
+  render();
+}
+const openMenu = open => { $('menu').hidden = !open; $('ctlBtn').setAttribute('aria-expanded', String(open)); };
+
+$('simIn').onclick = incoming;
+$('simReset').onclick = () => { run += 1; chats = fresh(); cur = 'meera'; $('box').value = ''; start(); };
+$('send').onclick = send;
+$('box').oninput = () => { chats[cur].box = $('box').value; };
+$('box').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
+$('draftBtn').onclick = () => { const c = chats[cur], s = unanswered(c);
+  if (s && !c.pending) { handle(cur, s, 'ask'); render(); } else say(c.pending ? 'Ayati is already on it.' : 'There is nothing new to answer here.'); };
+$('rows').onclick = e => { const row = e.target.closest('[data-chat]'); if (!row) return;
+  chats[cur].box = $('box').value; cur = row.dataset.chat; $('box').value = chats[cur].box; openMenu(false);
+  say(`This is your chat with ${chats[cur].name}. Ayati's position here is ${MODE[chats[cur].mode]}.`); render(); };
+$('notice').onclick = e => { const act = e.target.dataset?.act, c = chats[cur]; if (!act) return;
+  if (act === 'discard') { c.pending = null; c.box = ''; $('box').value = ''; say('You discarded the reply. Nothing was sent.'); }
+  if (act === 'yes') sendAs(cur, c.pending.s);
+  if (act === 'no') { c.pending = null; $('box').focus(); say('You answer this one yourself. Ayati carries on with the next message.'); }
+  render(); };
+$('ctlBtn').onclick = () => openMenu($('menu').hidden);
+$('menu').onchange = e => { if (e.target.name === 'mode') { setMode(e.target.value); if (e.target.value !== 'auto') openMenu(false); } };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('menu').hidden) { openMenu(false); $('ctlBtn').focus(); } });
+document.addEventListener('click', e => { if (!e.target.closest('.ctl')) openMenu(false); });
+
+/* Opens with a reply already waiting, so the first view shows the idea. */
+function start() {
+  const c = chats.meera, s = c.script[c.step++];
+  add(c, { who: 'them', text: s.in }); handle('meera', s, 'ask', true); render();
+  say('Meera wrote. Ayati is on Ask me first here, so it wrote a reply and put it in your message box. Only you see it. Press Send, change it first, or Discard it.');
+}
+start();
+</script>
