@@ -25,6 +25,7 @@ import { ThreadLine, type threadSummary } from './thread-line';
 import { ForwardedBlock, forwardedFiles, forwardedOnly } from './forward-message';
 import { ForwardMessage } from './forward-window';
 import { AssistantMark } from './assistant-threads';
+import { MessageText } from './message-text';
 import { TakeOver } from './assistant-takeover';
 export function ChatMessage({ message, directory, thread, openThread, reply, quoted, handOver, read, place = '', compact = false, focused = false }: { focused?: boolean;
   /** Hears when this message has been read on this page (receipt.tsx). */
@@ -67,26 +68,29 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const edited = message.edited_at && !deleted ? <span className="chat-message-edited">edited</span> : null;
   const via = doorLabel(message.door);
   const door = via ? <span className="chat-message-door">{via}</span> : null;
+  // Another person's words sit in a bubble under their name; an agent's reply has its own box.
+  const bubble = !own && message.kind !== 'agent';
+  const body = deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
+    {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
+    {message.forwarded && <ForwardedBlock forwarded={message.forwarded} files={files.carried} />}
+    {(text || message.response?.page) && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} openPage={openResult ? () => openResult({ kind: 'page', id: message.id }) : undefined} /> : message.kind === 'agent' ? <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} /> : <MessageText text={text} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
+    {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
+    <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
+    {message.approval && <ApprovalCard reference={message.approval} />}
+    {message.task && <TaskChip task={message.task} />}
+    {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
+    {message.agent_setup && <AgentDraftCard reply={message.id} ready={message.state === 'complete'} assistant={name} />}
+    {message.questions && <QuestionCards questions={message.questions} />}
+    {files.own.length ? <MessageFiles files={files.own} /> : null}
+    {!own && edited}
+    <ReactionBar message={message} reactions={reactions} directory={directory} />
+  </>;
   if (message.follow_up) return <FollowUpLine element={element} id={message.id} task={message.follow_up} time={time} />;
   // Tapping a message on a touch screen focuses it and reveals its actions.
   return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
     {!own && (profile ? <button type="button" className="chat-message-face" aria-label={`View profile of ${name}`} onClick={profile}>{face}</button> : face)}
     <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}</header>}
-      {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
-      {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
-      {message.forwarded && <ForwardedBlock forwarded={message.forwarded} files={files.carried} />}
-      {(text || message.response?.page) && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} openPage={openResult ? () => openResult({ kind: 'page', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
-      {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
-      <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
-      {message.approval && <ApprovalCard reference={message.approval} />}
-      {message.task && <TaskChip task={message.task} />}
-      {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
-      {message.agent_setup && <AgentDraftCard reply={message.id} ready={message.state === 'complete'} assistant={name} />}
-      {message.questions && <QuestionCards questions={message.questions} />}
-      {files.own.length ? <MessageFiles files={files.own} /> : null}
-      {!own && edited}
-      <ReactionBar message={message} reactions={reactions} directory={directory} />
-      </>}
+      {bubble ? <div className="chat-message-bubble">{body}</div> : body}
       {own && <div className="chat-message-meta">{writer && <span className="chat-assisted" title={`Written by ${writer} · ${message.assisted?.title}. Only you and workspace admins can see this.`}><AssistantMark size={12} />{writer}</span>}{door}{edited}{time}<MessageReceipt message={message} /></div>}
     </div>
     {thread && <ThreadLine summary={thread} directory={directory} open={openThread} />}

@@ -59,7 +59,7 @@ server API contracts, authentication, and workspace boundaries.
 - `web/src/react/questions/`: compact saved references and typed ordinary-answer
   dialogs, guarded submissions, readable history and source revocation handling.
   Answers and business approvals retain separate authority.
-- `web/src/react/results/`: soft bounded reply boxes with inline corner-arrow
+- `web/src/react/results/`: raised bounded reply boxes with inline corner-arrow
   expansion, a shared source-checked saved-response lifecycle, full reader and
   passive file/image viewing shared by workspace Chat and threads.
 - `web/src/react/ui.tsx`: shared React buttons, keyboard tabs and native dialogs.
