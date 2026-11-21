@@ -51,7 +51,7 @@ An agent's owner may still connect an MCP server by its address
 ([connected systems](connected-systems.md)). When that owner is a member, the
 server is saved and reviewed but **waits** (`relay_connected_systems.waiting`,
 its `relay_control_systems` row not approved): the agent can't use it and nothing
-is sent to it. An admin answers it in Settings › Connections: **Allow**, or
+is sent to it. An admin answers it in Settings › Apps: **Allow**, or
 **Decline**, which removes it. An admin's own MCP server works at once.
 
 ## Screens
@@ -60,7 +60,7 @@ is sent to it. An admin answers it in Settings › Connections: **Allow**, or
   Each tile shows Connect, Ask admin, "Asked · waiting for an admin", or "Not
   available here" with the note. An admin adding an undecided app is told it
   becomes allowed for the workspace.
-- **Settings › Connections** (admins): **Allowed apps** above the list of
+- **Settings › Apps** (admins; the page was Connections until 2026-11-21): **Allowed apps** above the list of
   connections. "Waiting for your answer" lists app requests and waiting MCP
   servers with Allow and Decline; then every app Cuckoo offers with its state,
   who decided and how many connections it has, with Allow and Switch off.

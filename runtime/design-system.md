@@ -200,7 +200,8 @@ or agent dot, name and AI tag, job or role, and the status line. Its actions dep
 on where you are and what you may do: Message (not inside your direct message with
 them, not to yourself); that conversation's bell and Pin (inside it); Add to channel
 (an agent, the channels you manage, one tap each); Resume first, then Settings (an
-agent's owners and admins); Edit profile (yourself). Facts: About or Handles, email
+agent's owners and admins); Edit profile (yourself). Facts: About, Handles (what a
+person or an agent handles, one line), email
 with a copy button, the agent's owners with their faces (opening their profile),
 and shared channels as chips that open them. Channel Details: the description and
 one muted line of facts, the round actions (bell, Pin, Archive), People and agents
@@ -437,29 +438,47 @@ retains the existing drawer. Conversations live in Chat; Open conversation from
 work returns to its exact source/thread. Unsupported capabilities must say so.
 See [behavior and authority](agents-team-workspace.md).
 
-Settings → People uses the same directory language. People and invitations remain separate
-tabs; inviting opens a focused dialog. Each person's ⋯ menu changes the role, opens the
-Agent access drawer or opens the removal dialog. Keep
+Settings → People uses the same directory language. People and waiting invitations are
+one list, invitations first (2026-11-21; they were two tabs); inviting opens a focused
+dialog. Rows show the photo, job title and online dot. Each person's ⋯ menu changes the
+role, opens the Agent access drawer or opens the removal dialog. Keep
 workspace membership, roles and agent access distinct. Preserve
-explicit saves, pending states, validation and confirmation for destructive actions.
+pending states, validation and confirmation for destructive actions.
 
 ## Settings
 
-Settings follows the simplified design (D232, `designs/settings-simplified/`).
+Settings follows the simplified design (D232, `designs/settings-simplified/`) as amended
+on 2026-11-21 (`designs/settings-redesign/`).
 - **Layout:** a 248 px sidebar with "You" and "Workspace" groups beside one bounded,
-  locally scrolling page. On phones the list comes first and each page has
-  "‹ Settings".
-- **Members:** Profile, Preferences, Help and This workspace, which ends with Leave
-  workspace.
-- **Admins:** add Workspace, People, Company rules, Usage, Billing
-  ("Coming later") and Audit log. Members also see Company rules, read-only.
+  locally scrolling page. Every page has a stroke icon. On phones the list comes
+  first and each page has "‹ Settings".
+- **Members:** Profile, Preferences, This workspace (which ends with Leave
+  workspace), Agent rules (read-only) and Usage (their own).
+- **Admins:** General, People, Apps, Agent rules, Usage and Audit log.
+- **Not pages:** Help and feedback is a dialog in the account menu. Do not add a
+  page, row or badge for something that is not built ("Coming later").
+- **Saving:** typed text shows the dark "Unsaved changes" bar (Discard, Save) at the
+  foot of the page, and only while something is unsaved. Switches and choices save
+  when they change, with a short status. A choice with a consequence asks first.
+- **Profile:** a 96 px photo that is the control for changing it, fields grouped as
+  About you, For agents, Status and presence, Account, and beside them the profile
+  card others open in Chat, drawn from the draft. The sign-in email is text.
+- **Lists:** one list per page. Apps has one choice per app (Ask first until
+  decided, Allowed, Off) with its connections under it; things waiting for an
+  admin sit in one bordered "Needs your answer" panel above the list. Round filter
+  buttons show a count for each state.
+- **Usage:** budgets first, then one charge number, a bar per day (one hue,
+  `#2a78d6` light and `#3987e5` dark, with the day and amount on hover) and one
+  table grouped by a segmented switch. Token counts appear only when asked for.
+- **Audit log:** sentences under Today, Yesterday or the date, with the time and
+  the person's face; an admin view carries a tag, not colour alone.
 - **Roles:** Admin and Member labels. Hide admin pages from members and enforce the
   same boundary on the server.
-- **People:** flat rows with a ⋯ menu. Destructive changes open confirming dialogs.
 Keep all workspace administration here rather than adding Users, Company or
 Feedback global navigation items. Group controls with headings, spacing and thin
-separators. Keep the current theme and setup/connection behavior. See
-[Settings and ownership](settings.md) and [approved mockups](../designs/settings/README.md).
+separators; keep page descriptions to one line and drop "Admins only" badges, since
+members never see those pages. See
+[Settings and ownership](settings.md) and [the approved redesign](../designs/settings-redesign/README.md).
 
 ## Implementation and verification
 
