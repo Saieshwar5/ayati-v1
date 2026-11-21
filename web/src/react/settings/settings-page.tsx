@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { currentWorkspace, workspaceSession, workspaceUrl } from '../../workspace-context';
 import { navigate } from '../../navigation';
 import { PeoplePage } from '../people';
-import { HelpPage } from './help-page';
 import { AuditLog } from './audit-log';
 import { SimulationReport } from '../simulation-report';
 import { WorkspaceGeneral } from './workspace-settings';
-import { CompanyRules } from './company-rules';
+import { AgentRules } from './agent-rules';
 import { ProfileSettings, Preferences } from './personal-settings';
-import { ComingLater, ThisWorkspace } from './this-workspace';
+import { ThisWorkspace } from './this-workspace';
 import { ConnectionsSettings } from './all-connections';
-import { adminWorkspace, comingLater, labels, memberWorkspace, personal, requestedSection, sectionUrl, type Section } from './settings-sections';
+import { adminWorkspace, labels, memberWorkspace, personal, requestedSection, sectionUrl, type Section } from './settings-sections';
+import { SettingsIcon } from './settings-icons';
 import './settings.css';
 import { UsagePage } from './usage-page';
 
@@ -28,7 +28,7 @@ export function SettingsPage({ href }: { href: string }) {
     <p className="settings-group-title" id={`settings-group-${title}`}>{title}</p>
     <ul aria-labelledby={`settings-group-${title}`}>{items.map(item => <li key={item}>
       <button type="button" aria-current={item === section ? 'page' : undefined} onClick={() => go(item)}>
-        <span>{labels[item]}</span>{comingLater.has(item) && <small className="settings-soon">Coming later</small>}
+        <SettingsIcon section={item} /><span>{labels[item]}</span>
       </button></li>)}</ul></div>;
   // On phones the list is the first screen; a named page replaces it, with a way back.
   return <main className="settings-page settings-react" aria-label="Settings" data-showing={asked ? 'page' : 'list'}>
@@ -40,15 +40,13 @@ export function SettingsPage({ href }: { href: string }) {
       <button type="button" className="settings-back" onClick={() => go()}>‹ Settings</button>
       {section === 'profile' ? <ProfileSettings />
         : section === 'preferences' ? <Preferences />
-        : section === 'help' ? <HelpPage />
         : section === 'this-workspace' ? <ThisWorkspace />
         : section === 'workspace' ? <WorkspaceGeneral renamed={name => { const entry = currentWorkspace(); if (entry) entry.name = name; setWorkspaceName(name); }} />
         : section === 'people' ? <PeoplePage />
         : section === 'connections' ? <ConnectionsSettings />
-        : section === 'company-rules' ? <CompanyRules />
+        : section === 'company-rules' ? <AgentRules />
         : section === 'audit-log' ? <><AuditLog />{workspaceSession?.simulation && <SimulationReport />}</>
-        : section === 'usage' ? <UsagePage />
-        : <ComingLater section={section} />}
+        : <UsagePage />}
     </div>
   </main>;
 }

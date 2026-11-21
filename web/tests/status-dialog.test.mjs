@@ -106,23 +106,28 @@ test('your own words with an emoji, a failed save that keeps them, and Clear sta
       : ok({ id: 'priya', online: true, last_seen: Date.now(), status: body.status, revision: 3 }) });
 });
 
-test('Show when I’m online is one switch in Preferences that saves at once', async () => {
+test('Show when I’m online is one switch on Profile that saves at once', async () => {
   const writes = [];
   await reactFixture(async ({ render, click }) => {
     await (await import('../src/workspace-context.ts')).enterWorkspace();
-    const { Preferences } = await import('../src/react/settings/personal-settings.tsx');
-    await render(Preferences);
-    const toggle = document.querySelector('.settings-presence input[role=switch]');
-    assert.equal(document.querySelector('.settings-presence strong').textContent, 'Show when I’m online');
-    assert.equal(document.querySelector('.settings-presence small').textContent, 'Off: nobody sees a green dot or “last seen” for you. Your status still shows.');
-    assert.equal(toggle.closest('label').textContent, 'Show when I’m online', 'the switch is named');
-    assert.equal(toggle.checked, true);
-    await click(toggle);
+    // Profile passes its own read of your preferences to the section (2026-11-21; it was in Preferences).
+    const { StatusAndPresence } = await import('../src/react/settings/status-and-presence.tsx');
+    const { usePreferences } = await import('../src/react/settings/use-preferences.ts');
+    const { createElement } = await import('react');
+    await render(() => createElement(StatusAndPresence, { userId: user.id, preferences: usePreferences() }));
+    const section = document.querySelector('section[aria-label="Status and presence"]');
+    const toggle = () => section.querySelector('input[role=switch]');
+    const row = toggle().closest('.settings-row');
+    assert.equal(row.querySelector('strong').textContent, 'Show when I’m online');
+    assert.equal(row.querySelector('small').textContent, 'Off: nobody sees a green dot or “last seen” for you. Your status still shows.');
+    assert.equal(toggle().closest('label').textContent, 'Show when I’m online', 'the switch is named');
+    assert.equal(toggle().checked, true);
+    await click(toggle());
     assert.equal(writes.length, 1);
     assert.deepEqual(writes[0].body, { desktop_alerts: true, channel_level: 'mentions', approval_alerts: true, show_online: false });
-    assert.equal(document.querySelector('.settings-presence input[role=switch]').checked, false);
+    assert.equal(toggle().checked, false);
     assert.equal([...document.querySelectorAll('[role=status]')].some(node => node.textContent === 'Saved.'), true);
-  }, { url: `http://localhost/w/${w}/?view=settings&section=preferences`, fetch: async (path, options = {}) => {
+  }, { url: `http://localhost/w/${w}/?view=settings&section=profile`, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return ok({ user, workspaces: [{ id: w, name: 'Lotus Interiors', role: 'Admin' }] });
     if (options.method === 'POST') { const body = JSON.parse(options.body); writes.push({ path, body }); return ok(body); }
     return ok({ desktop_alerts: true, channel_level: 'mentions', approval_alerts: true, show_online: true });

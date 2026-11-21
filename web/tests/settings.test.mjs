@@ -39,7 +39,8 @@ const page=()=>document.querySelector('.settings-detail h2')?.textContent;
 
 test('Members see their own pages and This workspace, and never read admin data',async()=>{
   await fixture('Member',async({render,reads,change})=>{
-    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['This workspace','Company rules','Usage']]]);
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences']],['Workspace',['This workspace','Agent rules','Usage']]]);
+    assert.equal(document.querySelectorAll('.settings-group button svg[aria-hidden=true]').length,5,'every page has its icon');
     assert.equal(page(),'Profile');
     assert.match(document.querySelector('.settings-heading p').textContent,/Northstar · Member/);
     await render(base+'&scope=workspace&section=people');
@@ -96,15 +97,17 @@ test('A refused leave keeps the dialog open with the reason',async()=>{
   } finally { refuseLeave=false; }
 });
 
-test('Admins see the workspace pages and Usage; Billing is marked as coming later',async()=>{
+test('Admins see six workspace pages; Help and Billing are no longer pages',async()=>{
   await fixture('Admin',async({render,click,dom,reads})=>{
-    assert.deepEqual(sidebar(),[['You',['Profile','Preferences','Help']],['Workspace',['Workspace','People','Connections','Company rules','Usage','BillingComing later','Audit log']]]);
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences']],['Workspace',['General','People','Apps','Agent rules','Usage','Audit log']]]);
     await click([...document.querySelectorAll('.settings-group button')].find(item=>item.textContent==='People'));
     assert.match(dom.window.location.search,/view=settings&section=people/);
     await render(base+'&section=usage');
     assert.match(page(),/Usage/); assert.ok(reads.some(path=>path.includes('/usage?days=30')));
-    await render(base+'&section=billing');
-    assert.match(document.querySelector('.settings-detail').textContent,/not built yet/);
+    // Old links to the removed pages open the nearest page that exists.
+    await render(base+'&section=billing'); assert.match(page(),/Usage/);
+    await render(base+'&section=help'); assert.equal(page(),'Profile');
+    assert.doesNotMatch(document.querySelector('.settings-react').textContent,/Coming later/);
   });
 });
 
@@ -112,9 +115,9 @@ test('Links from the old tabbed Settings open the new pages',async()=>{
   await fixture('Admin',async({render,reads})=>{
     for(const [link,expected] of [
       ['&scope=workspace&section=people','People'],[ '&scope=workspace&section=access','People'],
-      ['&scope=workspace&section=general','Workspace'],['&scope=workspace&section=teams','Workspace'],
+      ['&scope=workspace&section=general','General'],['&scope=workspace&section=teams','General'],
       ['&scope=workspace&section=activity','Audit log'],['&scope=personal&section=my-account','Profile'],
-      ['&scope=personal&section=help-%26-feedback','Help'],
+      ['&scope=personal&section=help-%26-feedback','Profile'],
     ]){ await render(base+link); assert.equal(page() ?? document.querySelector('.settings-detail h1')?.textContent,expected,link); }
     await render(base.replace('view=settings','view=people')); assert.equal(page(),'People');
     await render(base.replace('view=settings','view=users')); assert.equal(page(),'People');
@@ -136,29 +139,60 @@ test('Phones show the list first and a page with a way back',async()=>{
   });
 });
 
-test('Profile is the one place to edit you, in the order of the design, with the sign-in email read-only',async()=>{
-  await fixture('Member',async()=>{
-    assert.equal(document.querySelector('.settings-profile > p').textContent,'How colleagues and agents see you in Northstar. The only place to change these.');
+test('Profile groups what you edit, shows the sign-in email as text and previews the card others see',async()=>{
+  await fixture('Member',async({change,click,button})=>{
+    assert.equal(document.querySelector('.settings-profile > p').textContent,'How colleagues and agents see you in Northstar.');
     const form=document.querySelector('form.my-profile');
-    assert.deepEqual([...form.querySelectorAll('label.ui-field')].map(label=>label.firstChild.textContent),
-      ['Your name','Job title shown next to your name','What you handle one line agents read to know whom to ask','About 0–200 characters','Sign-in email cannot be changed here']);
-    assert.deepEqual([...form.querySelectorAll('button')].map(node=>node.textContent),['Change photo','Save profile']);
-    const email=form.querySelector('input[type=email]');
-    assert.deepEqual([email.readOnly,email.value],[true,'person@test']);
+    assert.deepEqual([...document.querySelectorAll('.my-profile-edit h3')].map(node=>node.textContent),['About you','For agents','Status and presence','Account']);
+    assert.deepEqual([...form.querySelectorAll('label.ui-field')].map(label=>label.firstChild.textContent),['Name','Job title','About 0 / 200','What you handle']);
     assert.equal(document.querySelectorAll('input[name=display_name]').length,1,'one name editor');
+    // The email is a fact, not a disabled input.
+    assert.equal(document.querySelector('input[type=email]'),null);
+    assert.deepEqual([...document.querySelectorAll('.my-profile-facts > div')].map(row=>[row.querySelector('dt').textContent,row.querySelector('dd').textContent]),
+      [['Sign-in email','person@test'],['Role in this workspace','Member']]);
+    assert.ok(button('Change photo')); assert.equal(button('Remove photo'),undefined,'nothing to remove without a photo');
+    // The card is drawn from the draft, and the bar appears only while something is unsaved.
+    const card=()=>document.querySelector('.my-profile-preview-card');
+    assert.equal(card().querySelector('h3').textContent,'Person');
+    assert.equal(document.querySelector('.settings-save-bar'),null);
+    await change(form.elements.display_name,'Priya Shah'); await change(form.elements.about,'Ask me about stock'); await change(form.elements.handles,'Stock, deliveries');
+    assert.equal(card().querySelector('h3').textContent,'Priya Shah');
+    assert.deepEqual([...card().querySelectorAll('.profile-card-fact > div')].map(node=>node.textContent),['Ask me about stock','Stock, deliveries','person@test']);
+    assert.equal(card().querySelector('.face').textContent,'PS');
+    assert.match(form.textContent,/About 18 \/ 200/);
+    assert.deepEqual([...document.querySelectorAll('.settings-save-bar button')].map(node=>node.textContent),['Discard','Save']);
+    await click(button('Discard'));
+    assert.equal(form.elements.display_name.value,'Person'); assert.equal(document.querySelector('.settings-save-bar'),null);
+    assert.equal(card().querySelector('h3').textContent,'Person');
+  });
+});
+
+test('Status and “Show when I’m online” are on Profile and save at once',async()=>{
+  await fixture('Member',async({click,button,writes})=>{
+    const online=document.querySelector('.my-profile-edit [role=switch]');
+    assert.equal(online.checked,true,'on unless you turned it off');
+    await click(online);
+    assert.deepEqual(writes.at(-1),{path:writes.at(-1).path,body:{desktop_alerts:true,channel_level:'mentions',approval_alerts:true,show_online:false}});
+    assert.match(writes.at(-1).path,/\/preferences$/);
+    assert.equal(document.querySelector('.my-profile-preview-card .presence-dot'),null,'the card stops showing you online');
+    await click(button('Set a status'));
+    assert.equal(document.querySelector('dialog h2').textContent,'Set a status');
   });
 });
 
 test('Failed personal profile saves preserve the draft and require explicit retry',async()=>{
   await fixture('Member',async({change,submit,writes})=>{
     const form=document.querySelector('form.my-profile');
-    assert.equal(form.querySelector('input[maxlength="80"]:not([required])').value,'Buyer');
+    assert.equal(form.elements.title.value,'Buyer');
+    await submit(form);
+    assert.equal(writes.length,0,'nothing to save until something changes');
     await change(form.elements.display_name,'Changed name');
     await submit(form);
     assert.equal(form.elements.display_name.value,'Changed name');
-    assert.match(form.textContent,/Save failed/);
+    assert.match(document.querySelector('.my-profile-edit').textContent,/Save failed/);
     assert.equal(writes.length,1);
     assert.deepEqual(writes[0].body,{display_name:'Changed name',title:'Buyer',about:'',handles:''});
+    assert.ok(document.querySelector('.settings-save-bar'),'the bar stays for the retry');
     // What you handle is saved with the rest, as one line for agents to read.
     await change(form.elements.handles,'Prices, discounts');
     await submit(form);

@@ -64,7 +64,8 @@ test('Text fields only offer is / is not, totals only amounts, and turning off k
     await click([...document.querySelectorAll('label')].find(l => l.textContent === "Today's total").querySelector('input'));
     assert.deepEqual([...field('Field').options].map(o => o.value), ['amount'], 'totals add up numbers only');
     await click(button('Cancel'));
-    await click(button('Turn off'));
+    // Each rule has a switch named after it.
+    await click([...document.querySelectorAll('.company-rules [role=switch]')].find(node => node.checked));
     assert.deepEqual({ enabled: posts[0].enabled, revision: posts[0].revision, id: posts[0].id }, { enabled: false, revision: 3, id: 'r1' });
   }, { url: base, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return session('Admin');
@@ -82,7 +83,7 @@ test('Members read company rules but cannot change them', async () => {
     assert.match(document.body.textContent, /would go over 10000, block it/);
     assert.equal(button('Add rule'), undefined);
     assert.equal(button('Edit'), undefined);
-    assert.ok([...document.querySelectorAll('.settings-sidebar button')].some(b => b.textContent === 'Company rules'));
+    assert.ok([...document.querySelectorAll('.settings-sidebar button')].some(b => b.textContent === 'Agent rules'));
   }, { url: base, fetch: async path => path.endsWith('/session') ? session('Member') : response({ rules: [existing], actions, can_manage: false }) });
 });
 
