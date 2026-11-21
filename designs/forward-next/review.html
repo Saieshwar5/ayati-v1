@@ -1,0 +1,492 @@
+<title>Forward Window Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: the review reads on Cuckoo's grey canvas in one column; the built window and
+   the proposed one sit side by side at true size, so the difference is seen, not described. */
+:root {
+  --surface: #ffffff; --canvas: #f3f4f5; --text: #22252a; --muted: #5f6670; --border: #e5e7ea;
+  --border-panel: #d1d6dd; --border-control: #aeb8c5; --soft: #f7f8f9; --selection: #eef0f2;
+  --accent: #22252a; --on-accent: #ffffff; --focus: #52525b; --danger: #a42f35; --danger-bg: #fbeced;
+  --warning: #945b10; --warning-bg: #fff3e2; --success: #26745c; --success-bg: #e6f3ee;
+  --stage: #c9ccd2; --shadow-deep: #17212b24;
+  --display: "Space Grotesk", Inter, ui-sans-serif, system-ui, sans-serif;
+  --body: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --surface: #1c1f26; --canvas: #111318; --text: #f0f1f5; --muted: #abb1bf; --border: #303540;
+  --border-panel: #414956; --border-control: #697487; --soft: #252a34; --selection: #303540;
+  --accent: #f0f1f5; --on-accent: #20222a; --focus: #a1a1aa; --danger: #ffadaf; --danger-bg: #40262a;
+  --warning: #efbc77; --warning-bg: #423222; --success: #85c9a7; --success-bg: #20362e;
+  --stage: #0b0c10; --shadow-deep: #00000070; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --surface: #1c1f26; --canvas: #111318; --text: #f0f1f5; --muted: #abb1bf; --border: #303540;
+  --border-panel: #414956; --border-control: #697487; --soft: #252a34; --selection: #303540;
+  --accent: #f0f1f5; --on-accent: #20222a; --focus: #a1a1aa; --danger: #ffadaf; --danger-bg: #40262a;
+  --warning: #efbc77; --warning-bg: #423222; --success: #85c9a7; --success-bg: #20362e;
+  --stage: #0b0c10; --shadow-deep: #00000070; color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--canvas); color: var(--text); font: 15px/1.6 var(--body); font-synthesis: none; }
+.page { max-width: 1060px; margin: 0 auto; padding-block: 36px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 44px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; line-height: 1.2; }
+h1 { font-size: 32px; font-weight: 600; letter-spacing: -.01em; }
+h2 { font-size: 22px; font-weight: 600; }
+h3 { font-size: 15px; font-family: var(--body); font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 17px; max-width: 68ch; }
+.prose { display: grid; gap: 12px; max-width: 70ch; }
+.muted { color: var(--muted); }
+section { display: grid; gap: 18px; min-width: 0; }
+header.top { display: grid; gap: 14px; }
+code { font: 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--selection); padding: 1px 5px; border-radius: 5px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Verdict strip */
+.verdict { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; overflow: hidden; }
+.verdict > div { padding: 16px 18px; display: grid; gap: 4px; border-left: 1px solid var(--border); }
+.verdict > div:first-child { border-left: 0; }
+.verdict strong { font: 600 15px var(--body); }
+.verdict span { font-size: 13.5px; color: var(--muted); }
+.verdict .tag { justify-self: start; }
+.tag { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: var(--selection); color: var(--muted); white-space: nowrap; }
+.tag.good { background: var(--success-bg); color: var(--success); }
+.tag.bug { background: var(--danger-bg); color: var(--danger); }
+.tag.warn { background: var(--warning-bg); color: var(--warning); }
+
+/* Compare */
+.scenarios { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.scenarios button { border: 1px solid var(--border-control); background: var(--surface); border-radius: 999px; padding: 6px 14px; font-size: 13.5px; font-weight: 500; cursor: pointer; }
+.scenarios button[aria-pressed=true] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.compare { display: grid; grid-template-columns: minmax(0, 540px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.pane { display: grid; gap: 10px; min-width: 0; }
+.pane-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 12px; }
+.pane-head .size { font-variant-numeric: tabular-nums; font-size: 13px; color: var(--muted); }
+.pane-head .size b { color: var(--text); font-weight: 600; }
+.stage { background: var(--stage); border-radius: 14px; padding: 18px 10px; display: grid; grid-template-columns: minmax(0, 1fr); justify-items: center; align-content: start; min-height: 420px; }
+.stage img { display: block; width: 520px; max-width: 100%; height: auto; border-radius: 16px; box-shadow: 0 18px 50px var(--shadow-deep); }
+.saving { font-size: 13.5px; color: var(--muted); }
+.saving b { color: var(--success); font-weight: 600; }
+.sample { font-size: 13px; color: var(--muted); }
+.link { border: 0; background: none; padding: 0; color: var(--text); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; font-size: inherit; }
+
+/* The proposed window: Cuckoo tokens, 440 px wide */
+.fw { width: 440px; max-width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 18px 50px var(--shadow-deep); display: flex; flex-direction: column; font-size: 14px; line-height: 1.45; }
+.fw-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 12px 10px 16px; }
+.fw-head h3 { font-size: 15px; }
+.fw-x { width: 30px; height: 30px; border: 0; background: none; border-radius: 8px; color: var(--muted); font-size: 20px; line-height: 1; cursor: pointer; }
+.fw-x:hover { background: var(--soft); }
+.fw-body { display: grid; gap: 10px; padding: 0 16px 14px; min-width: 0; }
+.fw-to { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 4px 6px 4px 11px; border: 1px solid var(--border-control); border-radius: 10px; background: var(--surface); }
+.fw-to:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.fw-to > span.to { color: var(--muted); font-size: 13px; font-weight: 500; flex: none; }
+.fw-to input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; padding: 4px 0; }
+.fw-to input::placeholder, .fw-box textarea::placeholder { color: var(--muted); }
+.chip { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; padding: 3px 4px 3px 4px; border-radius: 999px; background: var(--selection); font-weight: 500; font-size: 13.5px; }
+.chip .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chip button { width: 22px; height: 22px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; font-size: 15px; line-height: 1; flex: none; }
+.chip button:hover { background: var(--border-panel); color: var(--text); }
+.face { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 10px; font-weight: 600; color: #fff; }
+.face.agent { border-radius: 8px; }
+.ai { font-size: 10px; font-weight: 600; padding: 0 5px; border-radius: 5px; background: var(--selection); color: var(--muted); flex: none; }
+.chip .ai { background: var(--surface); }
+.fw-list { display: grid; gap: 1px; margin: -2px -6px 0; }
+.fw-list .label { padding: 2px 8px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.fw-row { display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; min-height: 36px; padding: 5px 8px; border: 0; border-radius: 9px; background: none; text-align: left; cursor: pointer; }
+.fw-row:hover { background: var(--soft); }
+.fw-row.active { background: var(--selection); }
+.fw-row .name { font-weight: 500; white-space: nowrap; }
+.fw-row .role { color: var(--muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.fw-row .state { font-size: 11.5px; color: var(--warning); flex: none; }
+.fw-none { padding: 8px; color: var(--muted); font-size: 13px; }
+.quote { display: grid; gap: 4px; min-width: 0; padding: 8px 11px; border-left: 3px solid var(--border-control); border-radius: 8px; background: var(--soft); }
+.quote .meta { display: flex; flex-wrap: wrap; gap: 0 5px; color: var(--muted); font-size: 11.5px; font-weight: 500; }
+.quote .meta strong { color: var(--text); font-weight: 600; }
+.quote .text { font-size: 13.5px; overflow-wrap: anywhere; }
+.quote .text.clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.quote .text ol { margin: 4px 0; padding-left: 20px; }
+.quote .text p + p { margin-top: 6px; }
+.quote .more { justify-self: start; font-size: 12px; color: var(--muted); }
+.files { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.file { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; padding: 4px 6px 4px 8px; border: 1px solid var(--border-panel); border-radius: 8px; background: var(--surface); font-size: 12.5px; }
+.file svg { flex: none; color: var(--muted); }
+.file .fname { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.file .fsize { color: var(--muted); flex: none; font-variant-numeric: tabular-nums; }
+.file button { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 3px; font-size: 14px; line-height: 1; flex: none; border-radius: 4px; }
+.file.off { border-style: dashed; background: none; }
+.file.off .fname { text-decoration: line-through; color: var(--muted); font-weight: 400; }
+.file.off button { font-size: 12px; text-decoration: underline; }
+.fw-box { display: grid; gap: 6px; padding: 9px 9px 9px 11px; border: 1px solid var(--border-control); border-radius: 12px; }
+.fw-box:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.fw-box textarea { width: 100%; min-height: 40px; max-height: 120px; border: 0; outline: 0; resize: none; background: none; color: var(--text); font: inherit; padding: 2px 0; }
+.fw-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fw-clip { width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; display: grid; place-items: center; flex: none; }
+.fw-clip:hover { background: var(--soft); color: var(--text); }
+.fw-hint { flex: 1; min-width: 0; font-size: 12px; color: var(--muted); }
+.fw-send { margin-left: auto; max-width: 62%; min-height: 32px; padding: 5px 13px; border: 0; border-radius: 9px; background: var(--accent); color: var(--on-accent); font-weight: 600; font-size: 13.5px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fw-send:disabled { opacity: .45; cursor: default; }
+.fw-note { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--muted); }
+.fw-note svg { flex: none; margin-top: 2px; }
+.fw-error { font-size: 12px; color: var(--danger); }
+
+/* How it arrives */
+.landed { width: 440px; max-width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 18px 50px var(--shadow-deep); padding: 14px 16px 16px; display: grid; gap: 12px; font-size: 14px; }
+.landed-head { display: flex; align-items: center; gap: 9px; padding-bottom: 10px; border-bottom: 1px solid var(--border); font-weight: 600; }
+.landed-head small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.bubble { justify-self: end; max-width: 94%; min-width: 0; display: grid; gap: 8px; padding: 10px 12px; border-radius: 14px 14px 4px 14px; background: var(--soft); }
+.bubble .quote { background: var(--surface); }
+.bubble time { justify-self: end; font-size: 11.5px; color: var(--muted); }
+.landed .ok { font-size: 13px; color: var(--success); font-weight: 500; }
+.landed .again { justify-self: start; border: 1px solid var(--border-control); background: var(--surface); border-radius: 9px; padding: 6px 12px; font-size: 13.5px; cursor: pointer; }
+
+/* Findings */
+.findings { display: grid; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; overflow: hidden; }
+.finding { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 4px 14px; padding: 15px 18px; border-top: 1px solid var(--border); }
+.finding:first-child { border-top: 0; }
+.finding .tag { justify-self: start; align-self: start; margin-top: 2px; }
+.finding > div { display: grid; gap: 4px; }
+.finding p { font-size: 14px; color: var(--muted); max-width: 76ch; }
+.finding p.fix { color: var(--text); }
+.good-list { margin: 0; padding-left: 20px; display: grid; gap: 6px; max-width: 74ch; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.card { background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; }
+.card p, .card li { font-size: 14px; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; vertical-align: top; padding: 11px 16px; border-top: 1px solid var(--border); }
+thead th { border-top: 0; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+td:first-child { font-weight: 600; white-space: nowrap; }
+td .muted { font-size: 13px; }
+
+@media (max-width: 900px) {
+  .compare { grid-template-columns: minmax(0, 1fr); }
+  .compare .pane.proposed { order: -1; }
+  .verdict, .two { grid-template-columns: minmax(0, 1fr); }
+  .verdict > div { border-left: 0; border-top: 1px solid var(--border); }
+  .verdict > div:first-child { border-top: 0; }
+}
+@media (max-width: 520px) {
+  h1 { font-size: 26px; }
+  .finding { grid-template-columns: minmax(0, 1fr); }
+}
+</style>
+
+<div class="page">
+  <header class="top">
+    <p class="eyebrow">Cuckoo · Chat · 21 November 2026</p>
+    <h1>Forward: how it is built, and a smaller window</h1>
+    <p class="lede">The rules behind Forward are solid. The window is where it falls short: it is tall, it has two real bugs, and it cannot carry files. Below is the built window next to a smaller one you can click through, then what I found and what it takes to add documents.</p>
+    <div class="verdict">
+      <div><span class="tag good">Built well</span><strong>The rules</strong><span>Who may forward what, to whom, sent exactly once, and an agent treats the copy as information.</span></div>
+      <div><span class="tag bug">2 bugs</span><strong>The window</strong><span>Typing does nothing when it opens, and a message that is only files forwards as the words “Shared files”.</span></div>
+      <div><span class="tag warn">Not built</span><strong>Documents</strong><span>Your own words already work. Files do not travel in either direction yet.</span></div>
+    </div>
+  </header>
+
+  <section aria-labelledby="try">
+    <h2 id="try">The built window and a smaller one, at the same scale</h2>
+    <p class="prose muted">The right side works: search, pick someone, write, attach, forward. Nothing is sent or uploaded. Pick a message to compare.</p>
+    <div class="scenarios" role="group" aria-label="Message to forward">
+      <button type="button" data-scenario="short" aria-pressed="true">Short message</button>
+      <button type="button" data-scenario="long" aria-pressed="false">Long message</button>
+      <button type="button" data-scenario="files" aria-pressed="false">Message with two files</button>
+    </div>
+    <div class="compare">
+      <div class="pane">
+        <div class="pane-head"><h3>Built today</h3><span class="size">Agent chosen · <b id="built-size">520 × 696</b></span></div>
+        <div class="stage"><img id="built-shot" src="built/short-message.jpg" width="520" height="696" alt="The built forward window with HR Desk chosen"></div>
+        <p class="sample" id="built-caption">Screenshot of the real client with sample data, 1280 × 800 window.</p>
+      </div>
+      <div class="pane proposed">
+        <div class="pane-head"><h3>Proposed</h3><span class="size"><span id="proto-state">Choosing</span> · <b id="proto-size">440 × 0</b></span></div>
+        <div class="stage" id="proto-stage">
+          <div class="fw" id="fw" role="group" aria-labelledby="fw-title">
+            <div class="fw-head"><h3 id="fw-title">Forward</h3><button type="button" class="fw-x" id="fw-reset" aria-label="Close (starts the prototype again)" title="Close">×</button></div>
+            <div class="fw-body">
+              <div class="fw-to" id="fw-to">
+                <span class="to">To</span>
+                <span id="fw-chip"></span>
+                <input id="fw-search" type="text" role="combobox" aria-expanded="true" aria-controls="fw-list" aria-label="Forward to" placeholder="Search people and agents" autocomplete="off">
+              </div>
+              <div class="fw-list" id="fw-list" role="listbox" aria-label="People and agents"></div>
+              <div class="quote" id="fw-quote"></div>
+              <div class="fw-box">
+                <textarea id="fw-note" rows="2" maxlength="4000" aria-label="Your message"></textarea>
+                <div class="files" id="fw-mine"></div>
+                <div class="fw-actions">
+                  <button type="button" class="fw-clip" id="fw-attach" aria-label="Attach a document" title="Attach a document">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 12 7-7a4 4 0 0 1 6 6l-10 10a6 6 0 0 1-8-8L13 3"/></svg>
+                  </button>
+                  <input type="file" id="fw-file" multiple hidden aria-label="Choose documents">
+                  <span class="fw-hint" id="fw-hint"></span>
+                  <button type="button" class="fw-send" id="fw-send" disabled>Forward</button>
+                </div>
+              </div>
+              <p class="fw-error" id="fw-error" role="alert" hidden></p>
+              <p class="fw-note" id="fw-visible" hidden></p>
+            </div>
+          </div>
+          <div class="landed" id="landed" hidden></div>
+        </div>
+        <p class="saving" id="saving"></p>
+        <p class="sample">No file handy? <button type="button" class="link" id="fw-sample">Attach a sample document</button>. Keys: ↑ ↓ and Enter in the To field, Ctrl or ⌘ + Enter to forward.</p>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="changes">
+    <h2 id="changes">What changes in the smaller window</h2>
+    <div class="wrap"><table>
+      <thead><tr><th>Part</th><th>Built</th><th>Proposed</th></tr></thead>
+      <tbody>
+        <tr><td>Size</td><td>520 wide. 636 tall when it opens, 696 with an agent chosen, up to the full window height for a long message.</td><td>440 wide. 480 to 530 tall while you choose, 330 to 390 once someone is chosen, with a long message, your words and a document included.</td></tr>
+        <tr><td>Who it goes to</td><td>A search box, then a list that stays open and shows two and a half rows. Agents first, people below the fold.</td><td>One To field. People and agents you talked to most recently come first, one line each. Once chosen, the list closes and the person becomes a chip.</td></tr>
+        <tr><td>The message</td><td>Shown in full. A long message pushes the buttons down and the body scrolls.</td><td>Three lines with “Show all”. Its files are listed and can be left out one by one.</td></tr>
+        <tr><td>Your words</td><td>A separate labelled box above the message.</td><td>A box like Chat's own, with the paperclip and the Forward button inside it.</td></tr>
+        <tr><td>Who can see it</td><td>An amber box, two sentences.</td><td>One quiet line under the box. The second sentence becomes the box's question: “What do you need from HR Desk?”</td></tr>
+        <tr><td>Buttons</td><td>A footer with Cancel and Forward.</td><td>No footer. × and Esc close. An error still appears in a footer line.</td></tr>
+        <tr><td>Keyboard</td><td>Focus starts on Close. No arrow keys.</td><td>Focus starts in To. ↑ ↓ Enter choose, then focus moves to your message.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section aria-labelledby="well">
+    <h2 id="well">What is built well</h2>
+    <ul class="good-list">
+      <li><strong>It is a copy with its source.</strong> The forward records who wrote the message, where and when, as it was at that moment. Editing or deleting the original later does not change it; deleting the forward removes it.</li>
+      <li><strong>Permissions are checked on the server.</strong> You must be able to read the original and talk to the agent you send it to. Someone else's private agent is refused, not just hidden.</li>
+      <li><strong>Agents cannot be steered by forwarded text.</strong> Your words are the request; the copy is marked as something another person wrote. That is the right defence against a message that says “ignore your rules”.</li>
+      <li><strong>Restricted answers stay put.</strong> Answers built from Library documents or connected systems cannot be forwarded, so a copy cannot escape their access checks.</li>
+      <li><strong>It sends once.</strong> A double click or a retry after a lost answer makes one message, and a failed forward keeps the window and your words.</li>
+      <li><strong>It is tested where it matters.</strong> Two database tests cover the rules above and three client tests cover the window's sending behaviour.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="found">
+    <h2 id="found">What I found in the built window</h2>
+    <p class="prose muted">Each item was checked in the real client with sample data, not read off the code alone.</p>
+    <div class="findings">
+      <div class="finding"><span class="tag bug">Bug</span><div><h3>Typing does nothing, and Enter closes the window</h3>
+        <p>The search box is meant to have focus when the window opens. Focus lands on the Close button instead. I typed “fin”: the search box stayed empty. I pressed Enter: the window closed.</p>
+        <p class="fix">Fix: pass the search box to the dialog's existing <code>initialFocus</code>. Small, and independent of any redesign.</p></div></div>
+      <div class="finding"><span class="tag bug">Bug</span><div><h3>Files are dropped without a word</h3>
+        <p>A message with text and two PDFs forwards the text only, and the window never says the files are left behind. A message that is only a file forwards as the literal words “Shared files”, so the reader gets a block that says a file exists and no file.</p>
+        <p class="fix">Fix now: say “2 files are not forwarded” in the window, and refuse a message that is only files. Fix properly: carry the files (below).</p></div></div>
+      <div class="finding"><span class="tag warn">Design</span><div><h3>The window is taller than its job</h3>
+        <p>Measured: 520 × 636 on open, 696 with an agent chosen. A long message makes it 768 in an 800-high window and the body scrolls. In a 600-high window it scrolls for any message. On a phone it takes 723 of 844 points.</p></div></div>
+      <div class="finding"><span class="tag warn">Design</span><div><h3>The list hides people, and can hide your choice</h3>
+        <p>It is 190 points tall, which is two and a half rows. With three agents, no person is visible until you scroll. After you choose HR Desk and then search for someone else, nothing is highlighted but the button still says “Forward to HR Desk”.</p></div></div>
+      <div class="finding"><span class="tag warn">Design</span><div><h3>No keyboard path</h3>
+        <p>Arrow keys do not move through the list and Enter in the search box does not choose the first match. Each row is a separate Tab stop.</p></div></div>
+      <div class="finding"><span class="tag warn">Design</span><div><h3>A routine fact looks like a warning</h3>
+        <p>“Owners and admins can see what you forward” is true of every shared agent chat. In amber it reads as if something is wrong, on the most common path.</p></div></div>
+      <div class="finding"><span class="tag">Small</span><div><h3>A paused agent looks ready</h3>
+        <p>Chat already knows when an agent is paused or needs its owner. The forward list does not show it. I did not test what a forward to a paused agent does on the server.</p></div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="docs">
+    <h2 id="docs">Your message and documents</h2>
+    <p class="prose">Writing your own message with a forward already works: it is optional to a person and required to an agent. “Attach a document” is two different things, and they need different work.</p>
+    <div class="two">
+      <div class="card"><h3>Files that came with the message</h3>
+        <p>Vikram sent a payslip PDF. Forwarding his message should take the PDF along, inside the forwarded block, with a way to leave a file out.</p>
+        <ul>
+          <li>Today a file belongs to one conversation, and only the person who uploaded it may attach it. A forward goes to a different conversation.</li>
+          <li>So the server copies each file into the new conversation as part of the forward. That matches the rule the text already follows: a copy, as it was.</li>
+          <li>Deleting the forward removes its copies. The original files are untouched.</li>
+        </ul></div>
+      <div class="card"><h3>Your own documents</h3>
+        <p>You forward Vikram's message to HR Desk and add the leave policy yourself. These sit under your words, outside the forwarded block, like any attachment.</p>
+        <ul>
+          <li>Files upload into a conversation, and your chat with that person may not exist yet.</li>
+          <li>So the window keeps the files until you press Forward, then opens the chat, uploads and sends. Changing your mind about who it goes to costs nothing, and cancelling leaves nothing behind.</li>
+          <li>The existing limits apply to the whole message: eight files, 10 MB each.</li>
+        </ul></div>
+    </div>
+    <p class="prose muted">For an agent, the same line holds as for text: files from the forwarded message are information someone else supplied; your words, and the documents you add, are the request.</p>
+  </section>
+
+  <section aria-labelledby="decide">
+    <h2 id="decide">Three things for you to decide</h2>
+    <div class="wrap"><table>
+      <thead><tr><th>Question</th><th>I recommend</th><th>The other choice</th></tr></thead>
+      <tbody>
+        <tr><td>Do a message's files go along by default?</td><td>Yes, each with an × to leave it out. Leaving them out silently is today's bug.</td><td>Off by default, ticked to include. Safer against oversharing, one more click every time.</td></tr>
+        <tr><td>Who is listed first?</td><td>Whoever you talked to most recently, people and agents mixed. Typing searches everyone.</td><td>Agents first, as approved on 16 November. Keeps agents prominent, hides people.</td></tr>
+        <tr><td>How loud is “owners and admins can see”?</td><td>One quiet line, always shown for a shared agent.</td><td>Keep the amber box. Louder, and it costs about 60 points of height.</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section aria-labelledby="steps">
+    <h2 id="steps">Suggested order of work</h2>
+    <div class="wrap"><table>
+      <thead><tr><th>Step</th><th>What</th><th>Touches</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Fix focus. Say when files are left behind, and refuse a files-only message.<br><span class="muted">Worth doing whatever you decide about the rest.</span></td><td>Client, one server check</td></tr>
+        <tr><td>2</td><td>The smaller window: To field with chip, recent first, three-line message, box with Forward inside, quiet line, keyboard.</td><td>Client only</td></tr>
+        <tr><td>3</td><td>Carry the message's files: copy them on the server, show them in the forwarded block, tell agents they are information.</td><td>Server, database, client</td></tr>
+        <tr><td>4</td><td>Attach your own documents from the forward window.</td><td>Client, one new field on the forward request</td></tr>
+      </tbody>
+    </table></div>
+    <p class="prose muted">Still not covered after this: forwarding into a channel or group, to several people at once, or several messages together.</p>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = text => String(text).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fileIcon = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>';
+  const eyeIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const fwdIcon = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 5 6 6-6 6"/><path d="M20 11H9a5 5 0 0 0-5 5v3"/></svg>';
+  // Most recent conversation first, as the chat list already orders them.
+  const everyone = [
+    { id: 'hr', kind: 'agent', name: 'HR Desk', role: 'Pay, leave and policies', color: '#1f7ae0', shared: true },
+    { id: 'priya', kind: 'user', name: 'Priya Sharma', role: 'Head of Operations', color: '#8a5a44' },
+    { id: 'finance', kind: 'agent', name: 'Finance Desk', role: 'Invoices and payments', color: '#6b4a3a', shared: true },
+    { id: 'mine', kind: 'agent', name: 'My assistant', role: 'Personal assistant', color: '#c0392b', shared: false },
+    { id: 'arjun', kind: 'user', name: 'Arjun Patel', role: 'Finance', color: '#3d7a5c' },
+    { id: 'orders', kind: 'agent', name: 'Orders Desk', role: 'Orders and deliveries', color: '#5b3fb5', shared: true, paused: true },
+    { id: 'meera', kind: 'user', name: 'Meera Nair', role: 'HR', color: '#a2497a' },
+    { id: 'rohan', kind: 'user', name: 'Rohan Gupta', role: 'Support', color: '#40699c' },
+    { id: 'kavya', kind: 'user', name: 'Kavya Reddy', role: 'Sales', color: '#8a6d1f' },
+    { id: 'sneha', kind: 'user', name: 'Sneha Iyer', role: 'Finance', color: '#4f6f52' },
+  ];
+  const scenarios = {
+    short: { shot: 'built/short-message.jpg', size: [520, 696], caption: 'Screenshot of the real client with sample data, 1280 × 800 window.', time: 'Nov 21, 1:06 PM',
+      html: '<p>Ananya, my October payslip is short by 5,600. Can someone in HR check it?</p>', files: [] },
+    long: { shot: 'built/long-message.jpg', size: [520, 768], caption: 'The window is as tall as an 800-high browser allows, and its body scrolls.', time: 'Nov 21, 1:11 PM',
+      html: '<p>Ananya, a few things from the Acme review this morning:</p><ol><li>Invoice <strong>INV-2291</strong> is still unpaid, 21 days late.</li><li>They dispute the freight line (4,800) and want a credit note.</li><li>The October statement shows two payments we never matched.</li><li>Their new buyer wants statements on the 1st, not the 5th.</li><li>They asked whether we can move them to 45-day terms from January.</li></ol><p>Can you look at each of these and tell me which ones Finance needs to handle and which ones are for Sales? I told them we would come back by Friday with one answer.</p>', files: [] },
+    files: { shot: 'built/message-with-files.jpg', size: [520, 675], caption: 'The original has two PDFs. The built window shows neither and forwards neither.', time: 'Nov 21, 1:17 PM',
+      html: '<p>Here is the payslip and my bank statement.</p>',
+      files: [{ id: 'f1', name: 'October-payslip.pdf', size: 184320 }, { id: 'f2', name: 'Bank-statement-Oct.pdf', size: 412000 }] },
+  };
+  const MAX_FILES = 8, MAX_BYTES = 10 * 1024 * 1024;
+  const state = { scenario: 'short', query: '', target: null, active: 0, note: '', left: new Set(), mine: [], expanded: false, sent: false, error: '' };
+  const size = bytes => bytes >= 1048576 ? (bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+  const initials = name => name.split(' ').map(part => part[0]).slice(0, 2).join('');
+  const face = who => `<span class="face${who.kind === 'agent' ? ' agent' : ''}" style="background:${who.color}" aria-hidden="true">${esc(initials(who.name))}</span>`;
+  const matches = () => {
+    const q = state.query.trim().toLowerCase();
+    return q ? everyone.filter(who => who.name.toLowerCase().includes(q) || who.role.toLowerCase().includes(q)).slice(0, 6) : everyone.slice(0, 4);
+  };
+  const included = () => scenarios[state.scenario].files.filter(file => !state.left.has(file.id));
+  const fileChip = (file, action) => `<span class="file${action === 'put' ? ' off' : ''}">${fileIcon}<span class="fname">${esc(file.name)}</span><span class="fsize">${size(file.size)}</span>${
+    action === 'drop' ? `<button type="button" data-drop="${esc(file.id)}" aria-label="Leave out ${esc(file.name)}" title="Leave out">×</button>`
+    : action === 'put' ? `<button type="button" data-put="${esc(file.id)}" aria-label="Include ${esc(file.name)}">Include</button>`
+    : action === 'mine' ? `<button type="button" data-mine="${esc(file.id)}" aria-label="Remove ${esc(file.name)}" title="Remove">×</button>` : ''}</span>`;
+
+  function renderQuote(node, interactive) {
+    const scene = scenarios[state.scenario];
+    const long = state.scenario === 'long';
+    const files = interactive ? scene.files.map(file => fileChip(file, state.left.has(file.id) ? 'put' : 'drop')) : included().map(file => fileChip(file));
+    node.innerHTML = `<div class="meta">${interactive ? '' : fwdIcon}<span>${interactive ? '' : 'Forwarded from '}<strong>Vikram Shah</strong></span><span>· Direct message · ${scene.time}</span></div>
+      <div class="text${interactive && long && !state.expanded ? ' clamped' : ''}">${scene.html}</div>
+      ${interactive && long ? `<button type="button" class="link more" data-more>${state.expanded ? 'Show less' : 'Show all'}</button>` : ''}
+      ${files.length ? `<div class="files">${files.join('')}</div>` : ''}`;
+  }
+  function renderList() {
+    const list = $('fw-list'), rows = matches();
+    list.hidden = Boolean(state.target);
+    $('fw-search').setAttribute('aria-expanded', String(!state.target));
+    if (state.target) return;
+    state.active = Math.min(state.active, Math.max(rows.length - 1, 0));
+    list.innerHTML = `<div class="label">${state.query.trim() ? 'Matches' : 'Recent'}</div>` + (rows.length ? rows.map((who, index) =>
+      `<button type="button" role="option" class="fw-row${index === state.active ? ' active' : ''}" aria-selected="${index === state.active}" data-pick="${who.id}" tabindex="-1">${face(who)}<span class="name">${esc(who.name)}</span>${who.kind === 'agent' ? '<span class="ai">AI</span>' : ''}<span class="role">${esc(who.role)}</span>${who.paused ? '<span class="state">Paused</span>' : ''}</button>`).join('')
+      : `<p class="fw-none">No one matches “${esc(state.query.trim())}”.</p>`);
+  }
+  function render() {
+    const scene = scenarios[state.scenario], who = state.target;
+    $('fw').hidden = state.sent; $('landed').hidden = !state.sent;
+    $('fw-chip').innerHTML = who ? `<span class="chip">${face(who)}<span class="name">${esc(who.name)}</span>${who.kind === 'agent' ? '<span class="ai">AI</span>' : ''}<button type="button" data-clear aria-label="Choose someone else">×</button></span>` : '';
+    $('fw-search').hidden = Boolean(who);
+    renderList();
+    renderQuote($('fw-quote'), true);
+    const agent = who?.kind === 'agent', needs = agent && !state.note.trim();
+    $('fw-note').placeholder = agent ? `What do you need from ${who.name}?` : 'Add a message (optional)';
+    $('fw-mine').innerHTML = state.mine.map(file => fileChip(file, 'mine')).join('');
+    $('fw-mine').hidden = !state.mine.length;
+    $('fw-send').disabled = !who || needs;
+    $('fw-send').textContent = who ? `Forward to ${who.name}` : 'Forward';
+    $('fw-hint').textContent = !who ? 'Choose who it goes to' : needs ? 'Say what you need first' : '';
+    $('fw-error').hidden = !state.error; $('fw-error').textContent = state.error;
+    const visible = $('fw-visible');
+    visible.hidden = !agent;
+    if (agent) visible.innerHTML = eyeIcon + `<span>${who.shared ? `${esc(who.name)}’s owners and admins can see what you forward.` : `Only you read your chat with ${esc(who.name)}.`}${who.paused ? ` ${esc(who.name)} is paused and will answer when it is resumed.` : ''}</span>`;
+    if (state.sent) renderLanded();
+    $('built-shot').src = scene.shot; $('built-shot').height = scene.size[1];
+    $('built-size').textContent = `${scene.size[0]} × ${scene.size[1]}`;
+    $('built-caption').textContent = scene.caption;
+    document.querySelectorAll('[data-scenario]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.scenario === state.scenario)));
+    measure();
+  }
+  function renderLanded() {
+    const who = state.target, files = state.mine;
+    $('landed').innerHTML = `<div class="landed-head">${face(who)}<span>${esc(who.name)}<small>${who.kind === 'agent' ? 'Your chat with this agent' : 'Direct message'}</small></span></div>
+      <div class="bubble"><div class="quote" id="landed-quote"></div>${state.note.trim() ? `<div>${esc(state.note.trim())}</div>` : ''}${files.length ? `<div class="files">${files.map(file => fileChip(file)).join('')}</div>` : ''}<time>Just now</time></div>
+      <p class="ok">This is how it arrives. The message's files stay inside the forwarded block; yours sit under your words.</p>
+      <button type="button" class="again" data-again>Forward another</button>`;
+    renderQuote($('landed-quote'), false);
+  }
+  function measure() {
+    const scene = scenarios[state.scenario], node = state.sent ? $('landed') : $('fw');
+    const w = Math.round(node.offsetWidth), h = Math.round(node.offsetHeight);
+    $('proto-size').textContent = `${w} × ${h}`;
+    $('proto-state').textContent = state.sent ? 'Arrived' : state.target ? `${state.target.kind === 'agent' ? 'Agent' : 'Person'} chosen` : 'Choosing';
+    const saved = Math.round((1 - (w * h) / (scene.size[0] * scene.size[1])) * 100);
+    $('saving').innerHTML = state.sent ? '' : state.target ? `<b>${saved}% less screen</b> than the built window for the same message.` : 'Choose someone: the list closes and the window shrinks.';
+  }
+  function pick(id) {
+    state.target = everyone.find(who => who.id === id) ?? null; state.query = ''; $('fw-search').value = ''; state.error = '';
+    render(); $('fw-note').focus({ preventScroll: true });
+  }
+  function reset(scenario = state.scenario) {
+    Object.assign(state, { scenario, query: '', target: null, active: 0, note: '', left: new Set(), mine: [], expanded: false, sent: false, error: '' });
+    $('fw-search').value = ''; $('fw-note').value = ''; render();
+  }
+  function add(files) {
+    state.error = '';
+    for (const file of files) {
+      if (included().length + state.mine.length >= MAX_FILES) { state.error = 'A message can carry at most eight files.'; break; }
+      if (!file.size || file.size > MAX_BYTES) { state.error = `${file.name} is over 10 MB.`; continue; }
+      state.mine.push({ id: 'mine-' + Math.random().toString(36).slice(2), name: file.name, size: file.size });
+    }
+    render();
+  }
+  const send = () => { if (!$('fw-send').disabled) { state.sent = true; render(); } };
+
+  $('fw-search').addEventListener('input', event => { state.query = event.target.value; state.active = 0; renderList(); measure(); });
+  $('fw-search').addEventListener('keydown', event => {
+    const rows = matches();
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); if (rows.length) { state.active = (state.active + (event.key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length; renderList(); } }
+    else if (event.key === 'Enter' && rows[state.active]) { event.preventDefault(); pick(rows[state.active].id); }
+  });
+  $('fw-note').addEventListener('input', event => { state.note = event.target.value; const area = event.target; area.style.height = 'auto'; area.style.height = Math.min(area.scrollHeight, 120) + 'px'; render(); });
+  $('fw-note').addEventListener('keydown', event => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); send(); } });
+  $('fw-send').addEventListener('click', send);
+  $('fw-reset').addEventListener('click', () => reset());
+  $('fw-attach').addEventListener('click', () => $('fw-file').click());
+  $('fw-file').addEventListener('change', event => { add([...event.target.files]); event.target.value = ''; });
+  $('fw-sample').addEventListener('click', () => add([{ name: 'Leave-policy-2026.pdf', size: 268000 }]));
+  $('proto-stage').addEventListener('click', event => {
+    const hit = name => event.target.closest(`[data-${name}]`);
+    if (hit('pick')) pick(hit('pick').dataset.pick);
+    else if (hit('clear')) { state.target = null; state.active = 0; render(); $('fw-search').focus({ preventScroll: true }); }
+    else if (hit('more')) { state.expanded = !state.expanded; render(); }
+    else if (hit('drop')) { state.left.add(hit('drop').dataset.drop); render(); }
+    else if (hit('put')) { state.left.delete(hit('put').dataset.put); state.error = ''; render(); }
+    else if (hit('mine')) { state.mine = state.mine.filter(file => file.id !== hit('mine').dataset.mine); state.error = ''; render(); }
+    else if (hit('again')) reset();
+  });
+  document.querySelectorAll('[data-scenario]').forEach(button => button.addEventListener('click', () => reset(button.dataset.scenario)));
+  window.addEventListener('resize', measure);
+  $('built-shot').addEventListener('load', measure);
+  if (document.fonts?.ready) document.fonts.ready.then(measure);
+  render();
+})();
+</script>
