@@ -11,7 +11,7 @@ const tags: Record<Exclude<LibraryApp['state'], 'addable'>, string> = {
   builtin: 'Already one of Cuckoo’s apps', added: 'Already added', unsupported: 'Not supported yet',
 };
 
-/** Settings › Connections › Add more apps (schema 135), for admins: search the
+/** Settings › Apps › Add apps (schema 135), for admins: search the
  * library, then choose the actions agents may use and say which only read.
  * `editing` opens straight on an added app's actions. */
 export function AddApps({ editing, close, done }: { editing?: Reviewing; close: () => void; done: (status: string) => void }) {
@@ -26,7 +26,7 @@ function SearchLibrary({ close, choose }: { close: () => void; choose: (app: Rev
   const found = useResource(useCallback(() => searchLibrary(query), [query]));
   const search = (event: FormEvent) => { event.preventDefault(); setQuery(text.trim()); };
   const apps = found.data?.apps ?? [];
-  return <Dialog title="Add more apps" close={close} footer={<Button onClick={close}>Close</Button>}>
+  return <Dialog title="Add apps" close={close} footer={<Button onClick={close}>Close</Button>}>
     <div className="add-apps">
       <p>Search the app library and add an app to this workspace. You choose what agents may do with it.</p>
       <form className="add-apps-search" role="search" onSubmit={search}>

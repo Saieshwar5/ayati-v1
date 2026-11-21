@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useId, useRef, useState, type ComponentProps, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useId, useRef, type ComponentProps, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 
 export function Brand({ className = '', symbol = false }: { className?: string; symbol?: boolean }) {
@@ -7,22 +7,6 @@ export function Brand({ className = '', symbol = false }: { className?: string; 
 
 export function Button({ primary = false, className = '', type = 'button', ...props }: ComponentProps<'button'> & { primary?: boolean }) {
   return <button {...props} type={type} className={`ui-button${primary ? ' primary' : ''} ${className}`} />;
-}
-
-export function Tabs({ sections }: { sections: { title: string; content: ReactNode }[] }) {
-  const id = useId();
-  const [selected, select] = useState(0);
-  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  return <><div className="ui-tabs" role="tablist">{sections.map(({ title }, index) =>
-    <Button key={title} ref={node => { buttons.current[index] = node; }} id={`${id}-${index}`} role="tab"
-      aria-controls={`${id}-panel-${index}`} aria-selected={selected === index} tabIndex={selected === index ? 0 : -1}
-      onClick={() => select(index)} onKeyDown={event => {
-        const next = event.key === 'ArrowRight' ? (index + 1) % sections.length
-          : event.key === 'ArrowLeft' ? (index + sections.length - 1) % sections.length
-          : event.key === 'Home' ? 0 : event.key === 'End' ? sections.length - 1 : -1;
-        if (next >= 0) { event.preventDefault(); select(next); buttons.current[next]?.focus(); }
-      }}>{title}</Button>)}</div>{sections.map(({ title, content }, index) =>
-    <section key={title} role="tabpanel" id={`${id}-panel-${index}`} aria-labelledby={`${id}-${index}`} hidden={selected !== index} tabIndex={0}>{content}</section>)}</>;
 }
 
 type DialogProps = {

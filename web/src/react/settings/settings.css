@@ -26,8 +26,12 @@
 /* The detail pane already scrolls; a scrolling tab panel would also clip the row menus. */
 .settings-people .desk-page .desk-content, .settings-people .desk-content > [role=tabpanel] { overflow:visible; }
 .settings-detail > section + section { margin-top:48px; }
-.settings-people .ui-tabs { border-bottom:1px solid var(--border); padding-bottom:14px; margin-top:12px; }
-.settings-people .ui-row { min-height:72px; }
+.settings-people .ui-row { min-height:68px; }
+.settings-people .ui-directory { margin-top:8px; }
+.settings-people .ui-avatar.face { border:0; }
+.ui-avatar.settings-invited { border-style:dashed; border-color:var(--border-control); border-radius:50%; background:none; color:var(--muted); }
+.settings-invited svg { width:18px; height:18px; }
+.ui-badge.settings-waiting { background:var(--warning-bg); color:var(--warning); font-weight:600; }
 .my-profile-columns { display:flex; flex-wrap:wrap; align-items:flex-start; gap:32px 48px; margin-top:24px; }
 .my-profile-edit { flex:1 1 440px; max-width:600px; min-width:0; display:grid; gap:26px; }
 .my-profile .ui-fieldset { display:grid; gap:26px; }
@@ -81,9 +85,6 @@
 .settings-check { padding:12px 0; }.settings-activity { display:flex; align-items:start; justify-content:space-between; gap:24px; padding:18px 0; border-bottom:1px solid var(--border); font-size:13px; }.settings-activity div { display:grid; gap:7px; min-width:0; }.settings-activity small { color:var(--muted); overflow-wrap:anywhere; }.settings-activity time { color:var(--muted); flex-shrink:0; }
 .settings-detail .company-page { padding:0; height:auto; overflow:visible; }
 
-.settings-connection,.settings-connect { padding:20px 0; border-bottom:1px solid var(--border); }
-.settings-connection-actions { display:flex; flex-wrap:wrap; gap:12px; }
-.settings-connect .ui-form { margin:16px 0; max-width:640px; }
 
 .settings-person .ui-row-title .settings-you { display:inline; font-weight:400; }
 .settings-admin { background:var(--selection); color:var(--text); }
@@ -195,3 +196,36 @@
 .company-rule-off strong { color:var(--muted); }
 .settings-workspace .settings-workspace-card { max-width:600px; }
 .settings-danger-row > div { flex:1 1 300px; min-width:0; }
+/* Apps (allowed-apps.tsx): one row per app, its connections under it. */
+.settings-apps { max-width:880px; }
+.settings-waiting-panel { margin:16px 0; padding:14px 16px 4px; border:1px solid var(--border-panel); border-radius:12px; }
+.settings-waiting-panel h3 { margin:0; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--warning); }
+.settings-waiting-panel .settings-rows { max-width:none; }
+.settings-waiting-panel .settings-row { border:0; }
+.settings-filters { display:flex; flex-wrap:wrap; gap:8px; margin:16px 0 12px; }
+.settings-filters .ui-button { border-radius:18px; }
+.settings-app-list { max-width:none; list-style:none; }
+.settings-app { border-top:1px solid var(--border); }
+.settings-app:last-child { border-bottom:1px solid var(--border); }
+.settings-app > .settings-row { border:0; }
+.settings-app .app-letter { display:grid; place-items:center; flex:none; }
+.settings-app > .settings-row > span:nth-child(2) { display:grid; gap:2px; min-width:0; flex:1; }
+.settings-app .settings-row select { min-width:130px; width:auto; padding:7px 8px; font-size:13px; }
+.settings-row-actions { align-items:center; }
+.settings-app-toggle svg { width:18px; height:18px; }
+.settings-app-toggle[aria-expanded=true] svg { transform:rotate(180deg); }
+.settings-app-more { margin:0 0 12px 50px; padding:4px 14px; border-radius:10px; background:var(--soft); }
+.settings-connections { list-style:none; margin:0; padding:0; font-size:14px; }
+.settings-connections li { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 14px; padding:10px 0; }
+.settings-connections li + li, .settings-connections + .settings-app-added { border-top:1px solid var(--border); }
+.settings-connections li > span { display:grid; gap:2px; flex:1 1 240px; min-width:0; overflow-wrap:anywhere; }
+.settings-connections strong { font-weight:500; }
+.settings-connections small { color:var(--muted); font-size:13px; }
+.settings-connection-problem { color:var(--warning); font-weight:600; }
+.settings-app-added { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0; padding:10px 0; font-size:13px; }
+.settings-app-added > span { flex:1 1 200px; }
+.settings-apps .settings-apps-note { margin-top:14px; font-size:13px; }
+.settings-other-connections { margin-top:32px; }
+.settings-other-connections h3 { margin:0 0 4px; }
+.settings-other-connections .settings-connections li { border-top:1px solid var(--border); }
+@media(max-width:600px) { .settings-app-more { margin-left:0; } }

@@ -8,7 +8,7 @@ import { WorkspaceGeneral } from './workspace-settings';
 import { AgentRules } from './agent-rules';
 import { ProfileSettings, Preferences } from './personal-settings';
 import { ThisWorkspace } from './this-workspace';
-import { ConnectionsSettings } from './all-connections';
+import { ConnectionsSettings } from './apps-settings';
 import { adminWorkspace, labels, memberWorkspace, personal, requestedSection, sectionUrl, type Section } from './settings-sections';
 import { SettingsIcon } from './settings-icons';
 import './settings.css';

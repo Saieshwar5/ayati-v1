@@ -7,28 +7,37 @@ import { decideAppRequest, loadAllowedApps, loadAppRequests, saveAllowance, type
 import { changeSystem } from '../agents/systems/model';
 import { removeAddedApp } from '../apps/added-apps-model';
 import { AddApps, type Reviewing } from './add-apps';
+import { AppLetter } from '../apps/app-marks';
+import { ConnectionRows, hasProblem, type Connections } from './app-connections';
 
 type Asking = { title: string; help: string; action: string; run: (note: string) => Promise<string> };
 
-const facts = (app: AllowedApp) => [
-  app.added && `Added from the library · ${app.added.actions.length} action${app.added.actions.length === 1 ? '' : 's'}`,
-  app.allowance === 'allowed' ? 'Allowed' : app.allowance === 'blocked' ? 'Switched off' : 'Not decided: members ask first',
-  app.allowance === 'blocked' && app.note,
+type Filter = 'all' | 'allowed' | 'undecided' | 'blocked';
+const words: Record<Exclude<Filter, 'all'>, string> = { allowed: 'Allowed', undecided: 'Ask first', blocked: 'Off' };
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`;
+
+const facts = (app: AllowedApp, connected: number) => [
+  app.allowance === 'blocked' ? 'Nobody can use it' : connected ? plural(connected, 'connection') : app.allowance === 'undecided' ? 'Members ask an admin first' : 'Not connected yet',
+  app.allowance === 'blocked' && app.note && `“${app.note}”`,
+  app.added && `Added from the library · ${plural(app.added.actions.length, 'action')}`,
   app.decided && `${dayName(app.decided.at)} by ${app.decided.by_name}`,
-  app.connections > 0 && `${app.connections} connection${app.connections === 1 ? '' : 's'}`,
 ].filter(Boolean).join(' · ');
 
-/** Settings › Connections for admins (schema 134): the requests waiting for an
- * answer, and every app Cuckoo offers with the admins' decision. Members add
- * allowed apps to their agents and ask for the rest. `changed` tells the list
- * of connections below that some may have ended. */
-export function AllowedApps({ changed }: { changed?: () => void }) {
+/** Settings › Apps for admins (schema 134): what waits for an answer, then every app
+ * Cuckoo offers with one choice (Allowed, Ask first until decided, Off) and its
+ * connections under it. Members add allowed apps to their agents and ask for the rest.
+ * `connections` are the workspace's connections, grouped here under their app;
+ * `changed` tells their owner that some may have ended. */
+export function AllowedApps({ changed, connections }: { changed?: () => void; connections?: Connections }) {
   const apps = useResource(loadAllowedApps);
   const requests = useResource(loadAppRequests);
   const mutation = useMutation();
   const [asking, ask] = useState<Asking>();
-  // The Add more apps dialog: searching the library, or changing one added app.
+  // The Add apps dialog: searching the library, or changing one added app.
   const [adding, add] = useState<{ editing?: Reviewing }>();
+  const [filter, setFilter] = useState<Filter>('all');
+  // Apps whose connections are shown; one with a connection in trouble starts open.
+  const [toggled, setToggled] = useState<Record<string, boolean>>({});
   const refresh = async () => { await Promise.all([apps.refresh(), requests.refresh()]); changed?.(); };
   const change = (work: () => Promise<string>) => void mutation.run(async () => { const done = await work(); await refresh(); mutation.setStatus(done); });
   const allow = (app: AllowedApp) => change(async () => {
@@ -66,15 +75,21 @@ export function AllowedApps({ changed }: { changed?: () => void }) {
   const systems = apps.data?.systems ?? [];
   // Requests for catalog apps; other kinds have no screen.
   const waiting = requests.data?.requests.filter(request => request.connector) ?? [];
-  const error = apps.error || requests.error;
-  return <section className="settings-section" aria-label="Allowed apps">
-    <h2>Allowed apps</h2>
-    <p className="ui-help">People add these apps to their own agents. An app you haven’t decided about must be asked for, and one you add to an agent yourself becomes allowed. An MCP server a member connects also waits for your yes.</p>
-    {apps.data?.library && <p><Button primary disabled={mutation.busy} onClick={() => add({})}>Add more apps</Button></p>}
+  const error = apps.error || requests.error || connections?.error;
+  const list = apps.data?.apps ?? [];
+  const under = (app: AllowedApp) => connections?.apps?.filter(item => item.server === app.id) ?? [];
+  // MCP servers and anything else connected that is not one of the apps above.
+  const others = connections?.apps?.filter(item => !list.some(app => app.id === item.server)) ?? [];
+  const shown = list.filter(app => filter === 'all' || app.allowance === filter);
+  const decide = (app: AllowedApp, choice: string) => { if (choice === 'allowed') allow(app); else if (choice === 'blocked') switchOff(app); };
+  return <section className="settings-apps" aria-label="Apps">
+    <header className="settings-section-heading"><div><h2>Apps</h2>
+      <p>Which apps agents may use, and where each one is connected.</p></div>
+      {apps.data?.library && <Button primary disabled={mutation.busy} onClick={() => add({})}>Add apps</Button>}</header>
     {error && <p role="alert">{error} <Button onClick={() => void refresh().catch(() => {})}>Retry</Button></p>}
     {!apps.data && !error && <p role="status">Loading apps…</p>}
-    <p className="ui-status" role="status">{mutation.busy ? 'Saving…' : mutation.status}</p>
-    {waiting.length + systems.length > 0 && <><h3 className="settings-subheading">Waiting for your answer</h3>
+    <p className="ui-status" role="status">{mutation.busy ? 'Saving…' : mutation.status || connections?.status}</p>
+    {waiting.length + systems.length > 0 && <section className="settings-waiting-panel" aria-label="Needs your answer"><h3>Needs your answer · {waiting.length + systems.length}</h3>
       <ul className="settings-rows" aria-label="App requests">{systems.map(system => <li key={system.id} className="settings-row">
         <span><strong>{system.requester ?? 'Someone'} connected the MCP server {system.name}</strong>
           <small>{[`for ${system.agent_name}`, system.url, `${system.tools} tool${system.tools === 1 ? '' : 's'}`].join(' · ')}</small></span>
@@ -87,16 +102,39 @@ export function AllowedApps({ changed }: { changed?: () => void }) {
         <span className="settings-row-actions">
           <Button primary disabled={mutation.busy} aria-label={`Allow ${request.name} for ${request.requester}`} onClick={() => approve(request)}>Allow</Button>
           <Button disabled={mutation.busy} aria-label={`Decline ${request.name} for ${request.requester}`} onClick={() => decline(request)}>Decline</Button></span>
-      </li>)}</ul></>}
-    {apps.data && !apps.data.apps.length && <p className="ui-empty">Cuckoo offers no apps here yet.</p>}
-    {apps.data && apps.data.apps.length > 0 && <ul className="settings-rows" aria-label="Apps">{apps.data.apps.map(app => <li key={app.id} className="settings-row">
-      <span><strong>{app.name}</strong><small>{facts(app)}</small></span>
-      <span className="settings-row-actions">
-        {app.allowance !== 'allowed' && <Button disabled={mutation.busy} aria-label={`Allow ${app.name}`} onClick={() => allow(app)}>Allow</Button>}
-        {app.allowance !== 'blocked' && <Button disabled={mutation.busy} aria-label={`Switch off ${app.name}`} onClick={() => switchOff(app)}>Switch off</Button>}
-        {app.added && apps.data?.library && <Button disabled={mutation.busy} aria-label={`Change the actions of ${app.name}`} onClick={() => changeActions(app)}>Change actions</Button>}
-        {app.added && <Button disabled={mutation.busy} aria-label={`Remove ${app.name}`} onClick={() => removeApp(app)}>Remove</Button>}</span>
-    </li>)}</ul>}
+      </li>)}</ul></section>}
+    {list.length > 0 && <div className="settings-filters" role="group" aria-label="Show">{(['all', 'allowed', 'undecided', 'blocked'] as Filter[]).map(id =>
+      <Button key={id} aria-pressed={filter === id} primary={filter === id} onClick={() => setFilter(id)}>
+        {id === 'all' ? 'All' : words[id]} · {id === 'all' ? list.length : list.filter(app => app.allowance === id).length}</Button>)}</div>}
+    {apps.data && !list.length && <p className="ui-empty">Cuckoo offers no apps here yet.</p>}
+    {list.length > 0 && !shown.length && <p className="ui-empty">No apps here.</p>}
+    {shown.length > 0 && <ul className="settings-rows settings-app-list" aria-label="Apps">{shown.map(app => {
+      const connected = under(app);
+      const more = connected.length > 0 || Boolean(app.added);
+      const open = more && (toggled[app.id] ?? connected.some(hasProblem));
+      return <li key={app.id} className="settings-app">
+        <div className="settings-row">
+          <AppLetter id={app.id} name={app.name} size="small" />
+          <span><strong>{app.name}</strong><small>{facts(app, connections ? connected.length : app.connections)}</small></span>
+          <span className="settings-row-actions">
+            <select aria-label={`${app.name}: who may use it`} disabled={mutation.busy} value={app.allowance} onChange={event => decide(app, event.target.value)}>
+              {app.allowance === 'undecided' && <option value="undecided">Ask first</option>}
+              <option value="allowed">Allowed</option><option value="blocked">Off</option></select>
+            {more && <Button className="ui-icon settings-app-toggle" aria-label={`${connected.length ? 'Connections' : 'Details'} of ${app.name}`} aria-expanded={open}
+              onClick={() => setToggled(old => ({ ...old, [app.id]: !open }))}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></Button>}
+          </span>
+        </div>
+        {open && <div className="settings-app-more">
+          {connections && connected.length > 0 && <ConnectionRows apps={connected} connections={connections} />}
+          {app.added && <p className="settings-app-added"><span>From the library · {plural(app.added.actions.length, 'action')}</span>
+            {apps.data?.library && <Button disabled={mutation.busy} aria-label={`Change the actions of ${app.name}`} onClick={() => changeActions(app)}>Change actions</Button>}
+            <Button disabled={mutation.busy} aria-label={`Remove ${app.name}`} onClick={() => removeApp(app)}>Remove app</Button></p>}
+        </div>}
+      </li>;
+    })}</ul>}
+    {list.length > 0 && <p className="ui-help settings-apps-note">Allowed: people add it to their own agents. Ask first: they ask an admin. Off: nobody can use it, and its connections end.</p>}
+    {connections && others.length > 0 && <section className="settings-other-connections" aria-label="Other connections"><h3>MCP servers and other connections</h3>
+      <ConnectionRows apps={others} connections={connections} named /></section>}
     {adding && <AddApps editing={adding.editing} close={() => add(undefined)} done={status => { add(undefined); void refresh().then(() => mutation.setStatus(status)).catch(() => {}); }} />}
     {asking && <NoteDialog asking={asking} close={() => ask(undefined)} done={status => { ask(undefined); void refresh().then(() => mutation.setStatus(status)).catch(() => {}); }} />}
   </section>;
