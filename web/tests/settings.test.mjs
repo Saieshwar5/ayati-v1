@@ -205,12 +205,15 @@ test('The Audit log shows who did what as sentences, with a filter for each kind
   await fixture('Admin',async({render,reads,button,click})=>{
     await render(base+'&section=audit-log');
     assert.equal(page(),'Audit log');
-    const rows=()=>[...document.querySelectorAll('.settings-audit-table tr')].map(row=>[...row.children].slice(1).map(cell=>cell.textContent));
-    assert.deepEqual(rows(),[['Person','removed Ravi; 1 agent moved to Person'],['Person','renamed the workspace to Northstar']]);
+    const rows=()=>[...document.querySelectorAll('.settings-audit-day li')].map(row=>[row.querySelector('strong').textContent,row.querySelector('p').textContent]);
+    assert.deepEqual(rows(),[['Person','Person removed Ravi; 1 agent moved to Person'],['Person','Person renamed the workspace to Northstar']]);
+    // Entries of one day share one heading.
+    assert.equal(document.querySelectorAll('.settings-audit-day h3').length,1);
     await click(button('Admin views'));
     assert.ok(reads.some(path=>path.includes('/activity?kind=admin_views')));
-    assert.deepEqual(rows(),[['Meera','viewed a request from a conversation they are not in (admin view)']]);
-    assert.equal(document.querySelector('.settings-audit-table tr').className,'admin-view');
+    assert.deepEqual(rows(),[['Meera','Meera viewed a request from a conversation they are not in (admin view)']]);
+    assert.equal(document.querySelector('.settings-audit-day li').className,'admin-view');
+    assert.equal(document.querySelector('.settings-audit-day li .ui-badge').textContent,'Admin view');
     assert.equal(document.querySelector('.settings-detail').textContent.includes('Simulation results'),false);
   });
 });
@@ -220,4 +223,13 @@ test('Simulation results appear in the Audit log only in a simulation',async()=>
     await render(base+'&section=audit-log');
     assert.ok(document.querySelector('.settings-detail').textContent.includes('Simulation results'));
   },true);
+});
+
+test('The audit log names today and yesterday, and dates older days',async()=>{
+  const { dayHeading }=await import('../src/react/settings/audit-log.tsx');
+  const now=new Date(2026,10,21,9,0), at=(...parts)=>new Date(...parts).getTime()/1000;
+  assert.equal(dayHeading(at(2026,10,21,0,5),now),'Today');
+  assert.equal(dayHeading(at(2026,10,20,23,59),now),'Yesterday');
+  assert.match(dayHeading(at(2026,10,19,12),now),/19/);
+  assert.match(dayHeading(at(2025,11,31,12),now),/2025/,'another year says which');
 });

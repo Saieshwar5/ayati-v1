@@ -126,7 +126,6 @@
 }
 @media(forced-colors:active) { .settings-group button[aria-current=page], .settings-theme:has(input:checked) { outline:1px solid Highlight; } }
 /* Workspace page, Preferences, Help and Audit log (D232, M5). */
-.settings-workspace > header .ui-badge, .settings-audit > header .ui-badge { align-self:flex-start; }
 .settings-general { max-width:600px; margin-top:20px; }
 .settings-general .ui-fieldset { display:grid; gap:16px; }
 .settings-general .ui-help { margin:-6px 0 0; font-size:13px; }
@@ -153,17 +152,10 @@
 .settings-row select { width:auto; min-width:220px; }
 .settings-notifications h3 { margin:28px 0 8px; }
 .settings-check { display:flex; align-items:center; gap:8px; font-size:13px; }
-.settings-audit-filters { display:flex; gap:8px; flex-wrap:wrap; margin:16px 0; }
-.settings-audit-table { width:100%; border-collapse:collapse; }
-.settings-audit-table td, .settings-audit-table th { padding:12px 8px; border-top:1px solid var(--border); text-align:left; vertical-align:top; font-size:14px; overflow-wrap:anywhere; }
-.settings-audit-table td:first-child { color:var(--muted); white-space:nowrap; width:130px; }
-.settings-audit-table th { width:180px; font-weight:600; }
-.settings-audit-table tr.admin-view td:last-child { color:var(--warning); }
 @media (max-width:760px) {
   .settings-model-add { grid-template-columns:1fr; }
   .settings-row { flex-wrap:wrap; }
   .settings-row select { min-width:0; width:100%; }
-  .settings-audit-table td:first-child, .settings-audit-table th { width:auto; }
 }
 .settings-pause { max-width:760px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; border-radius:12px; background:var(--soft); }
 .settings-pause h3 { margin:0 0 4px; font-size:15px; }
@@ -229,3 +221,14 @@
 .settings-other-connections h3 { margin:0 0 4px; }
 .settings-other-connections .settings-connections li { border-top:1px solid var(--border); }
 @media(max-width:600px) { .settings-app-more { margin-left:0; } }
+.settings-usage { max-width:880px; }
+.settings-usage > .usage-budgets { margin:20px 0 32px; }
+/* Audit log (audit-log.tsx): sentences grouped by day. */
+.settings-audit { max-width:880px; }
+.settings-audit-day h3 { margin:18px 0 6px; font-size:12px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+.settings-audit-day ul { list-style:none; margin:0; padding:0; }
+.settings-audit-day li { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; min-height:48px; padding:6px 0; border-top:1px solid var(--border); }
+.settings-audit-day time { flex:none; width:74px; color:var(--muted); font-size:13px; font-variant-numeric:tabular-nums; }
+.settings-audit-face.face { width:30px; height:30px; font-size:11px; }
+.settings-audit-day li p { flex:1 1 320px; min-width:0; margin:0; color:var(--text); overflow-wrap:anywhere; }
+.settings-audit > .ui-button { margin-top:16px; }
