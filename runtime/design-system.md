@@ -18,7 +18,7 @@ Feature specifications still govern permissions, persistence and execution.
   when everything is read. Muted conversations add only what is for you. The link's
   accessible name says the count ("Chat, 3 unread messages, 1 for you").
 - The rail's Activity icon carries, in the same style, how many things need you,
-  counted as Home and Activity → Needs me count them ("25+" when more pages
+  counted as Home and Activity → Needs you count them ("25+" when more pages
   follow; "Activity, 2 need you"). It shares their reads and otherwise reads on
   focus, access changes, an agent's message changing (at most every 3 s) and every
   30 s while visible. No other rail item has a count.
@@ -233,9 +233,9 @@ your request", "Thread you follow"), where and when, and two lines of the messag
 It opens the conversation at that message, or its thread, with "‹ For you" in the
 header. The list never marks anything read: a message is read when seen where it
 is, so For you, the counts and the rail agree. Direct messages, approvals and agent
-questions stay out (their own rows, and Activity → Needs me). With nothing at all
+questions stay out (their own rows, and Activity → Needs you). With nothing at all
 the page shows only its title, a check, "Nothing for you right now" and the link to
-Needs me: no description and no filters (they return as soon as there is something,
+Needs you: no description and no filters (they return as soon as there is something,
 and stay while a chosen filter is empty). On a phone it fills the screen with
 "‹ Chats", and the filters scroll sideways.
 
@@ -353,15 +353,24 @@ Chat. See [pages in agent replies](agent-pages.md).
 
 ## Activity
 
-Needs me, in a window 1040 px or wider, is a list with the opened item beside it
-(2026-11-21, `designs/activity-next` Design A, step 1). The page stops scrolling as a
-whole there: the list and the opened item scroll on their own, under one divider. Rows
-are flat, with the pale selection fill on the open one and no button of their own; the
-opened item keeps its own buttons. Dialogs shown this way (`DialogPlacement` in
-`ui.tsx`) take no focus and cover nothing; a dialog opened from inside one is an
-ordinary modal. The tab row is one line that scrolls sideways when it does not fit.
-My agents / All agents is a filter, so its chosen side uses the pale selection fill,
-not the dark primary fill. See [Activity](activity.md).
+Activity has five views (2026-11-21, `designs/activity-next` Design A): **Needs you**,
+**Work**, **Planned**, **History** and **Insights**. The tab row is one line that
+scrolls sideways when it does not fit.
+
+In a window 1040 px or wider, Needs you, Work → Agents and History are a list with the
+opened item beside it. The page stops scrolling as a whole there: the list and the
+opened item scroll on their own, under one divider. Rows are flat, with the pale
+selection fill on the open one; in Needs you a row is one button and has none of its
+own. Dialogs shown this way (`DialogPlacement` in `ui.tsx`) take no focus and cover
+nothing; a dialog opened from inside one is an ordinary modal. Narrower windows keep
+the drawer.
+
+Agents on Work are flat rows, as wherever agents are listed, not cards. The switches
+beside the tabs (Agents / Tasks, My agents / All agents) are filters, so their chosen
+side uses the pale selection fill, not the dark primary fill. Pause all agents is in
+the ⋯ menu, not a permanent button. Notices above a list ("3 events not handled
+today") are plain bordered lines in the text colour; warning colour is for the status
+of a thing, not for a line about it. See [Activity](activity.md).
 
 ## Agents and people management
 

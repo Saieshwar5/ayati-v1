@@ -13,12 +13,12 @@ const page=(items=[item],next_before=null)=>response({available:true,items,next_
 async function setup(){const context=await import('../src/workspace-context.ts');await context.enterWorkspace();return (await import('../src/react/activity/activity-page.tsx')).ActivityPage;}
 const render=async(fixture,Page)=>fixture.render(Page,{href:url});
 
-test('Needs me opens a question only after its read receipt and never answers it',async()=>{
+test('Needs you opens a question only after its read receipt and never answers it',async()=>{
   const writes=[];
   await reactFixture(async fixture=>{
     const {button,click}=fixture;
     await render(fixture,await setup());assert.equal(writes.length,0);
-    assert.equal(button('Needs me1').getAttribute('aria-selected'),'true');
+    assert.equal(button('Needs you1').getAttribute('aria-selected'),'true');
     assert.match(document.body.textContent,/Choose the customer group.*new/);
     await click(button('Answer'));
     assert.deepEqual(writes,[{kind:'question',id:'q',version:'pending',reviewed:false}]);
@@ -72,11 +72,11 @@ test('older pages are bounded, tabs follow the keyboard and the count shows more
   await reactFixture(async fixture=>{
     const {button,click,update}=fixture;
     await render(fixture,await setup());
-    assert.ok(button('Needs me1+'));
+    assert.ok(button('Needs you1+'));
     await click(button('Older'));assert.match(document.body.textContent,/Older question/);
     await click(button('Newer'));assert.match(document.body.textContent,/Choose the customer group/);
-    await update(()=>button('Needs me1+').dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true})));
-    assert.equal(button('Now').getAttribute('aria-selected'),'true');assert.equal(document.activeElement,button('Now'));
+    await update(()=>button('Needs you1+').dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true})));
+    assert.equal(button('Work').getAttribute('aria-selected'),'true');assert.equal(document.activeElement,button('Work'));
   },{url,fetch:async path=>{
     if(path.endsWith('/session'))return response(session);
     if(path.includes('/activity/now'))return response({agents:[],running:[],away:{since:0,totals:{requests:0}}});

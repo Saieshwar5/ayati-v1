@@ -27,7 +27,7 @@ people start or join; work an agent does on its own appears in Activity.
 - **Activity.** A run's details show **Started by** (the schedule), **Set up
   by** and **Results** (posted or not, and why), with **Pause schedule**.
   There is no conversation to open. A run's question and approvals wait in
-  **Needs me**. Links of the form `?view=activity&tab=history&run=<id>` open a
+  **Needs you**. Links of the form `?view=activity&tab=history&run=<id>` open a
   run directly. In an agent's Schedules, **View runs** opens each run in
   Activity, and the create dialog asks "Where results go".
 - **Unchanged:** personal Home panel updates keep their own source.

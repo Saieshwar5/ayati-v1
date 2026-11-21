@@ -9,10 +9,29 @@ for Design A to be worked on (2026-11-21). The built behaviour is in
 | --- | --- | --- |
 | 0 | The five bugs listed below | Built and tested |
 | 1 | Needs me as a list with the opened item beside it (wide windows), J and K | Built and tested |
-| 2 | Fix items (connections, failing agents, late tasks) in the same list and count | Waits for the owner: what the rail's red count means |
-| 3 | The conversation shown and answered inside the item; "‹ Needs you" back from Chat | Not started: needs a read of the messages around a request |
-| 4 | Work tab with agent rows; History with the log first; Insights | Not started: includes the new tab names, an owner decision |
-| 5 | The list-then-item layout on phones; A, R and C keys | Not started |
+| 2 | What needs fixing in the same list | Built and tested, outside the red count (see below) |
+| 3 | The conversation under the item; "‹ Needs you" back from Chat | Built and tested, without a reply box (see below) |
+| 4 | Five tabs: Work with agent rows and a panel, Planned, History with the log first, Insights | Built and tested |
+| 5 | A, R and C keys | Built and tested; phones keep the drawer (see below) |
+
+The owner asked for every step on 2026-11-21. Three things differ from the prototype,
+each on purpose:
+
+- **The red count is unchanged.** What needs fixing is listed in Needs you with its own
+  number, but the count on the tab, the rail, Home and the browser tab still comes from
+  `/attention` alone. Counting causes too needs one cheap server count that every page
+  can read; reading all of `/activity/now` from the rail on every page is not that.
+- **Activity does not send chat messages.** The conversation shows the asking message
+  and the agent's reply, "Add to this request" for the person who asked, and the two
+  ways into Chat. A reply in the channel is written in Chat, where the conversation's
+  routing (who it reaches, whether an agent acts on it) is shown; sending it blind from
+  Activity could start agent work nobody meant.
+- **Phones keep the drawer.** It is already a full-height sheet with focus kept inside
+  and Escape to close; rows wrap their buttons under the title. The whole-row layout
+  is used from 1040 px.
+
+A, R and C work only while the keyboard is in the list or the opened item. An approval
+cannot be undone, so a key typed elsewhere on the page must not decide one.
 
 Step 1 keeps every item's own content and buttons (the approval, question, outcome,
 request and review-together dialogs are shown in place, unchanged), the count, the
@@ -95,11 +114,13 @@ Talking about an item (`talk.js`, and `chat.js` for a simplified Chat page):
 Two things in it are new behaviour, not just layout, and need a decision: search is one
 box that searches the current tab, and decided items stay listed under "Decided today".
 
-## Decisions for the owner before building
+## Still open for the owner
 
-- Whether Fix items count in the rail's red number. The design system currently defines
-  that count as the Needs me count.
-- Tab names: Needs you, Work, Planned, History, Insights.
+- Whether what needs fixing should be in the red count. If yes, the server needs one
+  small count that the rail can read on every page.
+- Whether a reply box that posts in the channel belongs in Activity, once it can show
+  the conversation's routing the way Chat does.
+- Whether phones should get the whole-row list and a full-screen item instead of the drawer.
 
 ## Bugs found in the built page (independent of the redesign)
 

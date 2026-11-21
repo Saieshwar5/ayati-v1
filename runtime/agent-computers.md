@@ -156,7 +156,7 @@ a minute even while held, and agents are told computers are paused. Files are ke
   kept in steps.
 - **Hand-over picture:** when the agent hands over, Cuckoo keeps a JPEG of the page
   (`relay_computer_shots`, deleted with the reply) and shows it in the question, so
-  the person sees what they are asked to do. Activity's Needs me lists hand-overs
+  the person sees what they are asked to do. Activity's Needs you lists hand-overs
   under **In the browser**, with **Take over**.
 - **Hand-over:** while its question is open, the computer stays with that request for
   up to 15 minutes after the person's last input, even after the agent's attempt ends.

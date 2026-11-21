@@ -40,6 +40,8 @@ export function WorkspaceChat({ href }: { href: string }) {
   // Chat → For you takes the conversation's place; a conversation opened from it links back.
   const forYou = !selected && url.searchParams.get('section') === 'for-you';
   const forYouHref = workspaceUrl('/?view=chat&section=for-you');
+  // "Open in Chat" in Activity → Needs you comes back to the row it left.
+  const activityHref = (from: URL) => workspaceUrl(`/?view=activity&tab=needs${from.searchParams.get('item') ? `&item=${encodeURIComponent(from.searchParams.get('item')!)}` : ''}`);
   const [preferences, setPreferences] = useState<Preferences>();
   const [archivedVisible, showArchived] = useState(false);
   const sourceEpoch = useRef(0);
@@ -206,7 +208,7 @@ export function WorkspaceChat({ href }: { href: string }) {
     </aside>
     <div className="chat-content">
       {forYou ? <ForYouPage directory={directory} back={() => setShowList(true)} />
-        : current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} returnTo={url.searchParams.get('from') === 'for-you' ? forYouHref : undefined} level={levels[current.id]} levelChanged={level => setLevels(previous => ({ ...previous, [current.id]: level }))} focus={url.searchParams.get('message') ?? undefined} back={() => setShowList(true)} details={details} />
+        : current && directory ? <ConversationPane key={current.id} chat={current} directory={directory} returnTo={url.searchParams.get('from') === 'for-you' ? forYouHref : url.searchParams.get('from') === 'activity' ? activityHref(url) : undefined} level={levels[current.id]} levelChanged={level => setLevels(previous => ({ ...previous, [current.id]: level }))} focus={url.searchParams.get('message') ?? undefined} back={() => setShowList(true)} details={details} />
         : <div className="chat-welcome"><Button className="chat-back" onClick={() => setShowList(true)}>‹ Chats</Button>{!selected && facts
           ? <ChatStart facts={facts} invites={invites} openAssistant={assistantChat ? () => open(assistantChat.id) : undefined}
             message={who => void direct.choose(who)} showAll={() => showPeople(true)} />

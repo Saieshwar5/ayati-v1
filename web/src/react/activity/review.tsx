@@ -1,14 +1,15 @@
 import { useCallback, useState } from 'react';
 import { Button } from '../ui';
-import { useMutation } from '../requests';
+import { useMutation, useResource } from '../requests';
+import { ActivityCharts } from './charts';
 import { identityRequest, workspaceId } from '../../workspace-context';
-import { dayLabel, type Scope } from './model';
+import { dayLabel, loadTotals, startOfToday, type Scope } from './model';
 import { useLive } from './use-live';
 import { agentSectionUrl } from '../agents/workspace-tabs';
 
-// Activity → Review (people-and-agents-first, Phase 5): "Can I trust agents with
-// more?" — measures, rules from repeated decisions, goals and weekly reviews, for
-// the people who can fix the agents.
+// Activity → Insights (people-and-agents-first, Phase 5, named Review until Design A):
+// "Can I trust agents with more?" — rules from repeated decisions, measures, the
+// charts that History used to open with, goals and weekly reviews.
 type Measure = { id: string; name: string; tasks: number; done: number; failed: number; open: number; due_done: number; on_time: number;
   needed_person: number; person_minutes: number; requests?: number; model_runs?: number };
 type Suggestion = { agent: string; agent_name: string; connection: string; operation: string; title: string; approved: number };
@@ -23,13 +24,16 @@ const load = (scope: Scope) => identityRequest<ReviewPage>(`${root()}/review?day
 export function ReviewView({ scope }: { scope: Scope }) {
   const { data, error, refresh } = useLive(useCallback(() => load(scope), [scope]));
   const m = useMutation();
+  // The same 30 days as the measures, for the two charts.
+  const [from] = useState(() => startOfToday() - 29 * 86400000);
+  const totals = useResource(useCallback(() => loadTotals({ from, scope }), [from, scope]));
   const act = (path: string, body: unknown, done: string) => void m.run(async () => { await identityRequest(`${root()}${path}`, body); await refresh(); m.setStatus(done); });
   if (error) return <p role="alert">{error}</p>;
   if (!data) return <p role="status">Loading the review…</p>;
   if (!data.available) return <p className="activity-empty">Reviews need the latest workspace database.</p>;
   const agents = data.agents ?? [];
   const weekly = (agent: string) => data.weekly?.find(w => w.agent === agent);
-  return <section className="activity-review" aria-label="Review">
+  return <section className="activity-review" aria-label="Insights">
     <p className="ui-status" role="status">{m.status}</p>
     {Boolean(data.suggestions?.length) && <section aria-label="Suggested rules"><h2 className="activity-group">Suggestions</h2>
       <p className="ui-help">Patterns from the last 30 days. Rules change on the agent’s Tools tab, where every rule lives.</p>
@@ -49,6 +53,8 @@ export function ReviewView({ scope }: { scope: Scope }) {
         : <p className="activity-empty">No agents you manage yet.</p>}
       <small className="ui-help">Person-minutes: time from reading a question or approval to answering it, at most ten minutes each. Model runs are counts; cost in money comes later.</small>
     </section>
+    {totals.data?.per_day && totals.data.by_agent && <section aria-label="Requests"><h2 className="activity-group">Requests · last 30 days</h2>
+      <ActivityCharts totals={totals.data} from={from} /></section>}
     {Boolean(data.people?.length) && <section aria-label="By person"><h2 className="activity-group">By person</h2>
       <ul className="activity-list">{data.people!.map(p => <li key={p.id}><span className="activity-main"><strong>{p.name}</strong>
         <small>{p.tasks} tasks · {p.done} done · {p.needed_person} needed them · {p.person_minutes} minutes</small></span></li>)}</ul></section>}

@@ -28,7 +28,7 @@ function MemberAutomations({ agent, openChat }: { agent: Agent; openChat?: () =>
       {openChat && <Button primary onClick={openChat}>Ask {agent.name} in Chat</Button>}
       <a className="ui-button" href={workspaceUrl('/?view=activity&tab=upcoming')}>See what runs next in Activity</a>
     </div>
-    <p className="ui-help">Schedules you save from Chat run as you, with your access. Pause them from Activity › Upcoming.</p>
+    <p className="ui-help">Schedules you save from Chat run as you, with your access. Pause them from Activity › Planned.</p>
   </section>;
 }
 function ScheduleWorkspace({ agent }: { agent: Agent }) {

@@ -68,7 +68,7 @@ blocked one, "The agent couldn't continue: …".
 
 ## People
 
-- **Activity → Tasks**: every open task the person may see, needs fixing first, then late,
+- **Activity → Work → Tasks**: every open task the person may see, needs fixing first, then late,
   waiting, working, open and scheduled. My agents narrows it. At most 200 are listed.
 - **Task details**: what it promises (done when), who it's for, where, its steps (each
   request, opening its own details) and its result. **Mark done** and **Cancel task** are

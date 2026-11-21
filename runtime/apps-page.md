@@ -207,7 +207,7 @@ tools a company already uses.
   roles, agent rules and runs, watchers and waiting events. Work an app event already
   started stays as ordinary conversation history. Schemas 78–86 stay in the history.
 - The `/apps/built/…` routes, the "Built here" filter, **Build an app**, app triggers
-  on Automations and in Activity › Upcoming, and the agent tools `my_apps`,
+  on Automations and in Activity › Planned, and the agent tools `my_apps`,
   `app_files`, `read_app_file`, `write_app_file`, `app_actions` and `run_app_action`
   are gone. Old `?view=apps&run=…` links open the Apps list.
 - The last version with built apps is tagged `built-apps-last`.

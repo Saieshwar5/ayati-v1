@@ -10,6 +10,7 @@
 .activity-tabs button:hover:not([aria-selected=true]) { background: var(--soft); }
 .activity-tabs button[aria-selected=true] { color: var(--text); background: var(--selection); font-weight: 600; }
 .activity-tabs button:focus-visible { outline-offset: -3px; }
+.activity-scope + .activity-scope, .activity-more { margin-left: 0 !important; }
 .activity-scope { margin-left: auto; display: inline-flex; border: 1px solid var(--border-control); border-radius: 9px; overflow: hidden; }
 /* A filter, so its chosen side is the pale selection fill; dark is for primary actions. */
 .activity-scope button { min-height: 36px; padding: 6px 14px; font: inherit; font-size: 13px; color: var(--text); background: transparent; border: 0; cursor: pointer; }
@@ -48,16 +49,9 @@
 .activity-away { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 16px 18px; border-radius: 10px; background: var(--soft); }
 .activity-away > span { flex: 1; min-width: 220px; display: grid; gap: 4px; }
 .activity-away small { color: var(--muted); }
-.activity-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-.activity-card { padding: 14px 16px; border: 1px solid var(--border-panel); border-radius: 10px; }
-.activity-card header { display: flex; align-items: flex-start; gap: 12px; }
-.activity-card header > span:nth-child(2) { flex: 1; min-width: 0; display: grid; gap: 2px; }
-.activity-card small { color: var(--muted); font-size: 13px; }
-.activity-unhandled { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 0; padding: 10px 14px; border: 1px solid var(--border-panel); border-radius: 10px; color: var(--warning); font-weight: 600; }
 .activity-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .activity-card-setup { color: var(--muted); font-size: 13px; text-decoration: none; }
 .activity-card-setup:hover, .activity-card-setup:focus-visible { color: var(--text); text-decoration: underline; }
-.activity-card p { margin: 10px 0 0; font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
 .activity-card-face.face, .activity-card-face { width: 40px; height: 40px; border-radius: 10px; flex: none; }
 
 /* History */
@@ -65,10 +59,6 @@
 .activity-filters label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
 .activity-filters select { min-height: 36px; padding: 6px 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 8px; }
 .activity-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-.activity-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-top: 18px; }
-.activity-totals article { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--border-panel); border-radius: 10px; }
-.activity-totals small, .activity-totals span { color: var(--muted); font-size: 12px; }
-.activity-totals strong { font-size: 24px; font-weight: 600; }
 .activity-timeline { margin-top: 20px; }
 .activity-row { display: block !important; padding: 0 !important; }
 .activity-day { margin: 18px 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
@@ -109,11 +99,9 @@ button.activity-row-button:hover { background: var(--soft); }
   .activity-filters { display: grid; grid-template-columns: 1fr 1fr; }
   .activity-filters .activity-search { grid-column: 1 / -1; width: 100%; }
   .activity-filters select { width: 100%; min-width: 0; }
-  .activity-totals { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .activity-totals strong { font-size: 20px; }
   .activity-row-button { grid-template-columns: 52px minmax(0, 1fr) auto; }
   .activity-row-button .activity-agent { grid-column: 2; grid-row: 1; }
-  .activity-row-button .activity-main { grid-column: 2; grid-row: 2; }
+  .activity-row-button .activity-main { grid-column: 2 / -1; grid-row: 2; }
   .activity-row-button .activity-status { grid-column: 3; grid-row: 1; }
   .activity-list > li { flex-wrap: wrap; }
   /* The title takes the row; its buttons go under it instead of squeezing it. */
@@ -159,8 +147,6 @@ button.activity-row-button:hover { background: var(--soft); }
 @media (forced-colors: active) { .chart-column, .chart-bar { background:CanvasText; } }
 .activity-export { margin-left:auto; }
 
-/* Pause all agents: its control on Now. */
-.activity-now-header { display:flex; justify-content:flex-end; gap:8px; margin-bottom:12px; }
 
 /* Tasks (people-and-agents-first, Phase 2). */
 .activity-row-light strong { font-weight: 500; color: var(--muted); }
@@ -207,11 +193,14 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-list > li.unread .activity-main strong { font-weight: 600; }
 .activity-page.activity-split { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
 .activity-split > * { width: 100%; flex: none; }
-.activity-split > .activity-panel { flex: 1; min-height: 0; display: flex; }
-.activity-split .activity-needs { flex: 1; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); border-top: 1px solid var(--border); }
-.activity-split .activity-needs-list { min-height: 0; overflow: auto; padding: 16px 12px 32px 0; border-right: 1px solid var(--border); }
-.activity-split .activity-list > li { padding: 0; gap: 8px; border-bottom: 0; }
-.activity-split .activity-list > li.selected { background: none; }
+.activity-split > .activity-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.activity-split .activity-panel > section { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.activity-split .activity-panel .activity-cols { flex: 1; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); border-top: 1px solid var(--border); }
+.activity-split .activity-panel .activity-cols-wide { grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr); }
+.activity-split .activity-history .activity-cols { margin-top: 14px; }
+.activity-split .activity-cols-list { min-height: 0; margin-top: 0; overflow: auto; padding: 16px 12px 32px 0; border-right: 1px solid var(--border); }
+.activity-split .activity-needs .activity-list > li { padding: 0; gap: 8px; border-bottom: 0; }
+.activity-split .activity-needs .activity-list > li.selected { background: none; }
 .activity-need-row { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 12px; padding: 10px; font: inherit; text-align: left; color: var(--text); background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
 .activity-need-row:hover { background: var(--soft); }
 .activity-need-row[aria-current=true] { background: var(--selection); }
@@ -231,3 +220,40 @@ button.activity-row-button:hover { background: var(--soft); }
 .ui-pane > .ui-dialog-body { flex: 1; }
 .ui-pane [hidden] { display: none !important; }
 @media (forced-colors: active) { .activity-need-row[aria-current=true] { outline: 2px solid Highlight; } }
+
+/* Work: one flat row per agent (the design system asks for rows, not cards, where agents are listed). */
+.activity-agent { display: grid; grid-template-columns: 40px minmax(110px, 180px) minmax(0, 1fr); gap: 6px 14px; align-items: center; padding: 12px 8px; border-bottom: 1px solid var(--border); }
+.activity-agent[aria-current=true] { background: var(--selection); border-radius: 8px; border-bottom-color: transparent; }
+.activity-agent-who { display: grid; gap: 2px; min-width: 0; }
+.activity-agent-who small, .activity-agent-state small { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.activity-agent-name { justify-self: start; padding: 0; font: inherit; font-weight: 600; text-align: left; color: var(--text); background: none; border: 0; cursor: pointer; }
+.activity-agent-name:hover { text-decoration: underline; text-underline-offset: 3px; }
+.activity-agent-state { display: grid; gap: 4px; justify-items: start; min-width: 0; }
+.activity-agent .activity-card-actions { grid-column: 2 / -1; margin-top: 0; }
+.activity-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 14px 0 0; padding: 8px 14px; border: 1px solid var(--border-panel); border-radius: 10px; font-size: 14px; }
+.activity-more { position: relative; }
+.activity-more summary { list-style: none; width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--border-control); border-radius: 9px; cursor: pointer; font-size: 18px; }
+.activity-more summary::-webkit-details-marker { display: none; }
+.activity-more summary:hover, .activity-more[open] summary { background: var(--soft); }
+.activity-more > div { position: absolute; right: 0; top: 42px; z-index: 3; padding: 8px; border: 1px solid var(--border-panel); border-radius: 10px; background: var(--raised); box-shadow: 0 8px 24px var(--shadow-deep); white-space: nowrap; }
+
+/* History: the period as one line; Planned: where "now" is; the conversation under an item. */
+.activity-summary { margin: 14px 0 0; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.activity-summary strong { color: var(--text); }
+.activity-summary-link { padding: 0; font: inherit; font-weight: 600; color: var(--text); background: none; border: 0; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.activity-nowline { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--working); }
+.activity-nowline::after { content: ''; flex: 1; height: 2px; background: var(--working); }
+.activity-talk { display: grid; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border); }
+.activity-talk > header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.activity-talk h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.activity-talk > header a { font-size: 13px; font-weight: 600; color: var(--text); }
+.activity-talk-messages { display: grid; gap: 12px; }
+.activity-talk-messages > div { display: grid; grid-template-columns: auto 1fr; gap: 4px 8px; align-items: baseline; }
+.activity-talk-messages small { color: var(--muted); font-size: 12px; }
+.activity-talk-messages blockquote { grid-column: 1 / -1; margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--soft); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 200px; overflow: auto; }
+.activity-fix-agents { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--muted); font-size: 13px; }
+.activity-empty kbd { padding: 1px 6px; font: inherit; font-size: 11px; font-weight: 600; border: 1px solid var(--border-panel); border-bottom-width: 2px; border-radius: 5px; background: var(--soft); color: var(--text); }
+@media (max-width: 760px) {
+  .activity-agent { grid-template-columns: 40px minmax(0, 1fr); }
+  .activity-agent-state { grid-column: 2; }
+}

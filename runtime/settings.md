@@ -97,7 +97,7 @@ everyone. No workspace records are deleted.
 
 ## Pause all agents (schema 51)
 
-An admin's emergency switch, in **Activity → Now** and **Settings → Workspace**.
+An admin's emergency switch, in **Activity → Work** (the ⋯ menu) and **Settings → Workspace**.
 
 - **Pausing** asks for an optional reason (everyone sees it), then in one
   transaction stops every unfinished request with the same stop as a person's

@@ -84,7 +84,7 @@ export function ForYouPage({ directory, back }: { directory?: Directory; back: (
       {nothing ? <div className="for-you-empty">
         <span aria-hidden="true">✓</span>
         <h3>Nothing for you right now</h3>
-        <p>Approvals and agent questions are in <a href={workspaceUrl('/?view=activity&tab=needs')}>Activity → Needs me</a>.</p>
+        <p>Approvals and agent questions are in <a href={workspaceUrl('/?view=activity&tab=needs')}>Activity → Needs you</a>.</p>
       </div> : first && <>
         {newShown.length > 0 && <><h3 className="for-you-section">New · {newShown.length}</h3>
           <ul>{newShown.map(item => <ForYouRow key={item.id} item={item} directory={directory} />)}</ul></>}

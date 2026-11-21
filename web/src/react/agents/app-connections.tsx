@@ -71,7 +71,7 @@ export function AppConnections({ agent, focus, children }: { agent: Agent; focus
       </header>
       {connection.operations.map(operation => <ToolAction key={operation.id} operation={operation}
         disabled={!editable || mutation.busy} action={`${connection.id}/${operation.id}`} highlighted={focus === `${connection.id}/${operation.id}`}
-        note={focus === `${connection.id}/${operation.id}` ? 'Suggested in Activity › Review: approved every time it asked.' : undefined}
+        note={focus === `${connection.id}/${operation.id}` ? 'Suggested in Activity › Insights: approved every time it asked.' : undefined}
         change={mode => change(() => saveConnectorRule({ connection: connection.id, operation: operation.id, mode, needs_other: operation.needs_other, revision: operation.rule_revision ?? 0 }), `${operation.title}: ${modes[mode]}.`)} />)}
     </article>)}
     {data && !apps.length && <p className="ui-empty">No apps yet.{editable ? ` Add one for ${agent.name}: Gmail, a calendar, a CRM.` : ''}</p>}

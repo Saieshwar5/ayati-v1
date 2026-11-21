@@ -32,22 +32,23 @@ type DialogProps = {
 
 /** Where a Dialog shows. A host with a reading pane (Activity → Needs me) provides this,
  * and the first Dialog inside it renders in place beside the list instead of over the
- * page. `settled` runs after each write in that dialog finishes, so the host re-reads. */
-export const DialogPlacement = createContext<{ settled?: () => void } | undefined>(undefined);
+ * page. `settled` runs after each write in that dialog finishes, so the host re-reads;
+ * `after` is the host's own content, shown under the dialog's and scrolling with it. */
+export const DialogPlacement = createContext<{ settled?: () => void; after?: ReactNode } | undefined>(undefined);
 
 /** A native modal dialog or drawer. `back` adds a back arrow before the title, for a
  * second step inside the same panel. */
 export function Dialog(props: DialogProps) {
   const placement = useContext(DialogPlacement);
-  return placement ? <PaneDialog {...props} settled={placement.settled} /> : <ModalDialog {...props} />;
+  return placement ? <PaneDialog {...props} settled={placement.settled} after={placement.after} /> : <ModalDialog {...props} />;
 }
 
-function DialogParts({ id, title, busy = false, status = '', close, back, children, footer }: DialogProps & { id: string }) {
+function DialogParts({ id, title, busy = false, status = '', close, back, children, footer, after }: DialogProps & { id: string; after?: ReactNode }) {
   return <>
     <header className="ui-dialog-header">
       {back && <Button className="ui-icon ui-dialog-back" aria-label="Back" disabled={busy} onClick={back}>‹</Button>}
       <h2 id={id}>{title}</h2><Button className="ui-icon" aria-label="Close" disabled={busy} onClick={close}>×</Button></header>
-    <div className="ui-dialog-body"><fieldset className="ui-fieldset" disabled={busy}>{children}</fieldset></div>
+    <div className="ui-dialog-body"><fieldset className="ui-fieldset" disabled={busy}>{children}</fieldset>{after}</div>
     <footer className="ui-dialog-footer"><p className="ui-status" role="status">{status}</p>{footer}</footer>
   </>;
 }
@@ -72,7 +73,7 @@ function ModalDialog(props: DialogProps) {
 
 /** The same dialog shown in place. It takes no focus and covers nothing; dialogs it
  * opens itself are ordinary modal ones. */
-function PaneDialog({ settled, ...props }: DialogProps & { settled?: () => void }) {
+function PaneDialog({ settled, after, ...props }: DialogProps & { settled?: () => void; after?: ReactNode }) {
   const { busy = false, close } = props;
   const id = useId();
   const was = useRef(busy);
@@ -80,6 +81,6 @@ function PaneDialog({ settled, ...props }: DialogProps & { settled?: () => void 
   useEffect(() => { if (was.current && !busy) latest.current?.(); was.current = busy; }, [busy]);
   return <section className="ui-pane" aria-labelledby={id} aria-busy={busy}
     onKeyDown={event => { if (event.key === 'Escape' && !busy && !event.defaultPrevented) { event.stopPropagation(); close(); } }}>
-    <DialogPlacement.Provider value={undefined}><DialogParts {...props} id={id} /></DialogPlacement.Provider>
+    <DialogPlacement.Provider value={undefined}><DialogParts {...props} id={id} after={after} /></DialogPlacement.Provider>
   </section>;
 }
