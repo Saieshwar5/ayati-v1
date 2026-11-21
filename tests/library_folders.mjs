@@ -168,9 +168,9 @@ test('A folder shared with an agent for all staff answers a colleague, with real
   assert.match(hit.preview, /1250/);
   app.pass('Real Goose: text in an uploaded receipt photo is recognised and found by search');
 
-  // Always read (LB2c): the owner picks the policy on the agent's Instructions tab.
+  // Always read (LB2c): the owner picks the policy from the agent page's Knows row.
   await ownerPage.goto(`${app.base}/w/${w}/?view=agents&selected=${agent.id}`);
-  await ownerPage.getByRole('tab', { name: 'Instructions', exact: true }).click();
+  await ownerPage.getByRole('region', { name: 'Knows', exact: true }).getByRole('button', { name: /Document/ }).click();
   const always = ownerPage.getByRole('region', { name: 'Documents Iris always reads' });
   await always.getByLabel('Add a document').selectOption({ label: 'Policies › Returns policy' });
   await always.getByRole('button', { name: 'Add', exact: true }).click();

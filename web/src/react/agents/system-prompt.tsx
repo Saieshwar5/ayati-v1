@@ -85,13 +85,3 @@ function SectionRow({ section }: { section: PromptSection }) {
     </details>
   </li>;
 }
-
-/** The locked system prompt beside an agent's instructions, with a way to read all of it. */
-export function SystemPromptCard({ name, rules, open }: { name: string; rules: string; open: () => void }) {
-  return <section className="agent-rules" aria-label="Cuckoo system prompt">
-    <h3>Cuckoo system prompt <small>Always included</small></h3>
-    <p>{rules}</p>
-    <p className="ui-help">The same for every agent; nobody in the workspace can change it. This is its first part: more is added for what {name} can use, and for who it is talking to.</p>
-    <Button className="ui-link" onClick={open}>See everything {name} receives</Button>
-  </section>;
-}

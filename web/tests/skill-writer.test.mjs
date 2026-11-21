@@ -149,7 +149,8 @@ test('on the agent page, a proposed change shows as a diff and saves as the next
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
     const { AgentWorkspace } = await import('../src/react/agents/workspace.tsx');
     await render(AgentWorkspace, { agent, directory: { ...directory, agents: [agent] }, revision: 0, back() {}, guide() {}, control() {}, openChat() {}, busy: false,
-      section: 'Instructions', selectSection() {}, saved: async () => {} });
+      saved: async () => {} });
+    await click(button('Ask Atlas'));
     const chat = document.querySelector('[aria-label="Change with Atlas"]');
     assert.ok(chat, 'the owner sees the chat');
     await change(composer(), 'Refunds above ₹3,000 now go to Meera.');
@@ -160,9 +161,9 @@ test('on the agent page, a proposed change shows as a diff and saves as the next
     assert.match(proposals, /Ground rules/);
     assert.match(proposals, /refund-check · version 2/);
     assert.match(proposals, /− 1\. Ask Meera above 5000\.\n\+ 1\. Ask Meera above 3000\./);
-    await click(button('Use in the instructions box'));
-    assert.equal(field('Ground rules').value, 'You are Atlas.\nRefunds above ₹3,000 go to Meera.');
-    assert.equal(button('Save changes').disabled, false, 'saved only with Save changes');
+    await click(button('Use these rules'));
+    assert.equal(document.querySelector('textarea[aria-label="Rules for Atlas"]').value, 'You are Atlas.\nRefunds above ₹3,000 go to Meera.', 'the proposal lands in the page’s own rules box');
+    assert.equal(button('Save').disabled, false, 'saved only with Save');
     await click(button('Save as version 3'));
     assert.equal(versions.length, 1);
     assert.equal(versions[0].version, 2);

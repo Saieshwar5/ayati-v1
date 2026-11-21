@@ -12,17 +12,17 @@ import { SystemAutomationDialog } from './automation-dialog';
 
 /** "Your systems" on the agent's Tools tab (C1, D249): a tile per connected
  * system with its state, and Connect a system for the owner and admins. */
-export function SystemsSection({ agent }: { agent: Agent }) {
+export function SystemsSection({ agent, start = false, changed }: { agent: Agent; start?: boolean; changed?: () => void }) {
   const load = useCallback(() => loadSystems(agent.id), [agent.id]);
   const { data, refresh } = useResource(load);
-  const [connecting, setConnecting] = useState(false);
+  const [connecting, setConnecting] = useState(start);
   const [reviewing, setReviewing] = useState<System>();
   const [removing, setRemoving] = useState<System>();
   const [events, setEvents] = useState<System>();
   const [automating, setAutomating] = useState<System>();
   const m = useMutation();
   const change = (system: System, to: 'on' | 'off' | 'remove', done: string) => void m.run(async () => {
-    await changeSystem(agent.id, system.id, system.revision, to); await refresh(); setRemoving(undefined); m.setStatus(done);
+    await changeSystem(agent.id, system.id, system.revision, to); await refresh(); setRemoving(undefined); m.setStatus(done); changed?.();
   });
   const systems = Array.isArray(data?.systems) ? data.systems : [];
   const canConnect = data?.can_connect === true;
@@ -54,7 +54,7 @@ export function SystemsSection({ agent }: { agent: Agent }) {
         <small>{tool.kind === 'read' ? 'Reads' : 'Changes'} · {modes[tool.rule]}{system.held.includes(tool.name) ? ' · held' : ''}</small></li>)}</ul>
     </article>)}
     {canConnect && <Button onClick={() => setConnecting(true)}>＋ Add MCP server</Button>}
-    {connecting && <ConnectSystem agent={agent.id} agentName={agent.name} close={() => setConnecting(false)} saved={() => refresh()} />}
+    {connecting && <ConnectSystem agent={agent.id} agentName={agent.name} close={() => setConnecting(false)} saved={async () => { await refresh(); changed?.(); }} />}
     {events && <EventsDialog agent={agent.id} system={events} canChange={canConnect} close={() => setEvents(undefined)} changed={() => refresh()} />}
     {automating && <SystemAutomationDialog agent={agent.id} agentName={agent.name} system={automating} close={() => setAutomating(undefined)} saved={async () => {}} />}
     {reviewing && <ReviewSystem agent={agent.id} system={reviewing} close={() => setReviewing(undefined)} saved={() => refresh()} />}

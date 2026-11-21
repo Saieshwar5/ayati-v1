@@ -24,21 +24,24 @@ async function open(render, props = {}) {
   const { AgentWorkspace } = await import('../src/react/agents/workspace.tsx');
   const calls = { saved: 0 };
   await render(AgentWorkspace, { agent, directory, revision: 0, back() {}, guide() {}, control() {}, openChat() {}, busy: false,
-    section: 'Overview', selectSection() {}, saved: async () => { calls.saved++; }, ...props });
+    saved: async () => { calls.saved++; }, ...props });
   return calls;
 }
 
-test('overview shows what it does and who can talk to it, without the old placeholders', async () => {
+test('the page shows its rules and its people as rows, with no tabs', async () => {
   await reactFixture(async ({ render }) => {
     await open(render);
     const text = document.body.textContent;
-    assert.match(text, /AboutAnswer order questions\./);
+    assert.equal(document.querySelector('[role=tablist]'), null, 'one page, no tabs');
+    assert.deepEqual([...document.querySelectorAll('.profile-row-label')].map(node => node.textContent), ['Does', 'Knows', 'Can use', 'On its own', 'People', 'Model']);
+    assert.match(document.querySelector('.profile-rules').textContent, /Answer order questions\./);
     // One line under the name: its state, its job and whose it is ("You" for the viewer).
     assert.match(document.querySelector('.agent-state-line').textContent, /^Ready · Orders assistant · owned by RKYou$/);
     assert.ok(document.querySelector('.agent-identity-row .agent-dot-ready'), 'its face carries the state dot');
-    assert.match(text, /Who can talk to itEveryone in the workspace/);
-    assert.match(text, /OwnerRavi Kumar/);
-    assert.ok(document.querySelector('[aria-label="Change owner"]'), 'owners and admins change owners from Overview');
+    const people = document.querySelector('[aria-label=People]');
+    assert.deepEqual([...people.querySelectorAll('.profile-chip')].map(node => node.textContent), ['RKYou owner', 'Everyone can message it']);
+    assert.ok(document.querySelector('[aria-label="Owners: You"]'), 'owners and admins change owners from the People row');
+    assert.equal(document.querySelector('[aria-label=Model] .profile-chip').textContent, 'fixture');
     assert.equal(text.includes('Not connected'), false);
     assert.equal(text.includes('Try a sample task'), false);
   }, { url, fetch: async path => response(read(path)) });
@@ -78,11 +81,11 @@ function ownersServer(writes, fail) {
   };
 }
 
-test('every owner is listed in the header and Overview', async () => {
+test('every owner is listed in the header and the People row', async () => {
   await reactFixture(async ({ render }) => {
     await open(render, { agent: { ...agent, owners: [ravi, priya], is_owner: true } });
     assert.match(document.querySelector('.agent-state-line').textContent, /Orders assistant · owned by RKPSYou and Priya Shah$/);
-    assert.match(document.body.textContent, /OwnersRavi Kumar and Priya Shah/);
+    assert.deepEqual([...document.querySelectorAll('[aria-label=People] .profile-chip')].slice(0, 2).map(node => node.textContent), ['RKYou owner', 'PSPriya Shah owner']);
   }, { url, fetch: async path => response(read(path)) });
 });
 
@@ -90,7 +93,7 @@ test('owners add and remove each other with the latest revision; the last owner 
   const writes = [];
   await reactFixture(async ({ render, button, click, change, update }) => {
     const calls = await open(render, { agent: { ...agent, owners: [ravi], is_owner: true } });
-    await click(button('Change owner'));
+    await click(button('Owners: You'));
     assert.equal(document.querySelector('dialog h2').textContent, 'Atlas · Owners');
     assert.equal(button('Stop being an owner').disabled, true, 'the last owner cannot be removed');
     assert.match(document.querySelector('dialog').textContent, /Atlas needs at least one owner/);
@@ -118,7 +121,7 @@ test('a failed change keeps the dialog and the chosen person', async () => {
   const writes = [];
   await reactFixture(async ({ render, button, click, change }) => {
     const calls = await open(render, { agent: { ...agent, owners: [ravi], is_owner: true } });
-    await click(button('Change owner'));
+    await click(button('Owners: You'));
     await change(document.querySelector('dialog select'), 'priya');
     await click(button('Add owner'));
     assert.match(document.querySelector('dialog').textContent, /Agent changed; reload before saving/);
@@ -132,7 +135,7 @@ test('an owner who stops being one is taken back to the reloaded page at once', 
   const writes = [];
   await reactFixture(async ({ render, button, click, change }) => {
     const calls = await open(render, { agent: { ...agent, owners: [ravi], is_owner: true } });
-    await click(button('Change owner'));
+    await click(button('Owners: You'));
     await change(document.querySelector('dialog select'), 'priya');
     await click(button('Add owner'));
     await click(button('Stop being an owner'));
@@ -151,7 +154,7 @@ test('an agent whose last owner left says so, cannot resume, and an admin gives 
     assert.equal(document.querySelector('.agent-state-line').textContent, 'Paused · Its last owner left the workspace · Orders assistant');
     assert.ok(document.querySelector('.agent-identity-row .agent-dot-paused'));
     assert.match(document.querySelector('[role=note]').textContent, /Atlas’s last owner left the workspace, so it is paused and takes no work/);
-    assert.match(document.body.textContent, /OwnerNone: its last owner left/);
+    assert.equal(document.querySelector('[aria-label=People] .profile-chip').textContent, 'No owner');
     // Without an owner it can't be resumed: giving it one comes first.
     assert.equal(button('Resume'), undefined);
     await click(button('More actions for Atlas'));
@@ -182,7 +185,8 @@ test('people who cannot change the agent get no ⋯ menu or Change links', async
   await reactFixture(async ({ render, button }) => {
     await open(render, { agent: { ...agent, editable: false } });
     assert.equal(button('More actions for Atlas'), undefined);
-    assert.equal(button('Change who can talk to it'), undefined);
+    assert.equal(document.querySelector('[aria-label=People] button'), null, 'the People row is read, not changed');
+    assert.equal(button('Edit the rules'), undefined);
     assert.equal(button('Pause'), undefined);
     assert.ok(button('Message'));
   }, { url, fetch: async path => response(read(path)) });
@@ -215,12 +219,11 @@ test('another member’s assistant is named as theirs and offers no Message; a w
   }, { url, fetch: async path => response(read(path)) });
 });
 
-test('the Instructions tab shows everything the saved agent receives, from its own apps and skills', async () => {
+test('Cuckoo’s rules shows everything the saved agent receives, from its own apps and skills', async () => {
   const previews = [];
   await reactFixture(async ({ render, button, click }) => {
-    await open(render, { section: 'Instructions' });
-    assert.match(document.body.textContent, /Cuckoo system prompt Always includedSystem guide/);
-    await click(button('See everything Atlas receives'));
+    await open(render);
+    await click(button('Cuckoo’s rules'));
     const dialog = document.querySelector('dialog');
     assert.match(dialog.textContent, /SkillsIncluded · It has skills/);
     assert.match(dialog.textContent, /quote-builder: Use when a customer asks for a price/);

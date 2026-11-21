@@ -15,14 +15,19 @@ import { workspaceUrl } from '../../workspace-context';
 
 export const connectorName = (c: ToolConnection) => c.name || c.server;
 
-/** The Apps group of an agent's Connections tab (schemas 132 and 133). Every app
+/** The Apps group of an agent's connections (schemas 132 and 133). Every app
  * here is this agent's own: its owner adds it from the catalog and signs in on
  * the app's page, changes its one rule per action, signs in again when the
  * sign-in runs out and disconnects it. `children` are the other groups (MCP
  * servers, computers, built-in tools), shown before the recent actions. `focus`
  * ("connection/operation", from a suggestion in Activity › Review) marks one
- * action and brings it into view. */
-export function AppConnections({ agent, focus, children }: { agent: Agent; focus?: string; children?: ReactNode }) {
+ * action and brings it into view.
+ * `only` shows one app by its connection id, without the group's heading, the
+ * other groups or the recent actions (the agent page's panel for one app);
+ * `adding` opens the catalog at once; `changed` is told after every change. */
+export function AppConnections({ agent, focus, children, only, adding: startAdding = false, changed }: {
+  agent: Agent; focus?: string; children?: ReactNode; only?: string; adding?: boolean; changed?: () => void;
+}) {
   const load = useCallback(() => loadControls(agent.id), [agent.id]);
   const { data, error, refresh } = useResource(load);
   const section = useRef<HTMLElement>(null);
@@ -35,13 +40,13 @@ export function AppConnections({ agent, focus, children }: { agent: Agent; focus
   const mutation = useMutation();
   const [reviewing, review] = useState<string>();
   const [checking, check] = useState<string>();
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(startAdding);
   const [connecting, setConnecting] = useState<CatalogApp>();
   const editable = Boolean(data?.can_manage);
   // Back from the app's own sign-in page.
   const [returned] = useState(() => { const query = new URLSearchParams(window.location.search); return query.has('connected') ? 'connected' : query.has('connect_error') ? 'failed' : ''; });
   const change = (work: () => Promise<unknown>, done: string) => void mutation.run(async () => {
-    await work(); await refresh(); mutation.setStatus(done);
+    await work(); await refresh(); mutation.setStatus(done); changed?.();
   });
   const disconnect = (connection: ToolConnection) => {
     if (!confirm(`Disconnect ${connectorName(connection)} from ${agent.name}? ${agent.name} stops using it at once.`)) return;
@@ -52,15 +57,15 @@ export function AppConnections({ agent, focus, children }: { agent: Agent; focus
     if (result.redirect_url) location.assign(result.redirect_url); else await refresh();
   });
   // A connected system (an MCP server) has its own group.
-  const apps = data?.connections.filter(connection => connection.provider !== 'system') ?? [];
-  return <section ref={section} className="agent-tools" aria-label="Connections">
-    <h3 className="agent-group-label agent-group-head">Apps{editable && <Button onClick={() => setAdding(true)}>＋ Add app</Button>}</h3>
-    <p className="agent-tools-note">Each app you add here belongs to {agent.name} alone. Reading is allowed, changes ask {agent.name}’s owner first and deleting is blocked, until you change a rule.</p>
+  const apps = data?.connections.filter(connection => connection.provider !== 'system' && (!only || connection.id === only)) ?? [];
+  const finish = () => { setConnecting(undefined); setAdding(false); };
+  return <section ref={section} className="agent-tools" aria-label={only ? 'App' : 'Connections'}>
+    {!only && <h3 className="agent-group-label agent-group-head">Apps{editable && <Button onClick={() => setAdding(true)}>＋ Add app</Button>}</h3>}
     {returned === 'connected' && <p className="ui-status" role="status">The app is connected.</p>}
     {returned === 'failed' && <p role="alert">The sign-in did not finish. Add the app again.</p>}
     {error && <p role="alert">{error} <Button onClick={() => void refresh().catch(() => {})}>Retry</Button></p>}
     {!data && !error && <p role="status">Loading apps…</p>}
-    {data?.execution_available === false && <p role="status" className="ui-help">Business tools are not enabled for this workspace yet. Ask your operator to enable controller-managed execution.</p>}
+    {data?.execution_available === false && <p role="status" className="ui-help">Apps can’t run on this server yet.</p>}
     <p className="ui-status" role="status">{mutation.busy ? 'Saving…' : mutation.status}</p>
     {apps.map(connection => <article key={connection.id} className="agent-tool" aria-label={connectorName(connection)}>
       <header>
@@ -75,12 +80,12 @@ export function AppConnections({ agent, focus, children }: { agent: Agent; focus
         note={focus === `${connection.id}/${operation.id}` ? 'Suggested in Activity › Review: approved every time it asked.' : undefined}
         change={mode => change(() => saveConnectorRule({ connection: connection.id, operation: operation.id, mode, needs_other: operation.needs_other, revision: operation.rule_revision ?? 0 }), `${operation.title}: ${modes[mode]}.`)} />)}
     </article>)}
-    {data && !apps.length && <p className="ui-empty">No apps yet.{editable ? ` Add one for ${agent.name}: Gmail, a calendar, a CRM.` : ''}</p>}
-    {children}
-    {data && data.actions.length > 0 && <RecentActions actions={data.actions} review={action => action.state === 'uncertain' ? check(action.id) : review(action.id)} />}
+    {data && !apps.length && <p className="ui-empty">{only ? 'This app is no longer connected.' : 'No apps yet.'}</p>}
+    {!only && children}
+    {!only && data && data.actions.length > 0 && <RecentActions actions={data.actions} review={action => action.state === 'uncertain' ? check(action.id) : review(action.id)} />}
     {adding && !connecting && <CatalogDialog agent={agent.id} close={() => setAdding(false)} connect={setConnecting} />}
-    {connecting && <ConnectDialog app={connecting} agent={agent} close={() => { setConnecting(undefined); setAdding(false); }}
-      connected={() => { setConnecting(undefined); setAdding(false); void refresh().catch(() => {}); }} />}
+    {connecting && <ConnectDialog app={connecting} agent={agent} close={finish}
+      connected={() => { finish(); void refresh().catch(() => {}); changed?.(); }} />}
     {reviewing && <ApprovalDialog id={reviewing} close={() => { review(undefined); void refresh().catch(() => {}); }} />}
     {checking && <OutcomeDialog id={checking} close={() => { check(undefined); void refresh().catch(() => {}); }} />}
   </section>;

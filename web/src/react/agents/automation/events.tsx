@@ -57,20 +57,16 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
       <header className="agent-section-heading">
         <div>
           <h4>When something happens</h4>
-          <p>Triggers start work when something changes in a connected app.</p>
         </div>
       </header>
       {r.error && <p role="alert">{r.error}</p>}
       {r.data?.catalog_error && <p role="status">{r.data.catalog_error}</p>}
       {!r.data && !r.error && <p role="status">Loading connected events…</p>}
       {r.data && !r.data.execution_available && (
-        <p role="status">Event triggers need controller-managed background work, which this server doesn’t run.</p>
+        <p role="status">Triggers can’t run on this server.</p>
       )}
       {r.data && !r.data.apps?.length && (
-        <p className="ui-help">
-          No connected app offers events for this agent yet. Once an admin connects Gmail or Google Calendar, its new
-          emails or events can start work here.
-        </p>
+        <p className="ui-help">No connected app offers events yet.</p>
       )}
       {r.data?.apps
         ?.filter((a) => a.state !== 'ready')
@@ -80,11 +76,7 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
           </p>
         ))}
       {r.data && !r.data.choices.length && (
-        <p className="ui-help">
-          No reviewed event source is available to you. An operator must configure the provider source; an admin must
-          approve its account and automatic read access in an existing conversation. Event listening uses no model
-          calls.
-        </p>
+        <p className="ui-help">No reviewed event source is available to you. An operator sets one up and an admin approves it.</p>
       )}
       {r.data?.triggers.map((t) => (
         <article className="routine-row" key={t.id} aria-label={`Trigger: ${t.name}`}>
@@ -109,10 +101,6 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
       <div className="automation-tools">
         <Button ref={button} onClick={() => void r.refresh().catch(() => {})}>Refresh triggers</Button>
       </div>
-      <p className="ui-help">
-        Source data belongs to its original task. Each tool action keeps its own Allow, Ask or Block rule. Provider
-        delivery and background workers must be configured separately.
-      </p>
       {!chosen && starting === 'pick' && (
         <TriggerKind close={close} choose={(kind) => setOpen({ kind })} />
       )}

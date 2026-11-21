@@ -1,44 +1,80 @@
 # Agents team workspace
 
-> **Updated 2026-11-21 (agent profile page, stage 1 of the one-page design):**
-> the list and the header changed; the five tabs are unchanged for now.
+> **Updated 2026-11-21 (the one-page agent profile):** an agent's page has no
+> tabs. The sections below and the 2026-10-31 note describe earlier layouts
+> where they differ.
 >
-> - **The list** has three groups: **Yours** (your assistant), **Team** (with its
->   count) and, for admins, **Members' assistants**. Every face carries the same
->   state dot as in Chat: green takes work now, purple is working, hollow is
->   paused or has no owner. A row whose dot is not green says why beside the
->   name ("2 working", "Paused", "Needs an owner"), and its accessible name says
->   it too ("Open agent Nova, Paused"; "Open agent Ayati, Dev Singh's assistant").
->   The search box appears from nine agents on and also matches whose assistant
->   it is. The footer line is gone.
-> - **The header** is the face with its dot, the name and one line:
->   "● Ready · its job · owned by <faces> You", "● Working · 2 requests · …",
->   "○ Paused · …". Someone who cannot resume a paused agent reads who can
->   ("Paused · Priya Shah can resume it"). An assistant is named by whose it is
->   ("Dev Singh's assistant"); its stored job title is "Your assistant" for
->   everyone, which the header used to print for admins too.
-> - **Message** (was Open in Chat) is offered only when the server says the
->   viewer may talk to the agent (`can_talk`), so an admin no longer gets a
->   button that fails on another member's assistant. **Pause** and **Resume**
->   are header buttons for its owners and admins; Resume is the main action
->   while it is paused. ⋯ keeps Name, picture and role and Owners.
-> - **The agent page decides no work.** A request on Overview links to its
->   conversation and, while an approval waits, to Activity → Needs me; it has no
->   Review or Stop button. Under Connections, a waiting tool action links to
->   Activity in place of its review dialog. Approvals are answered in Activity
->   or in the conversation; requests are stopped there.
+> **The list** has three groups: **Yours** (your assistant), **Team** (with its
+> count) and, for admins, **Members' assistants**. Every face carries the same
+> state dot as in Chat: green takes work now, purple is working, hollow is paused
+> or has no owner. A row whose dot is not green says why ("2 working", "Paused",
+> "Needs an owner"), in its text and its accessible name. The search box appears
+> from nine agents on. The footer line is gone.
 >
-> Checks: web `agent-page.test.mjs` and `agent-workspace.test.mjs` (groups,
-> dots and states, search from nine, the line for owners, others, an ownerless
-> agent and another member's assistant, Pause saved once, no Message without
-> `can_talk`, a request row with only links). Looked at in a browser against
-> the simulation controller: an owner pausing and resuming for real, the member's
-> view of the paused agent, an admin on a member's assistant, Message opening
-> the chat, dark and phone.
+> **The header** is the face with its dot, the name and one line: "● Ready · its
+> job · owned by <faces> You", "● Working · 2 requests · …", "○ Paused · …".
+> Someone who cannot resume a paused agent reads who can. An assistant is named
+> by whose it is. **Message** (was Open in Chat) shows only when the server says
+> the viewer may talk to it (`can_talk`). **Pause** and **Resume** are buttons
+> for its owners and admins; ⋯ keeps Name, picture and role and Owners.
 >
-> Next (not built): the tabs give way to one page of rows (Does, Knows, Can
-> use, On its own, People, Model) with Recent work beside them, and a right-hand
-> panel for whatever is clicked.
+> **The page** (`web/src/react/agents/profile/`) is six rows of the real things,
+> with Recent work beside them:
+>
+> | Row | Shows | Clicking a thing | ＋ |
+> | --- | --- | --- | --- |
+> | **Does** (an assistant: **Rules**) | the ground rules as text, then its skills | the text becomes a box in place (Save, Cancel, Esc); a skill opens its drawer, with Remove | the skills picker; **Ask <assistant>** opens the change-by-chat panel; **Cuckoo's rules** opens everything it receives |
+> | **Knows** | Notes, Documents, Lessons (with "n to review"), About you (your own assistant) | its panel | Note or Document; **Conversation context** opens the preview |
+> | **Can use** | each app with a state dot, MCP servers, computers, web search | one app alone with its rule per action, or that group | App (the catalog), Computer, MCP server, Web search |
+> | **On its own** | each schedule and trigger as a line with its next run; Regular checks (your own assistant) | the automations panel | New automation |
+> | **People** | owners and who can message it | the Owners or audience dialog | |
+> | **Model** | the model | model, usage and budgets | |
+>
+> - A row that holds several kinds of thing asks which in a small menu; one kind
+>   adds at once. While a row is empty its ＋ chips carry a word ("＋ App"), so a
+>   new agent's page says what belongs where. Rules can start from a starter.
+> - The right-hand column is **Recent work** until something is opened, then the
+>   editor for that one thing; Close brings Recent work back and the rows are
+>   read again. On narrow windows the page is one column and a panel takes the
+>   whole page. The editors are the ones the tabs had (`ConnectionsTab` and its
+>   `part`, `Knowledge`, `AlwaysRead`, `LearnedLessons`, `AutomationPane`,
+>   `EnvironmentTab`, `AgentSkillChat`), with their long explanations removed.
+> - The rules box keeps the revision it opened at, so a save never overwrites
+>   someone else's newer change; a refused save keeps the box and its text. A
+>   proposal from the assistant lands in the same box and is saved by the person.
+> - **The agent page decides no work.** Recent work is links: a request that
+>   waits for a person opens Activity → Needs me, every other one its
+>   conversation. There is no Review, Approve or Stop here, and a waiting tool
+>   action under Connections links to Activity too. Approvals are answered in
+>   Activity or in the conversation.
+> - People who cannot change the agent read the same page without ＋, the pencil
+>   or Pause; what only its owners manage (lessons, schedules) is not read for
+>   them, and Recent work is "Your requests".
+> - Links keep their section names (`agentSectionUrl`, `panelFor`): Connections
+>   opens everything it can use, or with an action that one app with the rule
+>   marked; Automations and Settings open their panels; Overview and
+>   Instructions are the page itself. Older names (tools, environment,
+>   schedules) still work.
+> - The rows are read together in one go (`use-agent-summary.ts`), each part on
+>   its own so one refusal does not blank the page; again when the agent's
+>   record changes, on access changes, when the window is looked at again and
+>   every 30 seconds while visible.
+>
+> Checks: web `agent-profile.test.mjs` (rows from real data, the ＋ menu and its
+> keyboard, one app alone in the panel, Close reading the rows again, section
+> links, the read-only page), `agent-page`, `agent-workspace`, `agent-setup`
+> (rules saved once at the opened revision, a failed draft kept, starters),
+> `assistant-page`, `agent-automations-tab`, `assistant-agent-setup` and
+> `skill-writer` (the chat opened from the Does row; proposed rules landing in
+> the page's box). Looked at in a browser against the simulation controller.
+> The browser scripts `context_preview`, `versioned_context` and
+> `library_folders` were updated for the page but **not run** here; several
+> other scripts already named tabs that no longer existed before this change
+> (Schedules, Tools, Knowledge, Environment, Activity) and are unchanged.
+>
+> Not built: changing an existing agent from your ordinary chat with your
+> assistant (it needs server work), and per-item panels for one schedule or one
+> MCP server (they open their whole group).
 
 > **Updated 2026-10-31 (D233, M2):** the agent page now follows
 > `designs/agents-simplified/`. **＋ New agent** opens a five-step create flow (2026-11-08)

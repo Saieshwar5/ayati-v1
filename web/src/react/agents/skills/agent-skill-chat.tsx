@@ -17,10 +17,10 @@ type Proposal = { key: string } & (
 
 const main = (files: SkillFile[]) => files.find(file => file.path === 'SKILL.md')?.text ?? '';
 
-/** Change with chat on the Instructions tab (designs/agent-built-skills 5). The
+/** Change with chat on an agent's page (designs/agent-built-skills 5). The
  * owner or an admin says what changed; their own assistant, or else the skill
  * writer, proposes each change as a diff, and nothing changes until they apply it. Ground rules go into the
- * instructions box, to be saved there. Without `takeRules` (a member's own
+ * page's rules box, to be saved there. Without `takeRules` (a member's own
  * assistant, whose rules are a short list) only skills are proposed. */
 export function AgentSkillChat({ agent, rules, takeRules, changed }: {
   agent: Agent; rules: string; takeRules?: (text: string) => void; changed: () => void;
@@ -60,7 +60,7 @@ export function AgentSkillChat({ agent, rules, takeRules, changed }: {
     let result = '';
     if (proposal.kind === 'rules') {
       takeRules?.(proposal.after);
-      result = 'Now in the instructions box. Save changes to keep it.';
+      result = 'Now in the rules box. Save to keep it.';
     } else if (proposal.kind === 'change') {
       const { skill } = proposal;
       const text = skillText(skill.name, proposal.description, proposal.steps);
@@ -104,7 +104,7 @@ export function AgentSkillChat({ agent, rules, takeRules, changed }: {
 }
 
 function action(proposal: Proposal, agent: string) {
-  if (proposal.kind === 'rules') return 'Use in the instructions box';
+  if (proposal.kind === 'rules') return 'Use these rules';
   if (proposal.kind === 'change') return `Save as version ${proposal.skill.version + 1}`;
   if (proposal.kind === 'new') return `Create and add to ${agent}`;
   if (proposal.kind === 'remove') return `Remove from ${agent}`;

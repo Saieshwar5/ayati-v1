@@ -55,15 +55,13 @@ export function LearnedLessons({ agent, saved }: { agent: Agent; saved: () => Pr
 
   return <section className="agent-lessons" aria-labelledby={`lessons-${agent.id}`}>
     <h3 id={`lessons-${agent.id}`}>Lessons from its work</h3>
-    <p className="ui-help">Once a day Cuckoo reads {agent.name}’s work in shared conversations (never private chats) — how people answered it,
-      their reactions and refused approvals — and suggests lessons about how to work. An owner or admin can also ask {agent.name} for one in their own chat with it. Nothing changes until you approve one.</p>
     {learning.error && <p role="alert">{learning.error}</p>}
     {!data && !learning.error && <p role="status">Loading lessons…</p>}
     {data && !data.available && <p className="ui-help">Run workspace-db migrate to use lessons.</p>}
     {data?.available && <>
       {!data.configured && <p className="ui-help" role="note">Learning isn’t set up on this Cuckoo yet, so no lessons are suggested.</p>}
       <div className="agent-lesson-switch">
-        <span><strong>Suggest lessons</strong><small>Off stops new suggestions. Approved lessons stay until you forget them.</small></span>
+        <span><strong>Suggest lessons</strong></span>
         <label className="ui-switch"><input type="checkbox" role="switch" checked={Boolean(data.enabled)} disabled={mutation.busy}
           onChange={event => switchLearning(event.target.checked)} /><span>Suggest lessons</span></label>
       </div>

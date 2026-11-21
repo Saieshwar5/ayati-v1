@@ -72,23 +72,30 @@ test('people who only talk to the agent are pointed to Chat, and a manager sees 
   } });
 });
 
-test('an agent’s activity opens on Overview when asked, as a filtered view that links to all of Activity', async () => {
-  await reactFixture(async ({ render, click, button }) => {
+test('Recent work lists the agent’s requests as links and leads to all of Activity; a link can open its automations', async () => {
+  const request = { id: 'reply', sequence: 1, chat: 'channel', thread: null, source_message: 'm', conversation_name: 'Orders', requester: 'me', requester_name: 'Ravi', summary: 'Check late orders', state: 'complete', latest_update: '', created_ms: 1000, can_cancel: false, cancellation: null, approvals: [] };
+  await reactFixture(async ({ render, update }) => {
     const context = await import('../src/workspace-context.ts');
     await context.enterWorkspace();
     const { AgentWorkspace } = await import('../src/react/agents/workspace.tsx');
-    await render(AgentWorkspace, { agent, directory: { agents: [agent], role: 'Admin', default_model: 'fixture', system_prompt: '', providers: [] },
-      back() {}, openChat() {}, busy: false, section: 'Overview', selectSection() {}, saved: async () => {} });
-    assert.equal(document.querySelector('.agent-filtered-note'), null, 'the list is read only when asked for');
-    await click(button('Show activity'));
-    const note = document.querySelector('.agent-filtered-note');
-    assert.match(note.textContent, /Showing Nova only: the same list as Activity, filtered to one agent\. Open all activity/);
-    assert.equal(note.querySelector('a').getAttribute('href'), `/w/${w}/?view=activity&tab=history`);
+    const props = { agent, directory: { agents: [agent], role: 'Admin', default_model: 'fixture', system_prompt: '', providers: [] }, back() {}, openChat() {}, busy: false, saved: async () => {} };
+    await render(AgentWorkspace, props);
+    const work = document.querySelector('.profile-work');
+    assert.equal(work.querySelector('h3').textContent, 'Recent work');
+    assert.equal(work.querySelector('header a').getAttribute('href'), `/w/${w}/?view=activity&tab=history`);
+    assert.equal(work.querySelector('li a').getAttribute('href'), `/w/${w}/?view=chat&conversation=channel&message=reply`);
+    assert.equal(work.querySelector('button'), null, 'the agent page decides nothing');
+    // ?section=automations (Activity › Upcoming's "Edit in Nova") opens the panel in the right-hand column.
+    const { panelFor, sectionNamed } = await import('../src/react/agents/workspace-tabs.tsx');
+    await render(AgentWorkspace, { ...props, agent: { ...agent, id: 'nova-2' }, start: panelFor(sectionNamed('schedules')) });
+    await update(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    assert.equal(document.querySelector('.profile-panel').getAttribute('aria-label'), 'On its own');
+    assert.equal(document.querySelector('.profile-work'), null, 'the panel takes Recent work’s place');
   }, { url, fetch: async path => {
     if (path.endsWith('/session')) return response(session);
-    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
-    if (path.endsWith('/chats')) return response({ chats: [] });
-    if (path.includes('/activity/totals')) return response({ requests: 0, done: 0, failed: 0, review: 0, waiting: 0, automatic: 0, approved: 0, people: 0, channels: 0, schedule_runs: 0, per_day: [], by_agent: [] });
-    return response({ items: [], next_before: null });
+    if (path.includes('/requests')) return response({ requests: [request], next_before: null });
+    if (path.includes('/event-triggers')) return response({ triggers: [], choices: [], apps: [], execution_available: true });
+    if (path.includes('/schedules')) return response({ schedules: [], conversations: [], more_conversations: false, execution_available: true });
+    return response({});
   } });
 });

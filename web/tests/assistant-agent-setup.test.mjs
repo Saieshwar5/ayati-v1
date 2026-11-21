@@ -157,7 +157,9 @@ test('on an agent’s page the chat is with your assistant, which proposes chang
     await (await import('../src/workspace-context.ts')).enterWorkspace();
     const { AgentWorkspace } = await import('../src/react/agents/workspace.tsx');
     await render(AgentWorkspace, { agent, directory: { ...directory, agents: [agent] }, revision: 0, back() {}, guide() {}, control() {}, openChat() {}, busy: false,
-      section: 'Instructions', selectSection() {}, saved: async () => {} });
+      saved: async () => {} });
+    assert.equal(document.querySelector('[aria-label="Change with Ayati"]'), null, 'the chat opens when asked for');
+    await click(button('Ask Ayati'));
     const chat = document.querySelector('[aria-label="Change with Ayati"]');
     assert.ok(chat);
     assert.match(chat.textContent, /Your assistant · only you see this chat/);

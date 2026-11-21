@@ -5,7 +5,6 @@ import { useMutation, useResource } from '../requests';
 import { chatRequest, type Conversation } from '../chat/model';
 import { base, type Agent } from './model';
 import { ContextPreviewDialog } from './context-preview';
-import { LearnedLessons } from './learned-lessons';
 
 const loadConversations = () => chatRequest<{ chats: Conversation[] }>('/chats');
 type Note = {
@@ -16,12 +15,32 @@ type Note = {
 };
 type Draft = { note: Note; audience: string; existing: boolean };
 
-export function Knowledge({ agent }: { agent: Agent }) {
+/** Opens the preview of what the agent is given from one conversation. The
+ * conversations are read when the button is first used. `quiet` is the page's
+ * small link style. */
+export function ContextPreviewButton({ agent, quiet = false }: { agent: Agent; quiet?: boolean }) {
+  const [open, setOpen] = useState(false);
+  return <>
+    {quiet ? <button type="button" className="profile-lock" aria-label="Preview conversation context" onClick={() => setOpen(true)}>Conversation context</button>
+      : <Button onClick={() => setOpen(true)}>Preview conversation context</Button>}
+    {open && <ContextPreview agent={agent} close={() => setOpen(false)} />}
+  </>;
+}
+function ContextPreview({ agent, close }: { agent: Agent; close: () => void }) {
+  const conversations = useResource(loadConversations);
+  return <ContextPreviewDialog agent={agent.id} conversations={conversations.data?.chats?.filter(chat => chat.agents.includes(agent.id)) ?? []}
+    conversationError={conversations.error} close={close} />;
+}
+
+/** An agent's approved notes. `adding` opens the new-note form at once (the
+ * page's ＋ Note); `changed` is told after a note is saved or forgotten. Lessons
+ * from its work have their own panel (learned-lessons.tsx). */
+export function Knowledge({ agent, adding = false, changed }: { agent: Agent; adding?: boolean; changed?: () => void }) {
   const path = `${base}/${agent.id}/knowledge`;
   const load = useCallback(() => identityRequest<{ notes: Note[] }>(path), [path]);
   const { data, error, refresh } = useResource(load);
-  const [draft, edit] = useState<Draft>();
-  const [preview, showPreview] = useState(false);
+  const blank = (): Draft => ({ audience: '', existing: false, note: { id: crypto.randomUUID(), title: '', content: '', chat: null, source_message: null, revision: 0, forgotten: false } });
+  const [draft, edit] = useState<Draft | undefined>(() => adding && agent.editable ? blank() : undefined);
   const mutation = useMutation();
   const conversations = useResource(loadConversations);
   const eligible = conversations.data?.chats?.filter(chat => chat.agents.includes(agent.id)) ?? [];
@@ -32,31 +51,16 @@ export function Knowledge({ agent }: { agent: Agent }) {
     await identityRequest(path, { id, title, content, chat, source_message, revision, forgotten });
     edit(undefined);
     await refresh();
+    changed?.();
   }
   function changeNote(change: Partial<Note>) {
     edit(current => current && { ...current, note: { ...current.note, ...change } });
   }
   function add() {
     mutation.setStatus('');
-    edit({ audience: '', existing: false, note: {
-      id: crypto.randomUUID(), title: '', content: '', chat: null,
-      source_message: null, revision: 0, forgotten: false,
-    } });
+    edit(blank());
   }
   return <section className="agent-knowledge">
-    <section className="agent-context-description" aria-label="Conversation context">
-      <h3>Conversation context</h3>
-      <p className="ui-help">Each conversation keeps its own history. A channel uses its shared messages; private chats are kept separate.</p>
-      <p className="ui-help">{agent.settings.history === 'since_join'
-        ? 'Channel history: only messages since this agent joined.'
-        : 'Channel history can include messages from before this agent joined.'}</p>
-      <Button onClick={() => showPreview(true)}>Preview conversation context</Button>
-    </section>
-    {preview && <ContextPreviewDialog agent={agent.id} conversations={eligible}
-      conversationError={conversations.error} close={() => showPreview(false)} />}
-    <h3>Approved knowledge</h3>
-    <p className="ui-help">You choose where each note can be used. A note for every conversation can reach anyone who can talk to this agent. Notes are not learned automatically from private chats.</p>
-    {!agent.settings.memory && <p className="ui-help">Approved knowledge is off. Notes stay saved; new work will not use them until enabled in the agent profile.</p>}
     <p role="status">{error || mutation.status}</p>
     {!draft && <>
       {data?.notes.map(note => <article key={note.id}>
@@ -75,8 +79,10 @@ export function Knowledge({ agent }: { agent: Agent }) {
         </>}
       </article>)}
       {data && !data.notes.length && <p className="ui-help">No approved notes yet.</p>}
-      {agent.editable && data && <Button disabled={mutation.busy} onClick={add}>Add approved note</Button>}
-      {agent.editable && <LearnedLessons agent={agent} saved={refresh} />}
+      <div className="agent-knowledge-actions">
+        {agent.editable && data && <Button disabled={mutation.busy} onClick={add}>Add approved note</Button>}
+        <ContextPreviewButton agent={agent} />
+      </div>
     </>}
     {draft && agent.editable && <form className="ui-form" aria-label={draft.existing ? 'Edit approved note' : 'Add approved note'}
       onSubmit={event => {

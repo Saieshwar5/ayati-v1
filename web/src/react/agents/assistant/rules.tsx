@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import './assistant.css';
 import { Button } from '../../ui';
 
 /** One rule per line; blank lines are not rules. */
@@ -8,8 +9,8 @@ const most = 40;
 /** An assistant's rules: short lines it always follows, in place of an
  * instructions box. Adding or removing one saves at once; a failed save keeps
  * the list and what was typed. */
-export function AssistantRules({ name, text, editable, busy, status, save }: {
-  name: string; text: string; editable: boolean; busy: boolean; status: string;
+export function AssistantRules({ text, editable, busy, status, save }: {
+  text: string; editable: boolean; busy: boolean; status: string;
   /** Saves the whole list; resolves to whether it was kept. */
   save: (text: string, done: string) => Promise<boolean>;
 }) {
@@ -22,8 +23,6 @@ export function AssistantRules({ name, text, editable, busy, status, save }: {
     void save([...rules, rule].join('\n'), 'Rule added.').then(kept => { if (kept) setAdding(''); });
   };
   return <section className="assistant-rules" aria-label="Rules">
-    <h3>Rules</h3>
-    <p className="ui-help">Short lines {name} always follows, such as “Never reply to a customer without asking me.” Skills hold the longer how-to steps.</p>
     {!rules.length && <p className="ui-help">No rules yet.</p>}
     <ol className="assistant-rule-list">{rules.map((line, index) => <li key={`${index}:${line}`}>
       <span>{line}</span>
@@ -34,7 +33,7 @@ export function AssistantRules({ name, text, editable, busy, status, save }: {
       <input aria-label="New rule" maxLength={300} value={adding} onChange={event => setAdding(event.target.value)} placeholder="Add a rule, one line" />
       <Button type="submit" primary disabled={busy || !rule}>Add rule</Button>
     </form>}
-    {editable && rules.length >= most && <p className="ui-help">That is the most rules {name} keeps. Remove one to add another, or put longer steps in a skill.</p>}
+    {editable && rules.length >= most && <p className="ui-help">That is the most rules it keeps. Remove one to add another, or put longer steps in a skill.</p>}
     <p className="ui-status" role="status">{busy ? 'Saving…' : status}</p>
   </section>;
 }

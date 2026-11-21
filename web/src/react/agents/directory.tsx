@@ -9,7 +9,7 @@ import type { Conversation } from '../chat/model';
 import { AgentAvatar } from './avatar';
 import { AgentRoster } from './agent-roster';
 import { AgentWorkspace } from './workspace';
-import { sectionNamed, type WorkspaceSection } from './workspace-tabs';
+import { panelFor, sectionNamed } from './workspace-tabs';
 import { subscribeChanges } from '../chat/live';
 import './workspace.css';
 
@@ -19,19 +19,14 @@ export function AgentsPage() {
   const epoch = useRef(0);
   useEffect(() => () => { epoch.current++; }, []);
   const initial = new URLSearchParams(location.search).get('selected');
-  // A link may open one tab of the agent it selects (agentSectionUrl).
-  const linkedSection = initial ? sectionNamed(new URLSearchParams(location.search).get('section')) : undefined;
-  const [linkedAction] = useState(() => (initial && new URLSearchParams(location.search).get('action')) || undefined);
+  // A link may open one part of the agent it selects (agentSectionUrl).
+  const [linkedPanel] = useState(() => initial ? panelFor(sectionNamed(new URLSearchParams(location.search).get('section')), new URLSearchParams(location.search).get('action') || undefined) : undefined);
   const selectionKey = storageScope('relay.agents.selection');
   const [selectedKey, setSelected] = useState<string | undefined>(() => {
     if (initial) return `m:${initial}`;
     try { return window.sessionStorage.getItem(selectionKey) ?? undefined; } catch { return undefined; }
   });
   const [showProfile, setShowProfile] = useState(Boolean(selectedKey));
-  const savedSection = (agentKey?: string): WorkspaceSection => {
-    try { const value = window.sessionStorage.getItem(`${selectionKey}.section.${agentKey}`); return sectionNamed(value) ?? 'Overview'; } catch { return 'Overview'; }
-  };
-  const [section, setSection] = useState<WorkspaceSection>(() => linkedSection ?? savedSection(selectedKey));
   // New agent: a fresh one, or the one this person had started and not created (schema 139).
   const kept = useResource(loadSavedDraft);
   const [creating, setCreating] = useState<{ agent: Agent; resume?: SavedDraft }>();
@@ -90,12 +85,7 @@ export function AgentsPage() {
   const selected = agents.find(a => `m:${a.id}` === key);
   const select = (next: string) => {
     epoch.current++; setSelected(next); setShowProfile(true);
-    if (next !== key) setSection(savedSection(next));
     try { window.sessionStorage.setItem(selectionKey, next); } catch { /* Optional identity-scoped navigation preference. */ }
-  };
-  const selectSection = (next: WorkspaceSection) => {
-    setSection(next);
-    try { window.sessionStorage.setItem(`${selectionKey}.section.${key}`, next); } catch { /* Optional view preference. */ }
   };
   const back = () => setShowProfile(false);
   const openChat = async (agent: Agent) => {
@@ -124,7 +114,7 @@ export function AgentsPage() {
       {mutation.status && <p className="agent-page-error" role="alert">{mutation.status}</p>}
       {creating && data && <AgentCreate key={creating.agent.id} start={creating.agent} resume={creating.resume} keep={keepDraft} discard={discardDraft} close={ended}
         created={async id => { ended(); await refresh(); select(`m:${id}`); }} />}
-      {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} focus={`m:${selected.id}` === `m:${initial}` ? linkedAction : undefined} section={section} selectSection={selectSection} back={back} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); }} />}
+      {!creating && selected && data && <AgentWorkspace key={selected.id} agent={selected} directory={data} start={selected.id === initial ? linkedPanel : undefined} back={back} openChat={() => void mutation.run(() => openChat(selected))} busy={mutation.busy} saved={async () => { await refresh(); }} />}
       {data && !creating && !selected && <div className="agent-workspace-empty"><h2>{key ? 'Agent unavailable' : 'Your virtual team'}</h2><p>{key ? 'Choose an agent you can currently access.' : 'Create an agent with a clear responsibility to get started.'}</p><Button className="agent-roster-back" onClick={back}>‹ Agents</Button></div>}
     </main>
   </div>;

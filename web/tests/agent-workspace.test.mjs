@@ -36,14 +36,11 @@ test('selected team workspace keeps selection while searching and does not creat
     assert.equal(document.querySelector('[aria-label="Find an agent"]'), null, 'two agents need no search box');
     assert.equal(document.querySelector('.agent-roster footer'), null);
     assert.equal(writes.length, 0);
-    // Five tabs: Activity sits in Overview, Tools became Connections and Environment Settings.
-    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['Overview', 'Instructions', 'Connections', 'Automations', 'Settings']);
+    // One page per agent: rows, no tabs, and nothing written by looking.
+    assert.equal(document.querySelector('[role=tablist]'), null);
+    assert.equal(document.querySelectorAll('.profile-row').length, 6);
     assert.equal(document.body.textContent.includes('Not connected'), false);
-    await click(button('Instructions'));
-    assert.match(document.querySelector('[role=tabpanel]').textContent, /What Tara knows/);
-    await update(() => button('Instructions').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
-    assert.equal(document.activeElement, button('Connections'));
-    assert.equal(button('Connections').getAttribute('aria-selected'), 'true');
+    assert.equal(writes.length, 0);
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
     if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
     if (options.method === 'POST') writes.push(path);
@@ -84,27 +81,23 @@ test('the list groups your assistant, the team and members’ assistants, shows 
   } });
 });
 
-test('a request on the Overview leads to its conversation and to Activity; nothing is approved or stopped here', async () => {
-  const writes = [];
+test('Recent work leads to the conversation, or to Activity while a person is waited for; nothing is approved or stopped here', async () => {
   const waiting = { ...request, approvals: [{ id: 'approval', title: 'Send supplier email', state: 'pending' }] };
-  await reactFixture(async ({ render, button }) => {
+  const done = { ...request, id: 'done', thread: null, summary: 'Compare quotes', state: 'complete' };
+  await reactFixture(async ({ render }) => {
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
-    const { AgentOverview } = await import('../src/react/agents/overview.tsx');
-    await render(AgentOverview, { agent, open() {}, people() {} });
-    assert.match(document.body.textContent, /Check supplier delivery/);
-    const links = Object.fromEntries([...document.querySelectorAll('.agent-work-actions a')].map(link => [link.textContent, link.getAttribute('href')]));
-    assert.deepEqual(links, { 'Open conversation': `/w/${workspace}/?view=chat&conversation=channel&message=reply&thread=root`,
-      'Review in Activity': `/w/${workspace}/?view=activity&tab=needs` });
-    assert.equal(button('Stop request'), undefined);
-    assert.equal(button('Review Send supplier email'), undefined);
-    assert.equal(document.querySelector('.agent-work-actions button'), null, 'the agent page decides nothing');
-    assert.equal(writes.length, 0);
-  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
-    if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
-    if (options.method === 'POST') writes.push(path);
-    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
-    return response(path.endsWith('/session') ? session : { requests: [waiting], next_before: null });
-  } });
+    const { RecentWork } = await import('../src/react/agents/profile/recent-work.tsx');
+    await render(RecentWork, { requests: [waiting, done], all: true, loaded: true });
+    const links = [...document.querySelectorAll('.profile-work li a')];
+    assert.deepEqual(links.map(link => link.getAttribute('href')), [`/w/${workspace}/?view=activity&tab=needs`, `/w/${workspace}/?view=chat&conversation=channel&message=done`]);
+    assert.equal(links[0].getAttribute('aria-label'), 'Check supplier delivery, Waiting for approval, opens in Activity');
+    assert.match(links[0].querySelector('.profile-pill').textContent, /Waiting for approval/);
+    assert.equal(links[1].querySelector('.profile-pill'), null);
+    assert.equal(document.querySelector('.profile-work button'), null, 'the agent page decides nothing');
+    await render(RecentWork, { requests: [], all: false, loaded: true });
+    assert.equal(document.querySelector('.profile-work h3').textContent, 'Your requests');
+    assert.match(document.querySelector('.profile-work').textContent, /Nothing yet/);
+  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async path => response(path.endsWith('/session') ? session : {}) });
 });
 
 test('switching selected agent during Message cannot create or navigate a stale conversation', async () => {

@@ -22,7 +22,6 @@ test('a lesson is approved for its own conversation unless widened, once, and th
   await reactFixture(async ({ render, button, click, update }) => {
     const { LearnedLessons } = await import('../src/react/agents/learned-lessons.tsx');
     await render(LearnedLessons, { agent, saved: async () => { saved += 1; } });
-    assert.match(document.body.textContent, /never private chats/);
     assert.match(document.body.textContent, /2 lessons to review/);
     const article = document.querySelector('article[aria-label="Delivery date first"]');
     assert.match(article.textContent, /A person answered its reply in Operations: “It goes by BlueDart.”/);
