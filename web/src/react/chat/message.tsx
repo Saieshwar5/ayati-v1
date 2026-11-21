@@ -1,7 +1,6 @@
 import { messageHtml } from '../../markdown';
 import '../../message-content.css';
 import { MessageReceipt, useSeen } from './receipt';
-import { workspaceSession } from '../../workspace-context';
 import { filesOnlyContent, type Directory, type Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { FollowUpLine, TaskChip } from './task-chip';
@@ -14,7 +13,8 @@ import { useResults, useResultSource, useResultReading } from '../results/provid
 import { InlineResponse } from '../results/inline-response';
 import { HandoffCard, CoordinationView } from './handoffs';
 import { MessageFiles } from '../results/files';
-import { AgentFace, AiTag, PersonFace } from '../faces';
+import { AiTag } from '../faces';
+import { messageAuthor } from './message-author';
 import { useShowProfile } from './profile-card';
 import { useState } from 'react';
 import { DeleteMessage, EditMessage, MessageToolbar, ReactionBar, useReactions } from './message-actions';
@@ -36,13 +36,8 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const openResult = useResults();
   const source = useResultSource();
   const reading = useResultReading();
-  const name = message.kind === 'agent' ? directory.agents.find(agent => agent.id === message.author)?.name ?? message.name ?? 'Agent' : message.name ?? 'Former member';
-  const own = message.kind !== 'agent' && message.author === workspaceSession?.user?.id;
+  const { agent, person, name, own, face } = messageAuthor(message, directory);
   const showProfile = useShowProfile();
-  const agent = message.kind === 'agent' ? directory.agents.find(item => item.id === message.author) : undefined;
-  const person = message.kind === 'agent' ? undefined : directory.users.find(user => user.id === message.author);
-  const face = agent ? <AgentFace agent={agent} /> : message.kind === 'agent' ? <AgentFace agent={{ id: message.author, name }} />
-    : person ? <PersonFace person={person} /> : <PersonFace person={{ id: message.author, name }} />;
   const profile = (agent || person) && (() => showProfile({ kind: agent ? 'agent' : 'user', id: message.author }));
   const element = useSeen(message, own, read);
   const placeholder = message.content === filesOnlyContent && Boolean(message.attachments?.length);
