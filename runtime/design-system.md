@@ -267,7 +267,9 @@ A thread line with replies you have not read shows a small "N new" pill in the a
 colour, red when one is for you, so a conversation's unread count always points at
 something to open. It goes as the replies are seen in the thread.
 The thread drawer keeps its reply box at the bottom: only the messages scroll, opening at
-the newest reply, under a "No replies yet" or "N replies" divider. The routing note and a
+the newest reply, under a "No replies yet" or "N replies" divider. Its title bar matches the
+conversation header (56 px, a 16 px title, a borderless 36 px Close; 44 px on touch), not
+the taller header of a form dialog. The routing note and a
 compact Follow / Following button sit on one line above the reply box. The message toolbar
 always grows leftward from the message's right edge, on your own messages too, so a short
 message never pushes it past the edge of the conversation.

@@ -4,6 +4,14 @@
 .ui-dialog-body:has(.chat-thread-panel) { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 .ui-dialog-body:has(.chat-thread-panel) > .ui-fieldset { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .chat-thread-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+/* The title bar matches the conversation header of a channel, person or agent
+   (chat-layout.css): 56px tall, a 16px title and a borderless 36px button. The shared
+   dialog header is taller, sized for forms. The drawer is outside .workspace-chat, so
+   the height is repeated here rather than read from --chat-header-height. */
+.ui-dialog:has(.chat-thread-panel) > .ui-dialog-header { height: 56px; padding: 8px 12px 8px 20px; }
+.ui-dialog:has(.chat-thread-panel) > .ui-dialog-header h2 { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ui-dialog:has(.chat-thread-panel) > .ui-dialog-header .ui-icon { height: 36px; line-height: 1; border-color: transparent; background: transparent; }
+.ui-dialog:has(.chat-thread-panel) > .ui-dialog-header .ui-icon:hover:not(:disabled) { background: var(--selection); }
 .chat-thread-scroll { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; overscroll-behavior: contain; padding: 20px 20px 12px; }
 .chat-thread-root { padding-bottom: 4px; }
 .chat-thread-divider { display: flex; align-items: center; gap: 12px; margin: 0 0 18px; color: var(--muted); font-size: 12px; font-weight: 600; }
@@ -19,7 +27,12 @@
 /* Lined up with the messages above, with a quieter shadow than the floating chat composer. */
 .chat-thread-reply .message-composer { margin: 0; min-height: 56px; padding: 8px 10px; box-shadow: 0 2px 8px var(--shadow-deep); }
 @media (max-width: 600px) {
+  .ui-dialog:has(.chat-thread-panel) > .ui-dialog-header { padding: 8px 10px 8px 16px; }
+  .ui-dialog:has(.chat-thread-panel) > .ui-dialog-header h2 { font-size: 14px; }
   .chat-thread-scroll { padding: 16px 16px 10px; }
   .chat-thread-reply { padding: 8px 16px 12px; }
 }
-@media (pointer: coarse) { .chat-thread-follow .ui-button { min-height: 44px; } }
+@media (pointer: coarse) {
+  .chat-thread-follow .ui-button { min-height: 44px; }
+  .ui-dialog:has(.chat-thread-panel) > .ui-dialog-header .ui-icon { width: 44px; height: 44px; }
+}
