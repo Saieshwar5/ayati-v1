@@ -96,6 +96,26 @@ button.row:hover { background: var(--soft); }
 .thin::before, .thin::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
 .thin span { display: inline-flex; align-items: center; gap: 5px; } .thin .mark { color: var(--online); width: 12px; height: 12px; }
 
+/* What Ayati wrote: its name as a mention on a line above the message, for its author only */
+.mention { padding: 1px 4px; border-radius: 4px; background: var(--sel); color: var(--ink); font-weight: 600; }
+.msg .tag { color: var(--ink-2); font-size: 11.5px; }
+.msg .quote { max-width: 100%; padding-left: 8px; border-left: 2px solid var(--line-3); color: var(--ink-2); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg.them > div { min-width: 0; display: grid; gap: 2px; justify-items: start; }
+.act { align-self: center; opacity: .55; } .msg:hover .act, .act:focus-visible { opacity: 1; } .act .mark { color: var(--online); }
+.still .msg { max-width: 100%; min-width: 0; } .still .msg.me { justify-self: end; } .still .msg.them { justify-self: start; }
+.screens.four { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+/* Asking with a mention: the list over the message box, and the message being answered */
+.mmenu { position: absolute; left: 0; bottom: calc(100% + 6px); z-index: 4; width: min(340px, 100%); padding: 5px; display: grid; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); box-shadow: 0 4px 18px var(--shade); }
+.mmenu.static { position: static; width: auto; box-shadow: none; }
+.mmenu > * { display: flex; align-items: center; gap: 8px; padding: 8px 9px; border: 0; border-radius: 6px; background: none; text-align: left; font-size: 13px; }
+.mmenu > button { cursor: pointer; } .mmenu > [aria-selected="true"] { background: var(--sel); }
+.mmenu strong { flex: 1; font-weight: 500; } .mmenu small { color: var(--ink-2); font-size: 11px; } .mmenu .mark { color: var(--online); width: 18px; height: 18px; }
+.reto { display: flex; align-items: center; gap: 8px; padding: 0 2px; color: var(--ink-2); font-size: 12.5px; }
+.reto span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fake-text { padding: 2px 4px; min-height: 30px; }
+.seg { display: inline-flex; border: 1px solid var(--line-3); border-radius: 9px; overflow: hidden; }
+.seg button { border: 0; padding: 8px 14px; background: var(--paper); font-size: 14px; cursor: pointer; } .seg button[aria-pressed="true"] { background: var(--sel); font-weight: 600; }
+
 /* The switch: a quiet icon when off, a pill when on, one menu for everything */
 .ctl { position: relative; flex: none; }
 .pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 0; border-radius: 999px; background: transparent; color: var(--ink-2); font-size: 12.5px; white-space: nowrap; cursor: pointer; }
@@ -114,7 +134,7 @@ button.row:hover { background: var(--soft); }
 .menu .foot { border-top: 1px solid var(--line); margin-top: 6px; padding: 8px 6px 0; color: var(--ink-2); font-size: 12px; }
 
 /* The message box, with the one-line bar on top that drafts already use */
-.composer { flex: none; margin: 0 16px 14px; border: 1px solid var(--line-3); border-radius: 18px; box-shadow: 0 2px 8px var(--shade); padding: 8px 10px; display: grid; gap: 6px; }
+.composer { position: relative; flex: none; margin: 0 16px 14px; border: 1px solid var(--line-3); border-radius: 18px; box-shadow: 0 2px 8px var(--shade); padding: 8px 10px; display: grid; gap: 6px; }
 .notice { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 0 2px 6px; border-bottom: 1px solid var(--line); color: var(--ink-2); font-size: 12.5px; }
 .notice .mark { color: var(--work); } .notice b { color: var(--ink); font-weight: 600; } .notice > span { flex: 1; min-width: 160px; }
 .notice.flag { color: var(--warn); } .notice.flag .mark { color: var(--warn); }
@@ -177,6 +197,40 @@ span.btn { cursor: default; }
   </section>
 
   <section>
+    <h2>How Ayati's messages look in the chat</h2>
+    <p>A message Ayati wrote carries its name as a mention, <span class="mention">@Ayati</span>, on a line above the message. Under the message there is only the time, as on every other message. An assistant with another name shows that name.</p>
+    <div class="screens four">
+      <figure><div class="frame still" aria-hidden="true"><div class="msg me"><span class="tag"><span class="mention">@Ayati</span> sent this for you</span><p>3 pm on Friday works for me. I'll move the invite.</p><span class="meta">10:44 AM</span></div></div>
+        <figcaption><b>Ayati sent it.</b> The chat was on Reply for me, so this went out without you pressing Send.</figcaption></figure>
+      <figure><div class="frame still" aria-hidden="true"><div class="msg me"><span class="tag">Written with <span class="mention">@Ayati</span></span><p>Yes. I'll bring the Q3 list with the renewals marked.</p><span class="meta">10:48 AM</span></div></div>
+        <figcaption><b>You sent it.</b> Ayati wrote the reply, on Ask me first or because you mentioned it. You read it and pressed Send.</figcaption></figure>
+      <figure><div class="frame still" aria-hidden="true"><div class="msg me"><span class="tag">Written with <span class="mention">@Ayati</span></span><span class="quote">Can we move Friday's vendor review to 3 pm?</span><p>Yes, 3 pm works. Could you send the agenda before then?</p><span class="meta">10:52 AM</span></div></div>
+        <figcaption><b>An answer to one message.</b> You chose "Reply with @Ayati" on that message, so it is quoted above your reply.</figcaption></figure>
+      <figure><div class="frame still" aria-hidden="true"><div class="msg them"><span class="face big c">AS</span><div><p>3 pm on Friday works for me. I'll move the invite.</p><span class="meta">10:44 AM</span></div></div></div>
+        <figcaption><b>What Meera sees.</b> An ordinary message from you, with no tag. The tag is shown to you alone; admins have the Audit log.</figcaption></figure>
+    </div>
+    <h3>Asking with a mention</h3>
+    <div class="screens">
+      <figure><div class="frame still" aria-hidden="true">
+        <div class="mmenu static"><span aria-selected="true"><svg class="mark" viewBox="0 0 24 24"><use href="#mark"/></svg><strong>Ayati</strong><small>Your assistant · only you see this</small></span><span><span class="face">MI</span><strong>Meera Iyer</strong><small>Finance lead</small></span></div>
+        <div class="composer" style="margin:0">
+          <div class="notice"><svg class="mark" viewBox="0 0 24 24"><use href="#mark"/></svg><span><b>Only you see this.</b> Ayati writes the reply here. Nothing is sent.</span></div>
+          <div class="fake-text"><span class="mention">@Ayati</span> say yes, but ask for the agenda</div>
+          <div class="tools"><span class="icon"><svg class="mark" viewBox="0 0 24 24"><use href="#mark"/></svg></span><span style="flex:1"></span><span class="btn primary">Ask Ayati</span></div>
+        </div></div>
+        <figcaption>The message box while you ask. The Send button reads "Ask Ayati", so you can see that nothing will be posted.</figcaption></figure>
+      <ul class="plain">
+        <li>Type <b>@</b> in any message box. Your assistant is first in the list.</li>
+        <li>A message that starts with @Ayati is never posted to the chat. Ayati writes the reply into the box, and you send it.</li>
+        <li>Add words to say what you want ("say yes, but ask for the agenda"), or none and let Ayati decide.</li>
+        <li>On a message, <b>Reply with @Ayati</b> in its toolbar does the same for that one message.</li>
+        <li>While a reply waits in the box, "@Ayati shorter" rewrites it.</li>
+        <li>Nobody else can mention your assistant. In their list, people see only their own.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
     <h2>The three positions</h2>
     <figure class="diagram scroll-x">
       <svg viewBox="0 0 900 200" role="img" aria-label="Three positions: Off, Ask me first and Reply for me. You move between them by choice. Reply for me steps down to Ask me first by itself.">
@@ -194,10 +248,11 @@ span.btn { cursor: default; }
 
   <section>
     <h2>Try it</h2>
-    <p>Press the button to have the other side write. Change the position with the <svg class="mark" viewBox="0 0 24 24" aria-label="assistant mark" role="img"><use href="#mark"/></svg> control in the chat's header. Open HR Desk in the list to see the same thing with an agent.</p>
+    <p>Press the button to have the other side write. Change the position with the <svg class="mark" viewBox="0 0 24 24" aria-label="assistant mark" role="img"><use href="#mark"/></svg> control in the chat's header. Type <b>@</b> in the message box, or press the mark beside a message, to ask for one reply. Open HR Desk in the list to see the same thing with an agent.</p>
     <div class="sim">
       <button class="btn primary" id="simIn">Meera sends a message</button>
       <button class="btn" id="simReset">Start over</button>
+      <span class="seg" role="group" aria-label="See the chat as"><button id="vYou" aria-pressed="true">You see</button><button id="vThem" aria-pressed="false">Meera sees</button></span>
       <span class="muted" id="simLeft"></span>
     </div>
     <div class="frame"><div class="chat">
@@ -215,7 +270,7 @@ span.btn { cursor: default; }
         <header class="head">
           <span class="face big" id="hFace"></span>
           <div class="who"><b id="hName"></b><span id="hSub"></span></div>
-          <div class="ctl">
+          <div class="ctl" id="ctl">
             <button class="pill" id="ctlBtn" aria-haspopup="true" aria-expanded="false"></button>
             <div class="menu" id="menu" hidden>
               <small>Ayati in this chat</small>
@@ -229,10 +284,12 @@ span.btn { cursor: default; }
         </header>
         <div class="msgs" id="msgs" aria-live="polite"></div>
         <div class="composer">
+          <div class="mmenu" id="mmenu" role="listbox" aria-label="Mention suggestions" hidden><button id="mPick" role="option" aria-selected="true"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg><strong>Ayati</strong><small>Your assistant · only you see this</small></button></div>
           <div class="notice" id="notice" hidden></div>
+          <div class="reto" id="reto" hidden></div>
           <textarea id="box" rows="2" aria-label="Message"></textarea>
           <div class="tools">
-            <button class="icon" id="draftBtn" aria-label="Draft with Ayati" title="Draft with Ayati. It writes a reply for you to check. Nothing is sent."><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg></button>
+            <button class="icon" id="draftBtn" aria-label="Mention Ayati to ask for a reply" title="Mention @Ayati. It writes a reply for you to check. Nothing is sent."><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg></button>
             <span style="flex:1"></span>
             <button class="btn primary" id="send">Send</button>
           </div>
@@ -265,7 +322,7 @@ span.btn { cursor: default; }
         <rect class="d-box" x="10" y="120" width="150" height="64" rx="10"/><text class="d-t" x="85" y="148" text-anchor="middle">They write</text><text class="d-s" x="85" y="168" text-anchor="middle">a person or an agent</text>
         <rect class="d-box" x="230" y="120" width="170" height="64" rx="10"/><text class="d-t" x="315" y="148" text-anchor="middle">Ayati reads</text><text class="d-s" x="315" y="168" text-anchor="middle">the last 20 messages</text>
         <rect class="d-box" x="470" y="120" width="200" height="64" rx="10"/><text class="d-t" x="570" y="148" text-anchor="middle">Can it answer?</text><text class="d-s" x="570" y="168" text-anchor="middle">from what you agreed to share</text>
-        <rect class="d-box" x="740" y="40" width="190" height="66" rx="10"/><text class="d-k" x="835" y="58" text-anchor="middle">YES</text><text class="d-t" x="835" y="77" text-anchor="middle">Sends as you</text><text class="d-s" x="835" y="95" text-anchor="middle">marked for you only</text>
+        <rect class="d-box" x="740" y="40" width="190" height="66" rx="10"/><text class="d-k" x="835" y="58" text-anchor="middle">YES</text><text class="d-t" x="835" y="77" text-anchor="middle">Sends as you</text><text class="d-s" x="835" y="95" text-anchor="middle">tagged @Ayati, for you only</text>
         <rect class="d-hot" x="740" y="124" width="190" height="66" rx="10"/><text class="d-k" x="835" y="142" text-anchor="middle">NEEDS YOUR DECISION</text><text class="d-t" x="835" y="161" text-anchor="middle">Asks you in that chat</text><text class="d-s" x="835" y="179" text-anchor="middle">nothing is sent</text>
         <rect class="d-box" x="740" y="208" width="190" height="66" rx="10"/><text class="d-k" x="835" y="226" text-anchor="middle">SETTLED · 30 SENT · PROBLEM</text><text class="d-t" x="835" y="245" text-anchor="middle">Steps down</text><text class="d-s" x="835" y="263" text-anchor="middle">to Ask me first</text>
         <path class="d-a" d="M160 152H224" marker-end="url(#ah)"/><path class="d-a" d="M400 152H464" marker-end="url(#ah)"/>
@@ -286,6 +343,8 @@ span.btn { cursor: default; }
         <tr><th>States</th><td>Suggested, running, stopped, deleted</td><td>Off, Ask me first, Reply for me</td></tr>
         <tr><th>Buttons</th><td>Start, Dismiss, Stop, Resume, Delete</td><td>The three choices</td></tr>
         <tr><th>Seeing a reply first</th><td>Only a suggested opening message</td><td>Every reply, in Ask me first</td></tr>
+        <tr><th>Asking for one reply</th><td>A button beside Attach, or "take over" with an instruction</td><td>Mention @Ayati in the message box, or "Reply with @Ayati" on a message</td></tr>
+        <tr><th>What marks its messages</th><td>A small mark and name beside the time, under the message</td><td>"@Ayati" on a line above the message</td></tr>
         <tr><th>When Ayati needs you</th><td>It says so in its own chat</td><td>It asks in the chat where the question came up</td></tr>
         <tr><th>When it stops by itself</th><td>"Stopped": you Resume or Delete</td><td>Steps down to Ask me first</td></tr>
       </tbody>
@@ -342,17 +401,20 @@ span.btn { cursor: default; }
     <h2>What stays, what goes, what is new</h2>
     <div class="cols">
       <div><h3>Stays</h3><ul class="plain">
-        <li>Replies are your own messages. Only you see Ayati's mark beside the time; admins have the Audit log.</li>
+        <li>Replies are your own messages. Only you see the @Ayati tag; admins have the Audit log.</li>
         <li>One per chat, never with another assistant, and a stop after 30 sent messages.</li>
-        <li>The mark on the chat's row in the list, and "Draft with Ayati" beside Attach.</li>
+        <li>The mark on the chat's row in the list, beside Attach, and on a message's toolbar.</li>
         <li>You can always write in the chat yourself.</li></ul></div>
       <div><h3>Goes</h3><ul class="plain">
-        <li>The "take over from here" window and the mark on each message's toolbar.</li>
+        <li>The "take over from here" window. The mark on a message now asks for one reply to it.</li>
+        <li>The mark and name under a message, beside the time.</li>
         <li>Stop, Resume and Delete, and the stopped and deleted states.</li>
         <li>A first reply that goes out before you have seen anything Ayati wrote.</li>
         <li>Titles. A chat has a position, not a named matter.</li></ul></div>
       <div><h3>New</h3><ul class="plain">
         <li>Ask me first: every reply waits in your message box.</li>
+        <li>@Ayati in any message box, and "Reply with @Ayati" on a message.</li>
+        <li>The @Ayati tag above what it wrote, saying whether it or you sent it.</li>
         <li>The step-down rule, in place of "stopped".</li>
         <li>Ayati's questions shown in the same chat and in Needs you.</li>
         <li>A flag on a reply that shares something new or decides for you.</li>
@@ -381,9 +443,9 @@ span.btn { cursor: default; }
     </table></div>
     <h3>Decisions for you</h3>
     <ol class="plain">
-      <li><b>Sent as you, or as Ayati?</b> I would keep "as you". Ask me first already removes most of the risk, and changing it reverses an earlier decision.</li>
+      <li><b>Who sees the @Ayati tag?</b> In this design only you do, as today. The alternative is to show "via @Ayati" to the other side on messages Ayati sent without you. That is more open, and it reverses the earlier decision that every message reads as yours.</li>
       <li><b>After a matter is settled:</b> step down to Ask me first (my choice) or to Off?</li>
-      <li><b>Remove "take over" from a message's toolbar?</b> I would. The cost is that you can no longer pick an older message to start from; Ayati starts from the newest unanswered one.</li>
+      <li><b>The mark on a message's toolbar</b> changes from "take over from here" to "Reply with @Ayati": one reply to that message, which you send. Replying on its own is only ever turned on by the header switch.</li>
       <li><b>Cost.</b> Ask me first runs the model once for each incoming message in the chats where it is on, against your assistant's budget.</li>
     </ol>
   </section>
@@ -392,87 +454,125 @@ span.btn { cursor: default; }
 <script>
 const $ = id => document.getElementById(id);
 const MARK = '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg>';
+const AT = '<span class="mention">@Ayati</span>';
 const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const YOU = { name: 'Arjun Shah', init: 'AS' };
+/* A reply for a message that has no canned one. */
+const ANY = { out: 'Thanks, that works for me.', alt: 'Thanks. That works.' };
 
-/* Two example chats with canned replies: a person and an agent. */
+/* Two example chats with canned replies: a person and an agent. `alt` is what Ayati
+   writes when you add your own words to a mention; the real one follows those words. */
 function fresh() { return {
-  meera: { name: 'Meera Iyer', first: 'Meera', ai: false, sub: 'Online · Finance lead', init: 'MI', face: '', mode: 'ask', step: 0, sent: 0, clock: 640, box: '', pending: null,
-    msgs: [{ who: 'me', text: 'Are we still on for the vendor review on Friday?', at: '10:38 AM' }],
+  meera: { name: 'Meera Iyer', first: 'Meera', ai: false, sub: 'Online · Finance lead', init: 'MI', face: '', mode: 'ask', step: 0, sent: 0, clock: 640, box: '', pending: null, replyTo: null,
+    msgs: [{ who: 'me', text: 'Are we still on for the vendor review on Friday?', at: '10:31 AM' },
+      { who: 'them', text: 'Yes. Shall I book the small room?', at: '10:33 AM' },
+      { who: 'me', text: 'Yes, please book the small room.', at: '10:34 AM', by: 'with' }],
     script: [
-      { in: "Can we move Friday's vendor review to 3 pm? My morning is full.", out: "3 pm on Friday works for me. I'll move the invite." },
-      { in: 'Great. Can you bring the Q3 vendor list?', out: "Yes. I'll bring the Q3 list with the renewals marked." },
-      { in: 'One more thing: what budget did we approve for the new supplier?', out: 'We approved 18 lakh for the first year.', ask: "Meera asks for the new supplier's budget. You have not shared that figure with her before.", yes: 'Share it', flag: 'It shares a figure Meera has not seen before.' },
-      { in: 'Thanks, that is all I needed. See you Friday.', out: 'See you Friday.', done: 'review moved to Friday, 3 pm' }] },
-  hr: { name: 'HR Desk', first: 'HR Desk', ai: true, sub: 'Ready · Leave and policies', init: 'HR', face: 'b', mode: 'off', step: 0, sent: 0, clock: 550, box: '', pending: null,
+      { in: "Can we move Friday's vendor review to 3 pm? My morning is full.", out: "3 pm on Friday works for me. I'll move the invite.", alt: 'Yes, 3 pm works. Could you send the agenda before then?' },
+      { in: 'Great. Can you bring the Q3 vendor list?', out: "Yes. I'll bring the Q3 list with the renewals marked.", alt: "Yes, I'll bring it." },
+      { in: 'One more thing: what budget did we approve for the new supplier?', out: 'We approved 18 lakh for the first year.', alt: "I'll confirm the figure and tell you today.", ask: "Meera asks for the new supplier's budget. You have not shared that figure with her before.", yes: 'Share it', flag: 'It shares a figure Meera has not seen before.' },
+      { in: 'Thanks, that is all I needed. See you Friday.', out: 'See you Friday.', alt: 'Thanks. See you Friday.', done: 'review moved to Friday, 3 pm' }] },
+  hr: { name: 'HR Desk', first: 'HR Desk', ai: true, sub: 'Ready · Leave and policies', init: 'HR', face: 'b', mode: 'off', step: 0, sent: 0, clock: 550, box: '', pending: null, replyTo: null,
     msgs: [{ who: 'me', text: "I'd like leave from 22 to 26 December.", at: '9:08 AM' }],
     script: [
-      { in: 'Which leave type should I use: annual or unpaid?', out: 'Annual leave, please.' },
-      { in: 'Who covers your work that week?', out: 'Ravi Menon covers for me that week.' },
-      { in: 'Your manager must approve it. Shall I send the request to Ananya Rao now?', out: 'Yes, please send it to Ananya.', ask: 'HR Desk wants to send your leave request to your manager. That is your decision.', yes: 'Yes, send it', flag: 'It makes a decision for you.' },
-      { in: 'Ananya approved your leave for 22 to 26 December.', out: 'Thank you.', done: 'leave approved for 22 to 26 December' }] } }; }
-let chats = fresh(), cur = 'meera', run = 0;
+      { in: 'Which leave type should I use: annual or unpaid?', out: 'Annual leave, please.', alt: 'Annual leave. Thank you.' },
+      { in: 'Who covers your work that week?', out: 'Ravi Menon covers for me that week.', alt: 'Ravi Menon.' },
+      { in: 'Your manager must approve it. Shall I send the request to Ananya Rao now?', out: 'Yes, please send it to Ananya.', alt: "Not yet. I'll tell you when to send it.", ask: 'HR Desk wants to send your leave request to your manager. That is your decision.', yes: 'Yes, send it', flag: 'It makes a decision for you.' },
+      { in: 'Ananya approved your leave for 22 to 26 December.', out: 'Thank you.', alt: 'Thanks for the quick help.', done: 'leave approved for 22 to 26 December' }] } }; }
+let chats = fresh(), cur = 'meera', run = 0, view = 'you', menuOff = false;
 const MODE = { off: 'Off', ask: 'Ask me first', auto: 'Reply for me' };
 const stamp = c => { c.clock += 2; const h = Math.floor(c.clock / 60), m = c.clock % 60; return `${h > 12 ? h - 12 : h}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`; };
 const say = text => { $('happened').innerHTML = '<b>What just happened</b>' + text; };
 const add = (c, msg) => c.msgs.push({ at: stamp(c), ...msg });
-const unanswered = c => { const last = c.msgs.filter(m => m.who !== 'line').pop(); return last && last.who === 'them' && c.step > 0 ? c.script[c.step - 1] : null; };
+const asking = () => /^@ayati(\s|$)/i.test($('box').value.trimStart());
+/* The other side's newest message, when nothing answered it yet. */
+const unanswered = c => { const last = c.msgs.filter(m => m.who !== 'line').pop(); return last?.who === 'them' ? last : null; };
+
+/* One message. Yours sit on the right; in the other side's view the sides swap and
+   everything that is yours alone (the tag, the thin lines, the toolbar mark) is gone. */
+function bubble(c, m, i) {
+  const you = view === 'you';
+  if (m.who === 'line') return you ? `<p class="thin" title="Only you see this"><span>${MARK}${esc(m.text)}</span></p>` : '';
+  const quote = m.re ? `<span class="quote">${esc(m.re)}</span>` : '';
+  if ((m.who === 'me') === you) {
+    const tag = you && m.by ? `<span class="tag" title="Only you and workspace admins see this">${m.by === 'sent' ? AT + ' sent this for you' : 'Written with ' + AT}</span>` : '';
+    return `<div class="msg me">${tag}${quote}<p>${esc(m.text)}</p><span class="meta">${m.at}</span></div>`;
+  }
+  const act = you ? `<button class="icon act" data-reply="${i}" aria-label="Reply with @Ayati" title="Reply with @Ayati">${MARK}</button>` : '';
+  return `<div class="msg them"><span class="face big ${you ? c.face : 'c'}">${you ? c.init : YOU.init}</span><div>${quote}<p>${esc(m.text)}</p><span class="meta">${m.at}</span></div>${act}</div>`;
+}
+
+/* The bar on top of the message box, the mention list and the Send button's word. */
+function bar() {
+  const c = chats[cur], p = c.pending, n = $('notice'), you = view === 'you', v = $('box').value;
+  $('send').textContent = asking() ? 'Ask Ayati' : 'Send';
+  $('mmenu').hidden = !(you && !menuOff && /^@[a-z]{0,4}$/i.test(v) && 'ayati'.startsWith(v.slice(1).toLowerCase()));
+  n.hidden = !(you && (p || asking())); if (n.hidden) return;
+  n.className = 'notice' + (p?.flag ? ' flag' : '');
+  n.innerHTML = p?.type === 'writing' ? `${MARK}<span><b>Ayati is writing a reply…</b> Nothing is sent.</span>`
+    : p?.type === 'draft' ? `${MARK}<span><b>Reply from Ayati</b> · ${p.flag ? esc(p.flag) + ' Check before you send.' : 'Only you see this. Edit it, then send.'}</span><button class="btn small" data-act="discard">Discard</button>`
+    : p?.type === 'ask' ? `${MARK}<span><b>Ayati needs you</b> · ${esc(p.m.s.ask)} Nothing was sent.</span><button class="btn small primary" data-act="yes">${esc(p.m.s.yes)}</button><button class="btn small" data-act="no">I'll answer</button>`
+    : `${MARK}<span><b>Only you see this.</b> Ayati writes the reply here. Nothing is sent.</span>`;
+}
 
 function render() {
-  const c = chats[cur];
-  $('rows').innerHTML = Object.entries(chats).map(([id, x]) => `<button class="row" data-chat="${id}" aria-current="${id === cur}">
-    <span class="face ${x.face}">${x.init}</span><span class="nm">${x.name}</span>${x.ai ? '<span class="ai">AI</span>' : ''}
-    ${x.mode === 'off' ? '' : `<span role="img" aria-label="${x.mode === 'auto' ? 'Ayati is replying for you' : 'Ayati asks you first'}" title="${x.mode === 'auto' ? 'Ayati is replying for you' : 'Ayati asks you first'}" style="display:inline-grid"><svg class="mark ${x.mode === 'auto' ? 'on' : 'ask'}" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg></span>`}</button>`).join('');
-  $('hFace').className = 'face big ' + c.face; $('hFace').textContent = c.init;
-  $('hName').innerHTML = esc(c.name) + (c.ai ? ' <span class="ai">AI</span>' : ''); $('hSub').textContent = c.sub;
-  const writing = c.pending?.type === 'writing';
+  const c = chats[cur], you = view === 'you';
+  $('rows').innerHTML = Object.entries(chats).map(([id, x]) => { const label = x.mode === 'auto' ? 'Ayati is replying for you' : 'Ayati asks you first';
+    return `<button class="row" data-chat="${id}" aria-current="${id === cur}"><span class="face ${x.face}">${x.init}</span><span class="nm">${x.name}</span>${x.ai ? '<span class="ai">AI</span>' : ''}
+    ${x.mode === 'off' ? '' : `<span role="img" aria-label="${label}" title="${label}" style="display:inline-grid"><svg class="mark ${x.mode === 'auto' ? 'on' : 'ask'}" viewBox="0 0 24 24" aria-hidden="true"><use href="#mark"/></svg></span>`}</button>`; }).join('');
+  $('hFace').className = 'face big ' + (you ? c.face : 'c'); $('hFace').textContent = you ? c.init : YOU.init;
+  $('hName').innerHTML = you ? esc(c.name) + (c.ai ? ' <span class="ai">AI</span>' : '') : YOU.name;
+  $('hSub').textContent = you ? c.sub : `This is you, as ${c.first} sees you`;
+  $('ctl').hidden = !you;
   $('ctlBtn').className = 'pill ' + c.mode;
-  $('ctlBtn').innerHTML = MARK + (c.mode === 'off' ? '' : `<span>${c.mode === 'ask' ? 'Ayati asks you first' : writing ? 'Ayati is writing…' : 'Ayati is replying'}</span>`) + '<span aria-hidden="true">▾</span>';
+  $('ctlBtn').innerHTML = MARK + (c.mode === 'off' ? '' : `<span>${c.mode === 'ask' ? 'Ayati asks you first' : c.pending?.type === 'writing' ? 'Ayati is writing…' : 'Ayati is replying'}</span>`) + '<span aria-hidden="true">▾</span>';
   $('ctlBtn').setAttribute('aria-label', `Ayati in this chat: ${MODE[c.mode]}. Change`);
   $({ off: 'mOff', ask: 'mAsk', auto: 'mAuto' }[c.mode]).checked = true;
   $('mInstr').hidden = c.mode !== 'auto';
-  $('mFoot').textContent = `${c.sent} ${c.sent === 1 ? 'message' : 'messages'} sent as you by Ayati. Only you and admins can tell.`;
-  $('msgs').innerHTML = c.msgs.map(m => m.who === 'line' ? `<p class="thin" title="Only you see this"><span>${MARK}${esc(m.text)}</span></p>`
-    : m.who === 'them' ? `<div class="msg them"><span class="face big ${c.face}">${c.init}</span><div><p>${esc(m.text)}</p><span class="meta">${m.at}</span></div></div>`
-    : `<div class="msg me"><p>${esc(m.text)}</p><span class="meta">${m.by ? MARK + 'Ayati · ' : ''}${m.at}</span></div>`).join('');
+  $('mFoot').textContent = `${c.sent} ${c.sent === 1 ? 'message' : 'messages'} sent for you by Ayati. Only you and admins can tell.`;
+  $('msgs').innerHTML = c.msgs.map((m, i) => bubble(c, m, i)).join('');
   $('msgs').scrollTop = $('msgs').scrollHeight;
-  const p = c.pending, n = $('notice');
-  n.hidden = !p; n.className = 'notice' + (p?.flag ? ' flag' : '');
-  if (p?.type === 'writing') n.innerHTML = `${MARK}<span><b>Ayati is writing a reply…</b> Nothing is sent.</span>`;
-  if (p?.type === 'draft') n.innerHTML = `${MARK}<span><b>Reply from Ayati</b> · ${p.flag ? esc(p.flag) + ' Check before you send.' : 'Only you see this. Edit it, then send.'}</span><button class="btn small" data-act="discard">Discard</button>`;
-  if (p?.type === 'ask') n.innerHTML = `${MARK}<span><b>Ayati needs you</b> · ${esc(p.s.ask)} Nothing was sent.</span><button class="btn small primary" data-act="yes">${esc(p.s.yes)}</button><button class="btn small" data-act="no">I'll answer</button>`;
-  $('box').placeholder = 'Message ' + c.first;
+  $('reto').hidden = !(you && c.replyTo);
+  if (c.replyTo) $('reto').innerHTML = `<span>Answering ${esc(c.first)}: “${esc(c.replyTo.text)}”</span><button class="btn small" data-act="unre">Cancel</button>`;
+  $('box').disabled = !you; $('box').placeholder = you ? `Message ${c.first}, or type @Ayati` : `${c.first}'s message box`;
+  $('send').disabled = !you; $('draftBtn').hidden = !you;
+  $('vYou').setAttribute('aria-pressed', String(you)); $('vThem').setAttribute('aria-pressed', String(!you)); $('vThem').textContent = `${c.first} sees`;
   const left = c.script.length - c.step;
   $('simIn').textContent = `${c.first} sends a message`; $('simIn').disabled = !left;
   $('simLeft').textContent = left ? `${left} of ${c.script.length} left in this example` : 'End of this example. Start over to try another position.';
+  bar();
 }
 
-/* Ayati sends s.out as the person (Reply for me), then steps down if the matter is settled. */
-function sendAs(id, s) {
-  const c = chats[id]; add(c, { who: 'me', text: s.out, by: true }); c.sent += 1; c.pending = null;
+/* Ayati sends its reply to `m` as the person (Reply for me), then steps down if the matter is settled. */
+function sendAs(id, m) {
+  const c = chats[id], s = m.s; add(c, { who: 'me', text: s.out, by: 'sent' }); c.sent += 1; c.pending = null;
   if (s.done && c.mode === 'auto') { c.mode = 'ask'; add(c, { who: 'line', text: `Ayati finished: ${s.done}. It asks you first now.` });
     say('Ayati sent the last reply, saw the matter was settled, and stepped down to Ask me first by itself.'); }
-  else say(`Ayati sent the reply as you. ${c.first} sees an ordinary message from you. Only you see the mark beside its time.`);
+  else say(`Ayati sent the reply as you. ${c.first} sees an ordinary message from you. Above it, only you see "@Ayati sent this for you".`);
 }
-/* What Ayati does with one incoming message, by the chat's position. */
-function handle(id, s, how, instant) {
-  const c = chats[id], token = run;
+/* What Ayati does with one message from the other side: write a reply into the box
+   (`ask`), or answer on its own (`auto`). `own` carries a reply asked for by mention. */
+function handle(id, m, how, instant, own) {
+  const c = chats[id], token = run, s = m.s || ANY, prior = c.box, job = { type: 'writing', m };
   const finish = () => {
-    if (token !== run || c.pending?.s !== s) return;
-    if (how === 'ask') { c.pending = { type: 'draft', s, flag: s.flag }; c.box = s.out; if (id === cur) $('box').value = s.out;
-      say(`Ayati wrote a reply and put it in your message box. Only you see it. ${s.flag ? 'It warns you that this reply ' + s.flag.slice(3) + ' ' : ''}Press Send, change it first, or Discard it.`); }
-    else if (s.ask) { c.pending = { type: 'ask', s }; say('Ayati sent nothing. It needs your decision first, so it asks you above the message box of this chat.'); }
-    else sendAs(id, s);
+    if (token !== run || c.pending !== job) return;
+    if (how === 'ask') { const text = own?.text ?? s.out, flag = own ? null : s.flag;
+      c.pending = { type: 'draft', m, flag, before: own?.before ?? prior }; c.box = text; if (id === cur) $('box').value = text;
+      say(own ? 'You asked Ayati with a mention. Your words were not posted. Ayati wrote the reply into your message box. This example uses a canned reply; the real one follows your words.'
+        : `Ayati wrote a reply and put it in your message box. Only you see it. ${flag ? 'It warns you that this reply ' + flag.slice(3) + ' ' : ''}Press Send, change it first, or Discard it.`); }
+    else if (s.ask) { c.pending = { type: 'ask', m }; say('Ayati sent nothing. It needs your decision first, so it asks you above the message box of this chat.'); }
+    else sendAs(id, m);
     if (id === cur) render();
   };
-  c.pending = { type: 'writing', s };
+  c.pending = job;
   if (instant) finish(); else { say('Ayati is reading the chat and writing. Nothing is sent yet.'); setTimeout(finish, 1100); }
 }
 function incoming() {
   const c = chats[cur]; if (c.step >= c.script.length) return;
   if (c.pending?.type === 'draft') { c.box = ''; $('box').value = ''; }
-  const s = c.script[c.step++]; c.pending = null; add(c, { who: 'them', text: s.in });
-  if (c.mode === 'off') say(`Nothing on Ayati's side: it is off in this chat. You answer yourself, or press the assistant mark in the message box to ask for one draft.`);
-  else handle(cur, s, c.mode);
+  const s = c.script[c.step++]; c.pending = null; add(c, { who: 'them', text: s.in, s });
+  if (c.mode === 'off') say(`Nothing on Ayati's side: it is off in this chat. You answer yourself, or type @Ayati in the message box to ask for one reply.`);
+  else handle(cur, c.msgs[c.msgs.length - 1], c.mode);
   render();
 }
 function setMode(mode) {
@@ -480,37 +580,66 @@ function setMode(mode) {
   c.mode = mode;
   if (c.pending) { if (c.pending.type === 'draft') { c.box = ''; $('box').value = ''; } c.pending = null; }
   if (mode === 'auto') add(c, { who: 'line', text: 'Ayati replies for you from here' });
-  const s = unanswered(c);
-  if (mode !== 'off' && s) handle(cur, s, mode);
-  else say(mode === 'off' ? 'Ayati is off in this chat. It writes nothing here unless you ask for a draft.'
+  const m = unanswered(c);
+  if (mode !== 'off' && m) handle(cur, m, mode);
+  else say(mode === 'off' ? 'Ayati is off in this chat. It writes nothing here unless you mention it.'
     : mode === 'ask' ? `From now on, Ayati writes a reply into your message box each time ${c.first} writes. You send it.`
     : `From now on, Ayati answers ${c.first} as you. It asks you when it needs a decision, and steps down when the matter is settled.`);
   render();
 }
+/* A message that starts with @Ayati is a request to Ayati. It is never posted. */
+function askAyati(raw) {
+  const c = chats[cur], words = raw.replace(/^@ayati\s*/i, '').trim();
+  const m = c.replyTo || c.pending?.m || unanswered(c);
+  if (c.pending?.type === 'writing') return;
+  if (!m) return say('Nothing was posted. There is no new message to answer here; in the app, Ayati would write a new message from your words.');
+  const s = m.s || ANY; c.box = ''; $('box').value = '';
+  handle(cur, m, 'ask', false, { text: words ? s.alt : s.out, before: raw });
+  render();
+}
 function send() {
-  const c = chats[cur], text = $('box').value.trim(); if (!text) return;
+  const c = chats[cur], text = $('box').value.trim(); if (!text || view !== 'you') return;
+  if (asking()) return askAyati(text);
   const drafted = c.pending?.type === 'draft';
-  add(c, { who: 'me', text, by: drafted }); c.pending = null; c.box = ''; $('box').value = '';
-  say(drafted ? 'You sent the reply Ayati wrote. It is your message. Only you see the mark beside its time.' : 'You sent this yourself. You can always write here, in any position.');
+  add(c, { who: 'me', text, by: drafted ? 'with' : undefined, re: c.replyTo?.text });
+  c.pending = null; c.replyTo = null; c.box = ''; $('box').value = '';
+  say(drafted ? `You sent the reply Ayati wrote. It is your message. Above it, only you see "Written with @Ayati".` : 'You sent this yourself, so it carries no tag. You can always write here, in any position.');
   render();
 }
 const openMenu = open => { $('menu').hidden = !open; $('ctlBtn').setAttribute('aria-expanded', String(open)); };
+const pick = () => { const b = $('box'); b.value = chats[cur].box = '@Ayati '; b.focus(); bar();
+  say('You mentioned Ayati. Add what you want to say, or just press Enter. A message that starts with @Ayati is never posted.'); };
 
 $('simIn').onclick = incoming;
 $('simReset').onclick = () => { run += 1; chats = fresh(); cur = 'meera'; $('box').value = ''; start(); };
 $('send').onclick = send;
-$('box').oninput = () => { chats[cur].box = $('box').value; };
-$('box').onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
-$('draftBtn').onclick = () => { const c = chats[cur], s = unanswered(c);
-  if (s && !c.pending) { handle(cur, s, 'ask'); render(); } else say(c.pending ? 'Ayati is already on it.' : 'There is nothing new to answer here.'); };
+$('mPick').onclick = pick;
+$('box').oninput = () => { chats[cur].box = $('box').value; menuOff = false; bar(); };
+$('box').onkeydown = e => {
+  if (!$('mmenu').hidden && (e.key === 'Enter' || e.key === 'Tab')) { e.preventDefault(); pick(); return; }
+  if (!$('mmenu').hidden && e.key === 'Escape') { e.stopPropagation(); menuOff = true; bar(); return; }
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } };
+$('draftBtn').onclick = () => { const c = chats[cur], b = $('box');
+  if (c.pending?.type === 'draft') { c.pending = null; b.value = ''; }
+  if (!asking()) b.value = '@Ayati ' + b.value;
+  c.box = b.value; b.focus(); bar();
+  say('You mentioned Ayati. Add what you want to say, or just press Enter. A message that starts with @Ayati is never posted.'); };
+$('msgs').onclick = e => { const b = e.target.closest('[data-reply]'), c = chats[cur]; if (!b) return;
+  c.replyTo = c.msgs[+b.dataset.reply]; if (c.pending?.type === 'draft') c.pending = null;
+  $('box').value = c.box = '@Ayati '; render(); $('box').focus();
+  say('You chose one message for Ayati to answer. Add what you want to say, or just press Enter. Nothing is posted yet.'); };
+$('reto').onclick = e => { if (e.target.dataset?.act === 'unre') { chats[cur].replyTo = null; render(); } };
 $('rows').onclick = e => { const row = e.target.closest('[data-chat]'); if (!row) return;
-  chats[cur].box = $('box').value; cur = row.dataset.chat; $('box').value = chats[cur].box; openMenu(false);
+  chats[cur].box = $('box').value; cur = row.dataset.chat; $('box').value = chats[cur].box; menuOff = false; openMenu(false);
   say(`This is your chat with ${chats[cur].name}. Ayati's position here is ${MODE[chats[cur].mode]}.`); render(); };
 $('notice').onclick = e => { const act = e.target.dataset?.act, c = chats[cur]; if (!act) return;
-  if (act === 'discard') { c.pending = null; c.box = ''; $('box').value = ''; say('You discarded the reply. Nothing was sent.'); }
-  if (act === 'yes') sendAs(cur, c.pending.s);
+  if (act === 'discard') { $('box').value = c.box = c.pending.before; c.pending = null; say('You discarded the reply. Nothing was sent, and what you had typed is back in the box.'); }
+  if (act === 'yes') sendAs(cur, c.pending.m);
   if (act === 'no') { c.pending = null; $('box').focus(); say('You answer this one yourself. Ayati carries on with the next message.'); }
   render(); };
+$('vYou').onclick = () => { view = 'you'; render(); say('This is the chat as you see it, with the @Ayati tags that only you see.'); };
+$('vThem').onclick = () => { view = 'them'; openMenu(false); render();
+  say(`This is the same chat as ${chats[cur].first} sees it: ordinary messages from you. No @Ayati tag, no line and no bar.`); };
 $('ctlBtn').onclick = () => openMenu($('menu').hidden);
 $('menu').onchange = e => { if (e.target.name === 'mode') { setMode(e.target.value); if (e.target.value !== 'auto') openMenu(false); } };
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('menu').hidden) { openMenu(false); $('ctlBtn').focus(); } });
@@ -519,7 +648,7 @@ document.addEventListener('click', e => { if (!e.target.closest('.ctl')) openMen
 /* Opens with a reply already waiting, so the first view shows the idea. */
 function start() {
   const c = chats.meera, s = c.script[c.step++];
-  add(c, { who: 'them', text: s.in }); handle('meera', s, 'ask', true); render();
+  add(c, { who: 'them', text: s.in, s }); handle('meera', c.msgs[c.msgs.length - 1], 'ask', true); render();
   say('Meera wrote. Ayati is on Ask me first here, so it wrote a reply and put it in your message box. Only you see it. Press Send, change it first, or Discard it.');
 }
 start();
