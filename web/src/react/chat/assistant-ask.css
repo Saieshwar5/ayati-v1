@@ -1,0 +1,38 @@
+/* Asking your own assistant from a message box (2026-11-21). The working purple
+   marks what only its person sees: the message box while it asks, and the draft. */
+form.message-composer.is-asking, form.message-composer.is-asking:focus-within { border-color: var(--working); box-shadow: 0 0 0 1px var(--working), 0 5px 18px var(--shadow-deep); outline: none; }
+.message-composer .composer-actions .ui-button.composer-ask { width: auto; max-width: 150px; padding: 6px 12px; overflow: hidden; background: var(--working); color: var(--surface); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.composer-notice.composer-asking strong { color: var(--working); }
+/* A warning is read in full, so it wraps instead of being cut short. */
+.composer-notice.composer-warning { flex-wrap: wrap; padding: 6px 8px; border: 0; border-radius: 9px; background: var(--warning-bg); color: var(--warning); }
+.composer-notice.composer-warning strong { color: inherit; white-space: normal; }
+.composer-notice.composer-warning span { flex: 1 1 140px; overflow: visible; white-space: normal; }
+.message-composer .composer-notice.composer-warning .ui-button { border-color: currentColor; color: inherit; }
+.mention-menu button.mention-own .face { box-shadow: 0 0 0 2px var(--working); }
+/* Its note goes under the name, so neither is cut short in the narrow list. */
+.mention-menu button.mention-own { flex-wrap: wrap; row-gap: 1px; }
+.mention-menu button.mention-own small { flex: 1 0 100%; padding-left: 34px; color: var(--working); }
+
+/* The draft, above the message box. */
+.assistant-ask { flex-shrink: 0; display: grid; gap: 8px; min-width: 0; margin: 8px max(16px, calc((100% - var(--chat-reading-width, 760px)) / 2)) -4px; padding: 10px 12px; border: 1px solid color-mix(in srgb, var(--working) 32%, var(--border)); border-radius: 14px; background: color-mix(in srgb, var(--working) 7%, var(--surface)); font-size: 13.5px; }
+.chat-thread-reply .assistant-ask { margin: 0 0 8px; }
+.assistant-ask p { margin: 0; overflow-wrap: anywhere; }
+.assistant-ask-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--muted); font-size: 12.5px; }
+.assistant-ask-line strong { color: var(--text); font-weight: 600; }
+.assistant-ask-line span { flex: 1 1 160px; min-width: 0; }
+.assistant-ask-line .assistant-mark { color: var(--working); }
+.assistant-ask .ui-button { min-height: 30px; padding: 4px 11px; font-size: 12.5px; }
+.assistant-ask-asked, .assistant-ask-quote { color: var(--muted); font-size: 12.5px; }
+.assistant-ask-quote { padding-left: 9px; border-left: 2px solid color-mix(in srgb, var(--working) 45%, var(--border)); }
+.assistant-ask-moved { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 6px 9px; border-radius: 9px; background: var(--warning-bg); color: var(--warning); font-size: 12.5px; }
+.assistant-ask-moved strong { flex: 1 1 180px; font-weight: 600; }
+.assistant-ask-moved .ui-button { border-color: currentColor; background: transparent; color: inherit; }
+/* A long draft scrolls in place, so the conversation stays in view. */
+.assistant-ask-text { max-height: min(38vh, 300px); overflow: auto; padding: 9px 11px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); line-height: 1.5; white-space: pre-wrap; }
+.assistant-ask .chat-error { padding: 0; }
+.assistant-ask-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.assistant-ask-change { display: flex; gap: 8px; min-width: 0; }
+.assistant-ask-change input { flex: 1; min-width: 0; padding: 6px 10px; border: 1px solid var(--border-control); border-radius: 9px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; }
+@media (max-width: 600px) { .assistant-ask { margin: 8px 10px -2px; } .assistant-ask-change input { font-size: 16px; } }
+@media (pointer: coarse) { .assistant-ask .ui-button { min-height: 40px; } }
+@media (forced-colors: active) { .message-composer.is-asking { outline: 2px solid Highlight; outline-offset: 2px; } }

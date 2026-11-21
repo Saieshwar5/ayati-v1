@@ -7,6 +7,10 @@
 > the change-by-chat panel, **About you** in the **Knows** row for its memory,
 > and **Regular checks** in the **On its own** row.
 
+> **2026-11-21:** the Draft button's own behaviour is gone. You now ask your
+> assistant by mentioning it in any message box; see
+> [Asked from any message box](#asked-from-any-message-box-2026-11-21).
+
 Built 2026-11-17, the first piece of the personal assistant plan. Agents work
 for the team; **your assistant works for you**. Concept screens for the whole
 plan: "Your Assistant in Cuckoo" (2026-11-17).
@@ -36,6 +40,94 @@ plan: "Your Assistant in Cuckoo" (2026-11-17).
   assistant". Other members never see someone else's assistant.
 - **When its owner leaves** the workspace, the existing rule applies: an agent
   with no owner is paused and takes no work; its record stays for admins.
+
+## Asked from any message box (2026-11-21)
+
+Built 2026-11-21 from [`designs/assistant-mention`](../designs/assistant-mention/README.md).
+It replaces **Draft with <name>** of schema 129. No migration.
+
+- **Mention it and say what you want.** In the message box of any conversation
+  or reply thread except your assistant's own chat, type `@` and choose your
+  assistant, then what to do: "go through this month's sales and answer
+  Karthik", or only "respond". It is the first row of the list ("Your assistant
+  · Only you see what you ask") and is also found by typing `@assistant` or
+  `@my`, whatever you named it. A mention holds the assistant's ID, so
+  renaming it changes nothing, and nobody is offered someone else's assistant.
+- **The box says it is private.** While the text mentions your assistant the
+  box has a purple border, the line "Asking <name> · Only you see this. Nothing
+  is sent in #sales." and the button reads **Ask <name>**. Team agents named in
+  the same text are "Named only, not asked".
+- **What you asked is never posted.** Sending asks your assistant
+  (`POST …/assistant/drafts`) and clears the box; nothing is added to the
+  conversation. Three things keep those words from being posted by mistake:
+  the client sends such a text to the assistant only; a name typed by hand
+  ("@tara tell him…", which is not a mention) shows "This would be sent in
+  #sales as written. Did you mean to ask <name>?" with **Ask <name> instead**;
+  and the server refuses a posted message that mentions the sender's own
+  assistant without asking it ("This asks your assistant, so it was not
+  posted…"). Asked outright anywhere but its own chat, it is refused as an
+  agent that is not in the conversation.
+- **A card above the message box**, for you alone. While it writes: "<name> is
+  writing a reply for you… Only you see this. You can keep writing." with
+  Cancel. Then **Draft from <name>** · "Will be sent as you in #sales" (or "to
+  Karthik", "in this thread"), what you asked, the message it answers, and the
+  text.
+  - **Send as me** posts the text as your own message, once, and keeps the
+    private record (`…/drafts/{reply}/used`): your assistant's mark beside its
+    time for you alone, and the Audit log line.
+  - **Edit** moves it into the box under "Draft from <name> · Only you see
+    this. Edit it, then send."; Discard there puts back what you had typed.
+    What you change before sending still [teaches it](#learning-from-your-edits-schema-137).
+  - **Ask <name> to change it…** asks for a new draft from this one ("shorter").
+  - **Discard** drops the card. The run is not cancelled; what it writes later
+    is not used.
+- **"Respond" alone.** With nothing asked beyond respond, reply or answer, the
+  draft answers the newest message meant for you: in a direct chat the other
+  side's latest; elsewhere the latest that mentions you or is marked for you,
+  else the latest from anyone else. A message you are quoting is answered
+  instead, and your sent reply quotes it. The card shows "Answering <who>: …".
+- **When the conversation moves on.** Messages from others since you asked
+  show "2 new messages since <name> wrote this." with **Update draft**, and
+  Send as me stops being the main button.
+- **It waits longer.** The draft is read every two seconds for two minutes,
+  then every six, for ten minutes in all. A draft asked for is kept for an
+  hour in this browser tab (session storage, per person, workspace,
+  conversation and thread), so leaving the conversation and coming back shows
+  it again.
+- **The mark beside Attach** (**Ask <name>**) only puts the mention in the box.
+- **Never sent without you.** No wording makes it send: "handle this" still
+  gives a draft. [Handing a chat over](#handing-a-chat-over-from-a-message-schema-136)
+  stays the separate action.
+
+`POST …/assistant/drafts` takes `{id, chat, thread, instruction}` as before and
+now also `message` (the one message to answer; it must be one the assistant
+may be shown in that conversation or thread) and `previous` (an earlier draft
+of yours to change; `instruction` then says how, and that draft must be
+finished). The assistant is told "What I asked for: …" and to look up what it
+needs with its tools first, or "Change the draft you wrote for me…".
+
+Checks: PostgreSQL `assistants::settings::ask_tests` (the message to answer
+named apart from the conversation and refused from a conversation its person
+can't read; the instruction passed on; a draft changed only once written, only
+with a change named and only by its person; nothing posted; a message that
+mentions your assistant refused, without telling anyone else whose assistant
+it is). Web `tests/assistant-ask-model.test.mjs` (what the box asks, which
+message "respond" answers, a typed name, the @ list under another name, Ask
+in place of Send) and `tests/assistant-ask.test.mjs` (asked once despite a
+double submit with nothing sent to the conversation; sent once and recorded;
+the answered message, a moved-on conversation and a change; a refused request
+keeping your words; Edit and Discard; the typed-name warning; a draft kept
+across leaving; nothing in the assistant's own chat). Real browser against a
+real controller, `tests/assistant_ask.mjs`, with the simulation's scripted
+reply. **Not run with a real model**: how good its replies are, and whether it
+looks things up before writing, is unproven.
+
+Limits: the card does not show what the assistant used to write the draft,
+nor what it is doing while it writes; files attached to the box stay in the
+box and are not part of what is asked; a draft is not kept across a reload
+after the hour, or in another tab or device (it is in the Drafts thread in
+your assistant's chat); a voice recording made while the box mentions your
+assistant is refused by the server rather than asked.
 
 ## Helping set up an agent (schema 139)
 
@@ -413,19 +505,16 @@ starting this version; startup never applies migrations.
 
 ## Drafts, notes about you and regular checks (schema 129)
 
-- **Draft with Ayati.** In the message box of every conversation except your
-  assistant's own, the assistant's mark beside Attach (**Draft with <name>**)
-  asks your assistant for a reply. What you have typed is sent along as "what I
-  want to say". Your assistant reads the last 20 messages you can read there
-  (without the restricted sources that agents never keep) and writes the draft
-  in a "Drafts" thread in its own room. **Nothing is posted in the
-  conversation.** A line on top of the message box says "<name> is writing a
-  draft…" with Cancel; the finished draft is written into the box (since
-  2026-11-19, replacing the separate card and **Use draft**), with "Draft from
-  <name> · Only you see this. Edit it, then send." and **Discard**, which puts
-  back what you had typed. You edit and send it yourself. The message is yours;
-  only you see your assistant's mark beside its time, and an Audit line records
-  that a drafted message was sent.
+- **Drafts.** Since 2026-11-21 a draft is asked for by mentioning your
+  assistant in the message box and arrives in a card above it; see
+  [Asked from any message box](#asked-from-any-message-box-2026-11-21). The
+  assistant reads the last 20 messages you can read there (without the
+  restricted sources that agents never keep) and writes the draft in a
+  "Drafts" thread in its own room. **Nothing is posted in the conversation.**
+  You send it yourself. The message is yours; only you see your assistant's
+  mark beside its time, and an Audit line records that a drafted message was
+  sent. (Before: a **Draft with <name>** button beside Attach sent what you
+  had typed as "what I want to say", and the draft was written into the box.)
 - **What it knows about you.** Until schema 138 two short texts, *about you*
   and *how you write*; now its [memory](#memory-schema-138).
 - **Regular checks.** Off until you turn it on under **Automations** on that
@@ -437,7 +526,7 @@ starting this version; startup never applies migrations.
   room, and tells you what needs you and what it suggests. It answers nobody.
 
 `GET/POST …/assistant/settings` (`{checks, every_minutes, checklist, learn}`;
-a save may send any of them), `POST …/assistant/drafts` (`{id, chat, thread, instruction}` returns
+a save may send any of them), `POST …/assistant/drafts` (`{id, chat, thread, instruction, message?, previous?}` returns
 `{chat, reply}`), `GET …/assistant/drafts/{reply}` (`{state, text}`) and
 `POST …/assistant/drafts/{reply}/used` (`{message}`). Table
 `relay_assistant_settings`.
@@ -486,8 +575,8 @@ visit.
   refused for a chat you can't read, read only by its person, the record on
   your sent message only; a check that does not run when nothing is new, runs
   once for a new direct message, one at a time, and always with a checklist.
-- Web `tests/assistant-draft.test.mjs` (one request, your words kept while it
-  writes, the draft written into the box, Discard restoring them).
+- Web `tests/assistant-ask.test.mjs`, which replaced `assistant-draft.test.mjs`
+  on 2026-11-21.
 
 ## Not built yet
 

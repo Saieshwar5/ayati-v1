@@ -308,12 +308,28 @@ the mark on its row (`--online` while running, `--muted` once stopped) and a
 pill in the header with Stop, or Resume and Delete; under 760 px the pill keeps
 the mark and its buttons and drops its words. Messages it wrote show the mark
 and its name beside the time. The mark on a message's toolbar hands the chat
-over from that message; the mark beside Attach in the message box asks for a
-draft, which is written into the box under a one-line bar. The sliders button
+over from that message. The sliders button
 in its own chat's header opens its page in Agents, where everything about it is
 set up ([About you, rules, regular checks](assistants.md#set-up-on-its-agent-page-2026-11-19)). Do not restore a banner
-across the conversation, a row above the message box or rows under the
-assistant in the list.
+across the conversation or rows under the assistant in the list.
+
+Asking your assistant from a message box (2026-11-21, the owner's choice of
+[`designs/assistant-mention`](../designs/assistant-mention/README.md),
+[assistants](assistants.md#asked-from-any-message-box-2026-11-21)). The working
+purple (`--working`) marks what only its person sees. Your assistant is the
+first row of the @ list, with a purple ring and "Your assistant · Only you see
+what you ask". Once it is mentioned the message box has a purple border, a
+one-line bar ("Asking <name> · Only you see this. Nothing is sent in #sales.")
+and its submit button reads "Ask <name>" on purple instead of the dark ↑. The
+mark beside Attach only puts that mention in the box. The draft is a card
+above the message box (a tinted purple surface, `assistant-ask.css`): one line
+saying whose draft it is and where it will go, what was asked, the message it
+answers as a quote, the text on the page's surface (scrolling in place past
+300 px), then Send as me, Edit, Discard and a one-line "Ask <name> to change
+it…". This card replaces the 2026-11-19 rule against a row above the message
+box: the box stays free while the assistant works. Warnings use
+`--warning-bg`: a draft the conversation has moved past (Send as me then stops
+being the primary button) and a typed assistant name that would be posted.
 
 Personal Pinned rows appear once above Channels and Direct messages, in pin-time
 order. Pin controls are keyboard/touch accessible and keep unread/selected state.

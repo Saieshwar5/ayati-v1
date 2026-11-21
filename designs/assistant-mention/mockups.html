@@ -156,7 +156,7 @@ td { color: var(--muted); }
 <main class="page">
 
 <header class="stack">
-  <p class="eyebrow">Design proposal · not built yet</p>
+  <p class="eyebrow">Design · built 21 November 2026 · two parts of these screens are not built yet, listed at the end</p>
   <h1>Ask your own assistant with @, review its draft, send it as you</h1>
   <p class="lede">You type <code>@</code>, pick <strong>your</strong> assistant, and say what you want. It works where only you can see it and gives you a draft. If you press Send, the message goes out <strong>from you</strong>. If you don't, nobody ever knows you asked.</p>
   <p class="lede">In these screens the person is <strong>Meera</strong> and she named her assistant <strong>Tara</strong>. Her colleague Karthik named his <strong>Max</strong>. "Ayati" is only the name an assistant has until its person changes it.</p>
@@ -377,7 +377,7 @@ td { color: var(--muted); }
           <div class="box"><span class="typed" style="padding-left:8px">@Tara tell him wholesale is behind, don't mention the two lost orders<span class="caret"></span></span><span class="btn primary"><svg class="i"><use href="#up"/></svg>Send</span></div>
         </div>
       </div>
-      <p class="words">If the mention turns into plain text (for example after editing inside it), the instruction would be posted for everyone. The box warns before sending, and <strong>the server also refuses</strong> any posted message that mentions an assistant.</p>
+      <p class="words">If the mention turns into plain text (for example after editing inside it), the instruction would be posted for everyone. The box warns before sending. <strong>The server refuses a real mention</strong> that is posted, but it cannot recognise a name typed by hand, so this warning is the guard for that case.</p>
     </div>
   </div>
 </section>
@@ -428,11 +428,14 @@ td { color: var(--muted); }
 </section>
 
 <section class="section" aria-labelledby="choose-h">
-  <h2 id="choose-h">Three choices that are yours</h2>
+  <h2 id="choose-h">What was built, and what was not</h2>
   <ul class="rules">
-    <li><strong>Card or message box?</strong> I recommend the card. Two days ago the card was replaced by writing into the box; that is simpler for quick replies but blocks the box during slow requests.</li>
-    <li><strong>"Respond" in a busy channel.</strong> Answer the newest message that mentions you (recommended), or make the person pick a message first.</li>
-    <li><strong>Keep the Draft button?</strong> I recommend yes, as a shortcut. Without it new people won't discover that they can mention their assistant.</li>
+    <li><strong>Built: the card above the message box.</strong> The box stays free while the assistant works. This replaces writing the draft into the box.</li>
+    <li><strong>Built: "respond" answers the newest message that mentions you.</strong> The card quotes the message it answers.</li>
+    <li><strong>Built: the button beside Attach stays</strong> as a shortcut that only puts the mention in the box.</li>
+    <li><strong>Not built: "What Tara used".</strong> The card shows what you asked, not the sources. The assistant cannot report them yet.</li>
+    <li><strong>Not built: the step it is on.</strong> While it writes, the card says only that it is writing, not "Reading the sales sheet".</li>
+    <li><strong>Checked without a real model.</strong> The flow was tested with a scripted reply, so the quality of real drafts is unproven.</li>
   </ul>
 </section>
 
