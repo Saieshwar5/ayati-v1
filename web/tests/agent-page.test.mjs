@@ -33,7 +33,9 @@ test('overview shows what it does and who can talk to it, without the old placeh
     await open(render);
     const text = document.body.textContent;
     assert.match(text, /AboutAnswer order questions\./);
-    assert.match(text, /Orders assistant · owned by Ravi Kumar/);
+    // One line under the name: its state, its job and whose it is ("You" for the viewer).
+    assert.match(document.querySelector('.agent-state-line').textContent, /^Ready · Orders assistant · owned by RKYou$/);
+    assert.ok(document.querySelector('.agent-identity-row .agent-dot-ready'), 'its face carries the state dot');
     assert.match(text, /Who can talk to itEveryone in the workspace/);
     assert.match(text, /OwnerRavi Kumar/);
     assert.ok(document.querySelector('[aria-label="Change owner"]'), 'owners and admins change owners from Overview');
@@ -42,12 +44,13 @@ test('overview shows what it does and who can talk to it, without the old placeh
   }, { url, fetch: async path => response(read(path)) });
 });
 
-test('pause from the ⋯ menu saves once and leaves the people lists alone', async () => {
+test('Pause is a button in the header: it saves once and leaves the people lists alone', async () => {
   const writes = [];
   await reactFixture(async ({ render, button, click, update }) => {
     const calls = await open(render);
     await click(button('More actions for Atlas'));
-    await update(() => { button('Pause').click(); });
+    assert.deepEqual([...document.querySelectorAll('[role=menuitem]')].map(node => node.textContent), ['Name, picture and role…', 'Owners…'], '⋯ no longer hides Pause');
+    await update(() => { button('Pause').click(); button('Pause').click(); });
     assert.equal(writes.length, 1);
     assert.equal(writes[0].settings.paused, true); assert.equal(writes[0].revision, 5);
     assert.equal(writes[0].people, undefined); assert.equal('managers' in writes[0], false);
@@ -78,7 +81,7 @@ function ownersServer(writes, fail) {
 test('every owner is listed in the header and Overview', async () => {
   await reactFixture(async ({ render }) => {
     await open(render, { agent: { ...agent, owners: [ravi, priya], is_owner: true } });
-    assert.match(document.body.textContent, /Orders assistant · owned by Ravi Kumar and Priya Shah/);
+    assert.match(document.querySelector('.agent-state-line').textContent, /Orders assistant · owned by RKPSYou and Priya Shah$/);
     assert.match(document.body.textContent, /OwnersRavi Kumar and Priya Shah/);
   }, { url, fetch: async path => response(read(path)) });
 });
@@ -145,13 +148,13 @@ test('an agent whose last owner left says so, cannot resume, and an admin gives 
   const ownerless = { ...agent, owner_id: null, owner_name: 'Former member', owners: [], needs_owner: true, settings: { ...settings, paused: true } };
   await reactFixture(async ({ render, button, click, change }) => {
     const calls = await open(render, { agent: ownerless });
-    assert.match(document.body.textContent, /Needs an owner/);
-    assert.match(document.body.textContent, /Orders assistant · its last owner left the workspace/);
+    assert.equal(document.querySelector('.agent-state-line').textContent, 'Paused · Its last owner left the workspace · Orders assistant');
+    assert.ok(document.querySelector('.agent-identity-row .agent-dot-paused'));
     assert.match(document.querySelector('[role=note]').textContent, /Atlas’s last owner left the workspace, so it is paused and takes no work/);
     assert.match(document.body.textContent, /OwnerNone: its last owner left/);
     // Without an owner it can't be resumed: giving it one comes first.
-    await click(button('More actions for Atlas'));
     assert.equal(button('Resume'), undefined);
+    await click(button('More actions for Atlas'));
     await click(button('Give it an owner…'));
     assert.equal(document.querySelector('dialog h2').textContent, 'Give Atlas an owner');
     assert.match(document.querySelector('dialog').textContent, /starts again if it was working/);
@@ -180,7 +183,35 @@ test('people who cannot change the agent get no ⋯ menu or Change links', async
     await open(render, { agent: { ...agent, editable: false } });
     assert.equal(button('More actions for Atlas'), undefined);
     assert.equal(button('Change who can talk to it'), undefined);
-    assert.ok(button('Open in Chat'));
+    assert.equal(button('Pause'), undefined);
+    assert.ok(button('Message'));
+  }, { url, fetch: async path => response(read(path)) });
+});
+
+test('a paused agent offers Resume first to those who may resume it, and tells the others who can', async () => {
+  const paused = { ...agent, settings: { ...settings, paused: true } };
+  await reactFixture(async ({ render, button }) => {
+    await open(render, { agent: paused });
+    assert.equal(document.querySelector('.agent-state-line').textContent, 'Paused · Orders assistant · owned by RKYou');
+    assert.deepEqual([...document.querySelectorAll('.agent-header-actions .ui-button')].map(node => node.textContent), ['Resume', 'Message', '⋯']);
+    assert.ok(button('Resume').classList.contains('primary'), 'Resume is the main action');
+    assert.equal(button('Pause'), undefined);
+    await open(render, { agent: { ...paused, editable: false, owner_id: 'priya', owner_name: 'Priya Shah' } });
+    assert.equal(document.querySelector('.agent-state-line').textContent, 'Paused · Priya Shah can resume it · Orders assistant · owned by PSPriya Shah');
+    assert.equal(button('Resume'), undefined);
+  }, { url, fetch: async path => response(read(path)) });
+});
+
+test('another member’s assistant is named as theirs and offers no Message; a working agent says so', async () => {
+  await reactFixture(async ({ render, button }) => {
+    // The server stores every assistant's job title as "Your assistant".
+    await open(render, { agent: { ...agent, name: 'Ayati', role: 'Your assistant', assistant: true, is_owner: false, can_talk: false, owner_id: 'priya', owner_name: 'Priya Shah' } });
+    assert.equal(document.querySelector('.agent-state-line').textContent, 'Ready · Priya Shah’s assistant');
+    assert.equal(button('Message'), undefined, 'only its person can talk to it');
+    assert.ok(button('Pause'), 'an admin still manages it');
+    await open(render, { agent: { ...agent, pending: 2 } });
+    assert.match(document.querySelector('.agent-state-line').textContent, /^Working · 2 requests · Orders assistant/);
+    assert.ok(document.querySelector('.agent-identity-row .agent-dot-working'));
   }, { url, fetch: async path => response(read(path)) });
 });
 

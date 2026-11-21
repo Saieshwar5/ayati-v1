@@ -1,5 +1,45 @@
 # Agents team workspace
 
+> **Updated 2026-11-21 (agent profile page, stage 1 of the one-page design):**
+> the list and the header changed; the five tabs are unchanged for now.
+>
+> - **The list** has three groups: **Yours** (your assistant), **Team** (with its
+>   count) and, for admins, **Members' assistants**. Every face carries the same
+>   state dot as in Chat: green takes work now, purple is working, hollow is
+>   paused or has no owner. A row whose dot is not green says why beside the
+>   name ("2 working", "Paused", "Needs an owner"), and its accessible name says
+>   it too ("Open agent Nova, Paused"; "Open agent Ayati, Dev Singh's assistant").
+>   The search box appears from nine agents on and also matches whose assistant
+>   it is. The footer line is gone.
+> - **The header** is the face with its dot, the name and one line:
+>   "● Ready · its job · owned by <faces> You", "● Working · 2 requests · …",
+>   "○ Paused · …". Someone who cannot resume a paused agent reads who can
+>   ("Paused · Priya Shah can resume it"). An assistant is named by whose it is
+>   ("Dev Singh's assistant"); its stored job title is "Your assistant" for
+>   everyone, which the header used to print for admins too.
+> - **Message** (was Open in Chat) is offered only when the server says the
+>   viewer may talk to the agent (`can_talk`), so an admin no longer gets a
+>   button that fails on another member's assistant. **Pause** and **Resume**
+>   are header buttons for its owners and admins; Resume is the main action
+>   while it is paused. ⋯ keeps Name, picture and role and Owners.
+> - **The agent page decides no work.** A request on Overview links to its
+>   conversation and, while an approval waits, to Activity → Needs me; it has no
+>   Review or Stop button. Under Connections, a waiting tool action links to
+>   Activity in place of its review dialog. Approvals are answered in Activity
+>   or in the conversation; requests are stopped there.
+>
+> Checks: web `agent-page.test.mjs` and `agent-workspace.test.mjs` (groups,
+> dots and states, search from nine, the line for owners, others, an ownerless
+> agent and another member's assistant, Pause saved once, no Message without
+> `can_talk`, a request row with only links). Looked at in a browser against
+> the simulation controller: an owner pausing and resuming for real, the member's
+> view of the paused agent, an admin on a member's assistant, Message opening
+> the chat, dark and phone.
+>
+> Next (not built): the tabs give way to one page of rows (Does, Knows, Can
+> use, On its own, People, Model) with Recent work beside them, and a right-hand
+> panel for whatever is clicked.
+
 > **Updated 2026-10-31 (D233, M2):** the agent page now follows
 > `designs/agents-simplified/`. **＋ New agent** opens a five-step create flow (2026-11-08)
 > (Name and picture, Connectors, Skills, People, Controls; see [agent-built skills](../designs/agent-built-skills/README.md)) beside the list. An agent page has a

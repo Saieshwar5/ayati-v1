@@ -11,6 +11,7 @@ import { connectAccount, meanings, saveConnectorRule } from '../settings/workspa
 import { effectLabel, loadControls, modes, states, type Action, type Mode, type ToolConnection, type ToolOperation } from './control-model';
 import { ModePicker } from './mode-picker';
 import type { Agent } from './model';
+import { workspaceUrl } from '../../workspace-context';
 
 export const connectorName = (c: ToolConnection) => c.name || c.server;
 
@@ -114,7 +115,9 @@ function RecentActions({ actions, review }: { actions: Action[]; review: (action
     <ul>{actions.slice(0, 10).map(action => <li key={action.id}>
       <span><strong>{action.title}</strong><small>{[action.conversation_name, action.requester_name && `asked by ${action.requester_name}`].filter(Boolean).join(' · ')}</small></span>
       <span className={`agent-tool-state ${action.state}`}>{action.decision === 'request_changes' ? 'Changes requested' : states[action.state] ?? action.state}</span>
-      <Button onClick={() => review(action)}>{action.state === 'uncertain' ? 'Check' : 'Details'}</Button>
+      {/* A waiting action is decided in Activity or its conversation, never on the agent's page. */}
+      {action.state === 'pending' ? <a className="ui-button" href={workspaceUrl('/?view=activity&tab=needs')}>Review in Activity</a>
+        : <Button onClick={() => review(action)}>{action.state === 'uncertain' ? 'Check' : 'Details'}</Button>}
     </li>)}</ul>
   </section>;
 }

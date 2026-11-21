@@ -353,6 +353,11 @@ Chat. See [pages in agent replies](agent-pages.md).
 
 ## Agents and people management
 
+Since 2026-11-21 the Agents list groups **Yours**, **Team** and (admins) **Members'
+assistants**, with the Chat state dot on every face and search only from nine
+agents; the agent header is one status line under the name with **Message**,
+**Pause**/**Resume** and ⋯. See [the agents workspace](agents-team-workspace.md).
+
 Agents follows the selected **B / Agent workspace** concept: a searchable flat
 team roster beside the selected agent's profile, with Overview, Work, Knowledge,
 Access, Automation, Environment and Activity tabs. Keep rows quiet, actual status

@@ -2,8 +2,7 @@ import { Button } from '../ui';
 import { useState } from 'react';
 import { workspaceUrl } from '../../workspace-context';
 import { useMutation } from '../requests';
-import { ownerNames, saveAgent, type Agent, type Directory } from './model';
-import { AgentAvatar } from './avatar';
+import { saveAgent, type Agent, type Directory } from './model';
 import { AgentWorkspaceHeader, type AgentAction } from './workspace-header';
 import { WorkspaceTabs, type WorkspaceSection } from './workspace-tabs';
 import { ConnectionsTab } from './connections-tab';
@@ -41,8 +40,7 @@ export function AgentWorkspace({ agent, directory, back, openChat, busy, section
   const instructionsLabel = agent.assistant ? (agent.is_owner ? 'About you' : 'Rules and skills') : 'Instructions';
   const done = async (message: string) => { setDialog(undefined); await saved(); mutation.setStatus(message); };
   return <section className="agent-workspace" aria-label={`${agent.name} workspace`}>
-    <AgentWorkspaceHeader name={agent.name} title={agent.role} avatar={<AgentAvatar agent={agent} />} paused={agent.settings.paused}
-      owner={agent.owners ? ownerNames(agent.owners) : agent.owner_name} needsOwner={Boolean(agent.needs_owner)} assistant={Boolean(agent.assistant)} editable={Boolean(agent.editable)} busy={busy || mutation.busy} back={back} openChat={openChat} choose={choose} />
+    <AgentWorkspaceHeader agent={agent} busy={busy || mutation.busy} back={back} openChat={openChat} choose={choose} />
     {mutation.status && <p className="agent-page-notice" role="status">{mutation.status}</p>}
     {agent.needs_owner && <p className="agent-page-notice" role="note">{agent.name}’s last owner left the workspace, so it is paused and takes no work.{' '}
       {agent.editable
