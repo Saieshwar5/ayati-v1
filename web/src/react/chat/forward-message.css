@@ -1,19 +1,7 @@
-/* Forwarding a message: the block inside the new message, and the dialog. */
+/* A forwarded message inside the message that carries it. */
 .chat-forwarded { display: grid; gap: 4px; min-width: 0; margin: 2px 0 8px; padding: 8px 12px; border-left: 3px solid var(--border-control); border-radius: 8px; background: var(--soft); }
 .chat-message-own .chat-forwarded { background: var(--surface); }
 .chat-forwarded > header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; color: var(--muted); font-size: 11.5px; font-weight: 500; }
 .chat-forwarded > header strong { color: var(--text); font-weight: 600; }
 .chat-forwarded > header svg { flex: none; }
 .chat-forwarded .message-markdown { font-size: 13.5px; }
-.ui-dialog:has(.chat-forward) { width: min(520px, calc(100vw - 32px)); }
-.chat-forward { display: grid; gap: 14px; }
-.chat-forward > label { display: grid; gap: 8px; font-size: 13px; font-weight: 500; }
-.chat-forward input[type=search], .chat-forward textarea { width: 100%; box-sizing: border-box; padding: 10px 11px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); font: inherit; }
-.chat-forward textarea { min-height: 64px; resize: vertical; }
-.chat-forward-list { display: grid; gap: 2px; max-height: 190px; overflow: auto; margin: -6px 0 0; }
-.chat-forward-list .chat-contact { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: var(--text); }
-.chat-forward-list .chat-contact[aria-pressed=true] { background: var(--selection); }
-.chat-forward-list h3 { margin: 8px 6px 2px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
-.chat-forward .chat-forwarded { margin: 0; }
-.chat-forward-note { margin: 0; padding: 8px 11px; border-radius: 9px; background: var(--warning-bg); color: var(--warning); font-size: 12px; }
-.chat-forward-note.quiet { background: var(--soft); color: var(--muted); }
