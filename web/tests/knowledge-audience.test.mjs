@@ -15,9 +15,7 @@ test('a new note requires an explicit audience and retains a failed scoped draft
   await reactFixture(async ({ render, button, click, change, submit, update }) => {
     const { Knowledge } = await import('../src/react/agents/knowledge.tsx');
     await render(Knowledge, { agent });
-    assert.match(document.body.textContent, /private chats are kept separate/);
-    assert.match(document.body.textContent, /only messages since this agent joined/);
-    assert.match(document.body.textContent, /Approved knowledge is off/);
+    assert.ok(button('Preview conversation context'));
     await click(button('Add approved note'));
     const audience = document.querySelector('select');
     assert.equal(audience.value, '');

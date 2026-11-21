@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Button } from '../../ui';
 import { useMutation, useResource } from '../../requests';
+import './assistant.css';
 import { loadAssistantSettings, saveAssistantSettings } from './settings-model';
 
 type Checks = { checks: boolean; every_minutes: number; checklist: string };

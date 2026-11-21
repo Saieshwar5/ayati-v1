@@ -32,19 +32,15 @@ test('selected team workspace keeps selection while searching and does not creat
     await render(AgentsPage);
     assert.equal(document.querySelector('.agent-identity-title h2').textContent, 'Meera');
     await click(button('Open agent Tara'));
-    await change(document.querySelector('[aria-label="Find an agent"]'), 'Meera');
     assert.equal(document.querySelector('.agent-identity-title h2').textContent, 'Tara');
-    assert.equal(button('Open agent Tara'), undefined);
-    assert.ok(button('Open agent Meera'));
+    assert.equal(document.querySelector('[aria-label="Find an agent"]'), null, 'two agents need no search box');
+    assert.equal(document.querySelector('.agent-roster footer'), null);
     assert.equal(writes.length, 0);
-    // Five tabs: Activity sits in Overview, Tools became Connections and Environment Settings.
-    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent), ['Overview', 'Instructions', 'Connections', 'Automations', 'Settings']);
+    // One page per agent: rows, no tabs, and nothing written by looking.
+    assert.equal(document.querySelector('[role=tablist]'), null);
+    assert.equal(document.querySelectorAll('.profile-row').length, 6);
     assert.equal(document.body.textContent.includes('Not connected'), false);
-    await click(button('Instructions'));
-    assert.match(document.querySelector('[role=tabpanel]').textContent, /What Tara knows/);
-    await update(() => button('Instructions').dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
-    assert.equal(document.activeElement, button('Connections'));
-    assert.equal(button('Connections').getAttribute('aria-selected'), 'true');
+    assert.equal(writes.length, 0);
   }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
     if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
     if (options.method === 'POST') writes.push(path);
@@ -52,37 +48,64 @@ test('selected team workspace keeps selection while searching and does not creat
   } });
 });
 
-test('Stop on the Overview guards duplicate submissions, retains a failure and reconciles the saved request on retry', async () => {
-  const writes = []; let complete; let stopped = false;
-  await reactFixture(async ({ render, button, click, update }) => {
+test('the list groups your assistant, the team and members’ assistants, shows each state, and searches only when long', async () => {
+  const mine = { ...agent, id: 'mine', name: 'Ayati', role: 'Your assistant', assistant: true, is_owner: true };
+  const theirs = { ...agent, id: 'theirs', name: 'Ayati', role: 'Your assistant', assistant: true, is_owner: false, owner_name: 'Dev Singh', can_talk: false };
+  const team = [agent, { ...agent, id: 'beta', name: 'Tara', role: 'Sales coordination', pending: 2 }, { ...agent, id: 'gamma', name: 'Nova', role: 'Follow-up', settings: { ...settings, paused: true } }];
+  const more = Array.from({ length: 5 }, (_, n) => ({ ...agent, id: `extra-${n}`, name: `Helper ${n}`, role: 'Helps' }));
+  let list = [theirs, ...team, mine];
+  await reactFixture(async ({ render, button, change }) => {
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
-    const { AgentOverview } = await import('../src/react/agents/overview.tsx');
-    await render(AgentOverview, { agent, open() {}, people() {} });
-    assert.match(document.body.textContent, /Check supplier delivery/);
-    await update(() => { button('Stop request').click(); button('Stop request').click(); });
-    assert.equal(writes.length, 1);
-    await update(() => complete(response({ error: 'Cannot save cancellation yet' }, 503)));
-    assert.match(document.querySelector('[role=alert]').textContent, /Cannot save cancellation yet/);
-    assert.match(document.body.textContent, /Check supplier delivery/);
-    await click(button('Stop request'));
-    await update(() => { stopped = true; complete(response({ ok: true })); });
-    assert.equal(writes.length, 2);
-    assert.equal(button('Stop request'), undefined);
-    assert.ok(writes.every(path => path.endsWith('/chats/channel/messages/reply/cancel')));
-  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async (path, options = {}) => {
+    const { AgentsPage } = await import('../src/react/agents/directory.tsx');
+    await render(AgentsPage);
+    const roster = document.querySelector('.agent-roster-scroll');
+    assert.deepEqual([...roster.querySelectorAll('h2')].map(node => node.textContent), ['Yours', 'Team 3', 'Members’ assistants 1']);
+    assert.deepEqual([...roster.querySelectorAll('.agent-team-row')].map(node => node.textContent),
+      ['AyatiYour assistant', 'MeeraCoordinate supplier work', 'TaraSales coordination2 working', 'NovaFollow-upPaused', 'AyatiDev Singh’s assistant']);
+    // Two assistants share a name: each row's name says whose it is, and its state.
+    assert.ok(button('Open agent Ayati, Dev Singh’s assistant'));
+    assert.ok(button('Open agent Tara, 2 working').querySelector('.agent-dot-working'));
+    assert.ok(button('Open agent Nova, Paused').querySelector('.agent-dot-paused'));
+    assert.ok(button('Open agent Meera').querySelector('.agent-dot-ready'));
+    assert.equal(document.querySelector('[aria-label="Find an agent"]'), null, 'five agents need no search box');
+    list = [...list, ...more];
+    const { AgentRoster } = await import('../src/react/agents/agent-roster.tsx');
+    await render(AgentRoster, { agents: list, loaded: true, retry() {}, current: 'beta', locked: false, begin() {}, select() {} });
+    await change(document.querySelector('[aria-label="Find an agent"]'), 'dev singh');
+    assert.deepEqual([...document.querySelectorAll('.agent-team-row')].map(node => node.textContent), ['AyatiDev Singh’s assistant'], 'ten agents: search, also by whose assistant it is');
+    await change(document.querySelector('[aria-label="Find an agent"]'), 'nobody');
+    assert.match(document.querySelector('.ui-empty').textContent, /No matching agents/);
+  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async path => {
     if (path.includes('/library-always/')) return { ok: true, status: 200, json: async () => noAlways };
-    if (options.method === 'POST') { writes.push(path); return new Promise(resolve => { complete = resolve; }); }
-    if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
-    return response(path.endsWith('/session') ? session : stopped ? empty : { requests: [request], next_before: null });
+    return response(path.endsWith('/agent-profiles') ? { ...directory, agents: list } : read(path));
   } });
 });
 
-test('switching selected agent during Open in Chat cannot create or navigate a stale conversation', async () => {
+test('Recent work leads to the conversation, or to Activity while a person is waited for; nothing is approved or stopped here', async () => {
+  const waiting = { ...request, approvals: [{ id: 'approval', title: 'Send supplier email', state: 'pending' }] };
+  const done = { ...request, id: 'done', thread: null, summary: 'Compare quotes', state: 'complete' };
+  await reactFixture(async ({ render }) => {
+    const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
+    const { RecentWork } = await import('../src/react/agents/profile/recent-work.tsx');
+    await render(RecentWork, { requests: [waiting, done], all: true, loaded: true });
+    const links = [...document.querySelectorAll('.profile-work li a')];
+    assert.deepEqual(links.map(link => link.getAttribute('href')), [`/w/${workspace}/?view=activity&tab=needs`, `/w/${workspace}/?view=chat&conversation=channel&message=done`]);
+    assert.equal(links[0].getAttribute('aria-label'), 'Check supplier delivery, Waiting for approval, opens in Activity');
+    assert.match(links[0].querySelector('.profile-pill').textContent, /Waiting for approval/);
+    assert.equal(links[1].querySelector('.profile-pill'), null);
+    assert.equal(document.querySelector('.profile-work button'), null, 'the agent page decides nothing');
+    await render(RecentWork, { requests: [], all: false, loaded: true });
+    assert.equal(document.querySelector('.profile-work h3').textContent, 'Your requests');
+    assert.match(document.querySelector('.profile-work').textContent, /Nothing yet/);
+  }, { url: `http://localhost/w/${workspace}/?view=agents`, fetch: async path => response(path.endsWith('/session') ? session : {}) });
+});
+
+test('switching selected agent during Message cannot create or navigate a stale conversation', async () => {
   let chats; const writes = [];
   await reactFixture(async ({ render, button, click, update, navigation }) => {
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
     const { AgentsPage } = await import('../src/react/agents/directory.tsx');
-    await render(AgentsPage); await click(button('Open in Chat'));
+    await render(AgentsPage); await click(button('Message'));
     await click(button('Open agent Tara'));
     await update(() => chats(response({ chats: [] })));
     assert.equal(writes.length, 0); assert.equal(navigation.length, 0);

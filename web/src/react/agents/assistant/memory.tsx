@@ -2,6 +2,7 @@ import { useCallback, useRef, useState, type FormEvent } from 'react';
 import { Button } from '../../ui';
 import { useMutation, useResource } from '../../requests';
 import { changeMemory, kinds, loadAssistantSettings, loadMemories, saveAssistantSettings, saveMemory, type Memory, type MemoryKind } from './settings-model';
+import './assistant.css';
 import { MemoryLine } from './memory-line';
 
 /** Your assistant's memory: what it remembers about you and your work, one

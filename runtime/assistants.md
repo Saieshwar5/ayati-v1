@@ -1,5 +1,12 @@
 # Assistants: every member's own agent (schemas 127 to 139)
 
+> **2026-11-21:** an agent's page has no tabs any more
+> ([agents workspace](agents-team-workspace.md)). Where this page says
+> "Instructions tab" or "About you tab", read: the **Does** row (an assistant's
+> is **Rules**, its short list in place), **Ask <assistant>** in that row for
+> the change-by-chat panel, **About you** in the **Knows** row for its memory,
+> and **Regular checks** in the **On its own** row.
+
 Built 2026-11-17, the first piece of the personal assistant plan. Agents work
 for the team; **your assistant works for you**. Concept screens for the whole
 plan: "Your Assistant in Cuckoo" (2026-11-17).

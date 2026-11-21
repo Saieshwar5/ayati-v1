@@ -1,6 +1,5 @@
-import { useId, useRef } from 'react';
-import { Button } from '../ui';
 import { workspaceUrl } from '../../workspace-context';
+import type { ProfilePanel } from './profile/profile-rows';
 
 export const workspaceSections = ['Overview', 'Instructions', 'Connections', 'Automations', 'Settings'] as const;
 export type WorkspaceSection = typeof workspaceSections[number];
@@ -13,24 +12,17 @@ export function sectionNamed(value: string | null | undefined): WorkspaceSection
   const name = lower ? formerNames[lower] ?? lower : lower;
   return workspaceSections.find(section => section.toLowerCase() === name);
 }
-/** A link that opens one agent on one tab, e.g. from Activity or Chat; `action`
+/** A link that opens one agent at one part of its page, e.g. from Activity or Chat; `action`
  * ("connection/operation") picks out one rule on the Connections tab. */
 export const agentSectionUrl = (agent: string, section: WorkspaceSection, action?: string) =>
   workspaceUrl(`/?view=agents&selected=${encodeURIComponent(agent)}&section=${section.toLowerCase()}${action ? `&action=${encodeURIComponent(action)}` : ''}`);
-/** `labels` renames a tab on screen; links and saved choices keep the section's own name. */
-export function WorkspaceTabs({ selected, select, labels = {} }: {
-  selected: WorkspaceSection; select: (section: WorkspaceSection) => void; labels?: Partial<Record<WorkspaceSection, string>>;
-}) {
-  const id = useId();
-  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
-  return <div className="agent-workspace-tabs" role="tablist" aria-label="Agent workspace sections">
-    {workspaceSections.map((section, index) => <Button key={section} ref={node => { buttons.current[index] = node; }}
-      id={`${id}-${section}`} role="tab" aria-controls="agent-workspace-panel" aria-selected={selected === section}
-      tabIndex={selected === section ? 0 : -1} onClick={() => select(section)} onKeyDown={event => {
-        const next = event.key === 'ArrowRight' ? (index + 1) % workspaceSections.length
-          : event.key === 'ArrowLeft' ? (index + workspaceSections.length - 1) % workspaceSections.length
-            : event.key === 'Home' ? 0 : event.key === 'End' ? workspaceSections.length - 1 : -1;
-        if (next >= 0) { event.preventDefault(); select(workspaceSections[next]); buttons.current[next]?.focus(); }
-      }}>{labels[section] ?? section}</Button>)}
-  </div>;
+/** The agent page has no tabs (2026-11-21): a linked section opens the panel that
+ * holds it. Overview and Instructions are the page itself. Connections opens
+ * everything it can use, or with `action` ("connection/operation") that one
+ * app, with the rule marked. */
+export function panelFor(section: WorkspaceSection | undefined, action?: string): ProfilePanel | undefined {
+  if (section === 'Connections') return action ? { kind: 'app', id: action.split('/')[0], focus: action } : { kind: 'connections' };
+  if (section === 'Automations') return { kind: 'automations' };
+  if (section === 'Settings') return { kind: 'model' };
+  return undefined;
 }

@@ -111,8 +111,9 @@ test('rules are a short list: one is added once, kept on a failed save, and remo
   const writes = []; let release; const hold = new Promise(done => { release = done; });
   await reactFixture(async ({ render, click, change, update, submit }) => {
     await enter();
-    const { AssistantAboutTab } = await import('../src/react/agents/assistant/about-tab.tsx');
-    await render(() => createElement(AssistantAboutTab, { agent: mine, rules: 'System guide', saved: async () => {} }));
+    const { DoesRow } = await import('../src/react/agents/profile/profile-rows.tsx');
+    await render(() => createElement(DoesRow, { agent: mine, directory, open() {}, show() {}, setDraft() {}, saved: async () => {} }));
+    assert.equal(document.querySelector('.profile-row-label').textContent, 'Rules', 'an assistant’s first row is its rules');
     const rules = () => [...document.querySelectorAll('.assistant-rule-list li span')].map(node => node.textContent);
     const input = () => document.querySelector('input[aria-label="New rule"]');
     assert.deepEqual(rules(), ['Never reply to a customer without asking me.']);
@@ -139,26 +140,27 @@ test('rules are a short list: one is added once, kept on a failed save, and remo
   }, { url, fetch: server(writes, { fail: 1, hold }) });
 });
 
-test('your assistant’s page names its tab About you; an admin sees another member’s rules and skills but not their memory', async () => {
+test('your assistant’s page holds what it remembers about you and its regular checks; an admin sees neither on another member’s', async () => {
   const reads = [];
   const count = base => async (path, options) => { reads.push(path); return base(path, options); };
-  await reactFixture(async ({ render, button: tab }) => {
+  await reactFixture(async ({ render, button, click }) => {
     await enter();
     const { AgentWorkspace } = await import('../src/react/agents/workspace.tsx');
-    const page = (agent, section) => () => createElement(AgentWorkspace, { agent, directory, section, back() {}, openChat() {}, busy: false, selectSection() {}, saved: async () => {} });
-    await render(page(mine, 'Instructions'));
-    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(node => node.textContent), ['Overview', 'About you', 'Connections', 'Automations', 'Settings']);
-    assert.match(document.querySelector('[role=tabpanel]').textContent, /What Ayati remembers about you and your work/);
-    assert.match(document.querySelector('[role=tabpanel]').textContent, /Skills it can use/);
-    await render(page(mine, 'Automations'));
-    assert.ok(document.querySelector('.assistant-checks'), 'regular checks sit with its schedules and triggers');
+    const page = agent => () => createElement(AgentWorkspace, { agent, directory, back() {}, openChat() {}, busy: false, saved: async () => {} });
+    await render(page(mine));
+    assert.deepEqual([...document.querySelectorAll('.profile-row-label')].map(node => node.textContent), ['Rules', 'Knows', 'Can use', 'On its own', 'People', 'Model']);
+    assert.equal(document.querySelector('[aria-label=People] .profile-chip').textContent, 'Only you');
+    assert.equal(document.querySelector('.assistant-memory'), null, 'its memory is read when opened');
+    await click(button('About you'));
+    assert.match(document.querySelector('.profile-panel').textContent, /What Ayati remembers about you and your work/);
+    await click(button('Regular checks'));
+    assert.ok(document.querySelector('.profile-panel .assistant-checks'), 'regular checks sit with its schedules and triggers');
     reads.length = 0;
-    const theirs = { ...mine, id: 'priyas', is_owner: false, owner_name: 'Priya' };
-    await render(page(theirs, 'Instructions'));
-    assert.ok(tab('Rules and skills'));
-    assert.equal(document.querySelector('.assistant-memory'), null);
-    await render(page(theirs, 'Automations'));
-    assert.equal(document.querySelector('.assistant-checks'), null);
+    const theirs = { ...mine, id: 'priyas', is_owner: false, owner_name: 'Priya', can_talk: false };
+    await render(page(theirs));
+    assert.equal(button('About you'), undefined);
+    assert.equal(button('Regular checks'), undefined);
+    assert.equal(document.querySelector('[aria-label=People] .profile-chip').textContent, 'Only Priya');
     assert.equal(reads.some(path => /\/assistant\/(settings|memories)$/.test(path)), false, 'the viewer’s own memory is never read for someone else’s assistant');
   }, { url, fetch: count(server([])) });
 });

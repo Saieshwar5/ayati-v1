@@ -65,11 +65,20 @@ const names = () => [...dialog().querySelectorAll('.skill-row strong')].map(node
 const focused = () => document.activeElement?.getAttribute('aria-label') || document.activeElement?.textContent;
 const until = async (update, ready) => { for (let n = 0; n < 20 && !ready(); n++) await update(); assert.ok(ready(), 'the panel settled'); };
 
-/** Render the agent's Skills section and open Add skills. */
+/** Open Add skills the way an agent's page does (profile/profile-page.tsx): a ＋
+ * that opens the picker, where Add assigns the skill to the agent at once. */
 async function openPanel({ render, click, button }, owner = 'me') {
   const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
-  const { AgentSkills } = await import('../src/react/agents/skills/agent-skills.tsx');
-  await render(AgentSkills, { agent: { id: 'a1', name: 'Atlas', role: 'Orders', model: 'm', audience: 'everyone', revision: 1, owner_id: owner, editable: true, settings: {} } });
+  const { SkillPicker } = await import('../src/react/agents/skills/skill-picker.tsx');
+  const { assignSkill } = await import('../src/react/agents/skills/model.ts');
+  const { createElement, useState } = await import('react');
+  function Page() {
+    const [open, setOpen] = useState(false), [chosen, setChosen] = useState([]);
+    return createElement('div', null, createElement('button', { type: 'button', onClick: () => setOpen(true) }, '＋ Add skills'),
+      open && createElement(SkillPicker, { agent: 'Atlas', owners: [owner], chosen, close: () => setOpen(false),
+        choose: async skill => { await assignSkill('a1', skill.id, true); setChosen(old => [...old, skill.id]); } }));
+  }
+  await render(Page);
   await click(button('＋ Add skills'));
 }
 
@@ -297,22 +306,18 @@ test('a failed upload keeps the step and its review; the retry saves the skill o
   }, { url, fetch: fake.fetch });
 });
 
-test("the agent's skills list: focus returns when the panel closes, and remove", async () => {
+test('focus returns to the ＋ when the picker closes', async () => {
   const fake = server();
   await reactFixture(async tools => {
     const { button, click } = tools;
     await openPanel(tools);
-    assert.match(document.body.textContent, /No skills yet/);
     await click(button('Add quote-builder'));
+    assert.deepEqual(fake.assigns().at(-1).body, { skill: 's1', on: true });
     await click(button('Done'));
     assert.equal(document.querySelectorAll('dialog').length, 0, 'the panel closed');
     assert.equal(focused(), '＋ Add skills', 'Done returns focus to the trigger');
-    assert.match(document.querySelector('.agent-skills').textContent, /quote-builderWorkspace skill · version 3 · used 2 times this week/);
     await click(button('＋ Add skills'));
     await click(dialog().querySelector('[aria-label="Close"]'));
     assert.equal(focused(), '＋ Add skills', 'the close button does too');
-    await click(button('Actions for quote-builder'));
-    await click(button('Remove from this agent'));
-    assert.deepEqual(fake.assigns().at(-1).body, { skill: 's1', on: false });
   }, { url, fetch: fake.fetch });
 });

@@ -13,8 +13,9 @@ import { EventTriggers } from './events';
 import { NewAutomation } from './new-automation';
 
 type Open = { kind: 'choose' } | { kind: 'event' } | { kind: 'create' } | { kind: 'runs'; routine: Routine } | { kind: 'state'; routine: Routine; enabled?: boolean };
-export function AutomationPane({ agent, openChat }: { agent: Agent; openChat?: () => void }) {
-  return agent.editable ? <ScheduleWorkspace key={agent.id} agent={agent} /> : <MemberAutomations agent={agent} openChat={openChat} />;
+/** `start` opens "New automation" at once (the agent page's ＋); `changed` is told when a schedule is saved or changed. */
+export function AutomationPane({ agent, openChat, start = false, changed }: { agent: Agent; openChat?: () => void; start?: boolean; changed?: () => void }) {
+  return agent.editable ? <ScheduleWorkspace key={agent.id} agent={agent} start={start} changed={changed} /> : <MemberAutomations agent={agent} openChat={openChat} />;
 }
 /** People who talk to the agent but don't look after it: they get a schedule by
  * asking in Chat, and it runs as them (designs/automations-simplified 4). */
@@ -31,11 +32,12 @@ function MemberAutomations({ agent, openChat }: { agent: Agent; openChat?: () =>
     <p className="ui-help">Schedules you save from Chat run as you, with your access. Pause them from Activity › Upcoming.</p>
   </section>;
 }
-function ScheduleWorkspace({ agent }: { agent: Agent }) {
+function ScheduleWorkspace({ agent, start, changed }: { agent: Agent; start: boolean; changed?: () => void }) {
   const load = useCallback(() => loadSchedules(agent.id), [agent.id]);
   const resource = useResource(load);
   const [clock] = useState(deviceClock);
-  const [open, setOpen] = useState<Open>();
+  const [open, setOpen] = useState<Open | undefined>(start ? { kind: 'choose' } : undefined);
+  const saved = async () => { await resource.refresh(); changed?.(); };
   const opener = useRef<HTMLElement | null>(null), refreshButton = useRef<HTMLButtonElement | null>(null);
   const focusTimer = useRef<number | undefined>(undefined);
   const show = (next: Open) => { opener.current = document.activeElement as HTMLElement | null; setOpen(next); };
@@ -62,15 +64,14 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
   }, [resource.refresh, resource.setData]);
   const ready = Boolean(resource.data && !resource.error);
   return <section className="shared-schedules" aria-label={`${agent.name} automations`}>
-    <header className="agent-section-heading"><div><h3>Automations</h3>
-      <p>Work {agent.name} does on its own. Every run follows its tool rules, and Ask-first actions still wait for a person. Runs and anything that needs you appear in Activity.</p></div>
+    <header className="agent-section-heading"><div><h3>Automations</h3></div>
       <Button primary className="automation-new" disabled={!ready} onClick={() => show({ kind: 'choose' })}>New automation</Button>
     </header>
     <section className="automation-group" aria-labelledby={`${agent.id}-on-schedule`}>
-      <header className="agent-section-heading"><div><h4 id={`${agent.id}-on-schedule`}>On a schedule</h4><p>At a time, once or repeating.</p></div></header>
+      <header className="agent-section-heading"><div><h4 id={`${agent.id}-on-schedule`}>On a schedule</h4></div></header>
       {resource.error && <p role="alert">{resource.error}</p>}
       {!resource.data && !resource.error && <p role="status">Loading schedules…</p>}
-      {resource.data?.execution_available === false && <p role="status">Schedules need pooled background work, which this server doesn’t run. Saved schedules stay readable; they can’t run here.</p>}
+      {resource.data?.execution_available === false && <p role="status">Schedules can’t run on this server. Saved ones stay readable.</p>}
       {resource.data?.schedules.map(routine => <article className="routine-row" key={routine.id} aria-label={`Schedule: ${routine.name}`}>
         <header><h4>{routine.name}</h4><span>{stateLabels[routine.state]}</span></header>
         <p className="routine-instructions">{routine.content}{routine.instructions_long && '…'}</p>
@@ -89,11 +90,11 @@ function ScheduleWorkspace({ agent }: { agent: Agent }) {
       {Boolean(resource.data?.elsewhere) && <p className="ui-help">{resource.data?.elsewhere === 1 ? '1 more schedule posts' : `${resource.data?.elsewhere} more schedules post`} in conversations you’re not in, so {resource.data?.elsewhere === 1 ? 'it stays' : 'they stay'} private. Pausing {agent.name} pauses every schedule.</p>}
       <div className="automation-tools"><Button ref={refreshButton} onClick={() => void resource.refresh().catch(() => {})}>Refresh schedules</Button></div>
     </section>
-    <EventTriggers agent={agent.id} start={open?.kind === 'event'} finished={close} />
+    <EventTriggers agent={agent.id} start={open?.kind === 'event'} finished={() => { close(); changed?.(); }} />
     {open?.kind === 'choose' && <NewAutomation agent={agent.name} schedules={Boolean(resource.data?.execution_available)} close={close}
       choose={kind => setOpen(kind === 'time' ? { kind: 'create' } : { kind: 'event' })} />}
-    {open?.kind === 'create' && resource.data && <CreateSchedule agent={agent.id} agentName={agent.name} data={resource.data} clock={clock} close={close} saved={resource.refresh} />}
+    {open?.kind === 'create' && resource.data && <CreateSchedule agent={agent.id} agentName={agent.name} data={resource.data} clock={clock} close={close} saved={saved} />}
     {open?.kind === 'runs' && <ScheduleRuns agent={agent.id} routine={open.routine} close={close} />}
-    {open?.kind === 'state' && <ScheduleState agent={agent.id} routine={open.routine} enabled={open.enabled} close={close} saved={resource.refresh} />}
+    {open?.kind === 'state' && <ScheduleState agent={agent.id} routine={open.routine} enabled={open.enabled} close={close} saved={saved} />}
   </section>;
 }

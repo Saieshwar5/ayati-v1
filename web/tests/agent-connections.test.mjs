@@ -37,8 +37,8 @@ test('the owner adds an app for this agent: the catalog is the agent’s and one
   const writes = [], reads = [], state = { connections: [], answer: { redirect_url: 'https://accounts.example.test/sign-in' } };
   await reactFixture(async ({ render, click, update, navigation }) => {
     await show(render);
-    assert.match(document.body.textContent, /No apps yet\. Add one for Nova/);
-    assert.match(document.body.textContent, /belongs to Nova alone/);
+    assert.match(document.body.textContent, /No apps yet\./);
+    assert.equal(/belongs to Nova alone/.test(document.body.textContent), false, 'the group no longer explains itself');
     assert.ok(document.querySelector('[aria-label="MCP servers"]'), 'MCP servers have their own group');
     await click(button('＋ Add app'));
     assert.ok(reads.some(path => path.startsWith('/apps/catalog') && path.includes('agent=nova')), 'the catalog is read for this agent');

@@ -1,35 +1,59 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '../ui';
+import { PersonFace } from '../faces';
+import { Icon } from '../chat/panel-actions';
+import { workspaceSession } from '../../workspace-context';
+import { ownerNames, type Agent } from './model';
+import { AgentAvatar, agentDotState } from './avatar';
+import { jobOf } from './agent-roster';
 
 export type AgentAction = 'pause' | 'identity' | 'owners';
 
-/** The agent page header: picture, name, status, job title and owners, with
- * Open in Chat and the ⋯ menu (designs/agents-simplified 5). */
-export function AgentWorkspaceHeader({ name, title, avatar, paused, owner, needsOwner = false, assistant = false, editable, busy, back, openChat, choose }: {
-  /** A member's own assistant: it has one owner for good. */
-  assistant?: boolean;
-  name: string; title: string; avatar: ReactNode; paused: boolean; owner?: string; needsOwner?: boolean; editable: boolean; busy: boolean;
-  /** `owner`: its owners' names, such as "A and B". */
-  back: () => void; openChat: () => void; choose: (action: AgentAction) => void;
+/**
+ * The agent page header (designs/agents-profile, 2026-11-21): its face with the
+ * state dot, its name, and one line that says its state, its job and whose it
+ * is. Message is offered only to someone who may talk to it; Pause and Resume
+ * are buttons for its owners and admins, and ⋯ holds its name and owners.
+ */
+export function AgentWorkspaceHeader({ agent, busy, back, openChat, choose }: {
+  agent: Agent; busy: boolean; back: () => void; openChat: () => void; choose: (action: AgentAction) => void;
 }) {
-  const subtitle = [title, needsOwner ? 'its last owner left the workspace' : owner && `owned by ${owner}`].filter(Boolean).join(' · ');
+  const state = agentDotState(agent);
+  const editable = Boolean(agent.editable), needsOwner = Boolean(agent.needs_owner);
+  const paused = state === 'paused';
+  const me = workspaceSession?.user?.id;
+  const owners = agent.owners ?? (agent.owner_id && agent.owner_name ? [{ id: agent.owner_id, name: agent.owner_name }] : []);
+  const named = owners.length ? ownerNames(owners.map(owner => owner.id === me ? { ...owner, name: 'You' } : owner)) : agent.owner_name ?? '';
+  // Someone who cannot resume it is told who can; for its owners the button says so.
+  const detail = needsOwner ? 'Its last owner left the workspace'
+    : paused && !editable ? `${named.replace(/^You\b/, 'you') || 'Its owner'} can resume it`
+      : state === 'working' ? `${agent.pending} ${agent.pending === 1 ? 'request' : 'requests'}` : '';
+  const resume = paused && editable && !needsOwner;
   return <header className="agent-workspace-header">
     <Button className="agent-roster-back" onClick={back}>‹ Agents</Button>
-    <div className="agent-identity-row">{avatar}
+    <div className="agent-identity-row"><AgentAvatar agent={agent} dot />
       <div className="agent-identity-title">
-        <div className="agent-identity-name"><h2>{name}</h2><span className={`agent-availability${paused || needsOwner ? ' paused' : ''}`}>{needsOwner ? 'Needs an owner' : paused ? 'Paused' : 'Available'}</span></div>
-        {subtitle && <p>{subtitle}</p>}
+        <h2>{agent.name}</h2>
+        <p className="agent-state-line"><span className={`agent-line-dot agent-dot-${state}`} aria-hidden="true" />
+          <strong>{paused ? 'Paused' : state === 'working' ? 'Working' : 'Ready'}</strong>
+          {[detail, jobOf(agent)].filter(Boolean).map(part => <span key={part}> · {part}</span>)}
+          {/* An assistant's line already names its person. */}
+          {!agent.assistant && !needsOwner && named && <span className="agent-state-owner"> · <span className="visually-hidden">owned by </span>
+            {owners.slice(0, 3).map(owner => <PersonFace key={owner.id} person={owner} className="chat-avatar agent-owner-face" />)}{named}</span>}
+        </p>
       </div>
       <div className="agent-header-actions">
-        <Button primary disabled={busy} onClick={openChat}>Open in Chat</Button>
-        {editable && <AgentMenu name={name} paused={paused} needsOwner={needsOwner} assistant={assistant} choose={choose} />}
+        {resume && <Button primary disabled={busy} onClick={() => choose('pause')}><Icon name="play" />Resume</Button>}
+        {agent.can_talk !== false && <Button primary={!resume} disabled={busy} onClick={openChat}><Icon name="message" />Message</Button>}
+        {editable && !paused && <Button disabled={busy} onClick={() => choose('pause')}><Icon name="pause" />Pause</Button>}
+        {editable && <AgentMenu name={agent.name} needsOwner={needsOwner} assistant={Boolean(agent.assistant)} choose={choose} />}
       </div>
     </div>
   </header>;
 }
 
-/** ⋯ actions for its owners and admins: pause or resume, rename, owners. */
-function AgentMenu({ name, paused, needsOwner, assistant, choose }: { name: string; paused: boolean; needsOwner: boolean; assistant: boolean; choose: (action: AgentAction) => void }) {
+/** ⋯ actions for its owners and admins: its name and picture, and its owners. */
+function AgentMenu({ name, needsOwner, assistant, choose }: { name: string; needsOwner: boolean; assistant: boolean; choose: (action: AgentAction) => void }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -46,8 +70,6 @@ function AgentMenu({ name, paused, needsOwner, assistant, choose }: { name: stri
     <Button ref={toggle} className="ui-icon" aria-label={`More actions for ${name}`} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)}>⋯</Button>
     {open && <div ref={menu} className="chat-message-menu" role="menu" aria-label={`More actions for ${name}`}
       onKeyDown={event => { if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); toggle.current?.focus(); } }}>
-      {/* Without an owner it can't resume; giving it one comes first. */}
-      {!needsOwner && <button type="button" role="menuitem" onClick={() => pick('pause')}>{paused ? 'Resume' : 'Pause'}</button>}
       <button type="button" role="menuitem" onClick={() => pick('identity')}>Name, picture and role…</button>
       {!assistant && <button type="button" role="menuitem" onClick={() => pick('owners')}>{needsOwner ? 'Give it an owner…' : 'Owners…'}</button>}
     </div>}

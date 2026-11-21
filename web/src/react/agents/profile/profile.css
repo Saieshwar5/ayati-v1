@@ -1,0 +1,124 @@
+/* One agent's page (profile-page.tsx): rows of the real things on the left, and a
+   right-hand column that is Recent work or the editor for what was clicked. */
+.profile-page { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) 340px; border-top: 1px solid var(--border); }
+.profile-page:has(.profile-side.has-panel) { grid-template-columns: minmax(0, 1fr) minmax(360px, 440px); }
+.profile-main { min-height: 0; overflow: auto; padding: 0 32px 24px; }
+.profile-icon { flex: none; }
+
+/* A row: its label, the things, and at most one action on the right. */
+.profile-row { display: grid; grid-template-columns: 124px minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 16px 0; border-top: 1px solid var(--border); }
+.profile-row:first-child { border-top: 0; }
+.profile-row-label { display: flex; align-items: center; gap: 9px; margin: 0; padding-top: 7px; color: var(--muted); font-size: 13px; font-weight: 500; line-height: 1.4; }
+.profile-row-body { min-width: 0; }
+.profile-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.profile-chips + .profile-chips, .profile-rules + .profile-chips, .profile-rules-edit + .profile-chips, .assistant-rules + .profile-chips { margin-top: 10px; }
+.profile-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; max-width: 100%; padding: 5px 11px 5px 9px; border: 1px solid transparent; border-radius: 10px; background: var(--soft); color: var(--text); font: inherit; font-size: 13px; text-decoration: none; white-space: nowrap; }
+button.profile-chip, a.profile-chip { cursor: pointer; }
+button.profile-chip:hover, a.profile-chip:hover { background: var(--selection); }
+.profile-chip[aria-current="true"] { border-color: var(--text); background: var(--surface); box-shadow: 0 0 0 1px var(--text); }
+.profile-chip small { color: var(--muted); font-size: 12px; }
+.profile-chip .profile-warn { color: var(--warning); }
+.profile-chip.profile-add { padding: 5px 10px; border: 1px dashed var(--border-control); background: none; color: var(--muted); }
+button.profile-chip.profile-add:hover { border-color: var(--text); background: none; color: var(--text); }
+.profile-chip.profile-pick { border-color: var(--border-control); background: none; }
+.profile-chip .app-letter.small { width: 22px; height: 22px; border-radius: 6px; font-size: 11.5px; }
+.profile-tile { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--selection); }
+.profile-tile.round { width: 28px; height: 28px; border-radius: 50%; }
+.profile-mini-face.chat-avatar { flex: none; width: 20px; height: 20px; font-size: 9px; }
+.profile-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--online); }
+.profile-dot.warn { background: #d9891f; }
+.profile-dot.off { background: none; box-shadow: inset 0 0 0 1.5px var(--muted); }
+.profile-pill { display: inline-block; padding: 1px 9px; border-radius: 999px; background: var(--warning-bg); color: var(--warning); font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.profile-quiet { margin: 0; color: var(--muted); font-size: 12.5px; }
+.profile-lock { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 4px 6px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; }
+.profile-lock:hover { background: var(--soft); color: var(--text); }
+.profile-plus { position: relative; display: inline-flex; }
+.profile-plus-menu { position: absolute; top: calc(100% + 6px); left: 0; right: auto; z-index: 5; min-width: 200px; }
+.profile-plus-menu button { display: flex; align-items: center; gap: 10px; }
+
+/* The rules: read as text, edited in the same place. */
+.profile-rules { display: block; width: 100%; max-width: 660px; margin: 0 0 0 -8px; padding: 4px 8px; border: 0; border-radius: 9px; background: none; color: var(--text); font: inherit; font-size: 14.5px; line-height: 1.6; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
+button.profile-rules { cursor: pointer; max-height: 15.8em; overflow: hidden; }
+button.profile-rules:hover { background: var(--soft); }
+p.profile-rules { max-height: 15.5em; overflow: auto; }
+.profile-rules-edit { max-width: 660px; }
+.profile-rules-edit textarea { display: block; width: 100%; height: auto; min-height: 8em; padding: 10px 12px; border: 1px solid var(--border-control); border-radius: 12px; background: var(--surface); color: var(--text); font: inherit; font-size: 14.5px; line-height: 1.6; resize: vertical; }
+.profile-save { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; }
+.profile-edit { display: grid; place-items: center; width: 30px; height: 30px; margin-top: 2px; border: 0; border-radius: 9px; background: none; color: var(--muted); cursor: pointer; }
+.profile-edit:hover { background: var(--soft); color: var(--text); }
+.profile-start { margin-bottom: 0; }
+.profile-row .assistant-rules { max-width: 660px; }
+
+/* A schedule or trigger: one line that opens it. */
+.profile-line { display: flex; align-items: center; gap: 10px; width: calc(100% + 16px); margin: 0 -8px; padding: 5px 8px; border: 0; border-radius: 9px; background: none; color: var(--text); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.profile-line:hover, .profile-line[aria-current="true"] { background: var(--soft); }
+.profile-line > span:nth-child(2) { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-line strong { font-weight: 500; }
+.profile-line small { flex: none; color: var(--muted); font-size: 12px; }
+.profile-line.is-off { color: var(--muted); }
+.profile-line + .profile-chips { margin-top: 8px; }
+
+/* The right-hand column. */
+.profile-side { min-height: 0; overflow: auto; border-left: 1px solid var(--border); }
+.profile-work { padding: 18px 24px; }
+.profile-work header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+.profile-work h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.profile-work header a { color: var(--muted); font-size: 12.5px; }
+.profile-work ul { margin: 0; padding: 0; list-style: none; }
+.profile-work li + li { border-top: 1px solid var(--border); }
+.profile-work li a { display: flex; align-items: center; gap: 12px; margin: 0 -8px; padding: 10px 8px; border-radius: 9px; color: var(--text); font-size: 13.5px; text-decoration: none; }
+.profile-work li a:hover { background: var(--soft); }
+.profile-work li a > .profile-icon:last-child { color: var(--muted); opacity: .7; }
+.profile-work-text { min-width: 0; flex: 1; }
+.profile-work-text strong { display: block; overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.profile-work-text small { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.profile-work time { flex: none; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.profile-work-mark { flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--soft); color: var(--muted); }
+.profile-work-mark.done { background: color-mix(in srgb, var(--success) 13%, var(--surface)); color: var(--success); }
+.profile-work-mark.busy { background: color-mix(in srgb, var(--working) 14%, var(--surface)); color: var(--working); }
+.profile-work-mark.ask { background: var(--warning-bg); color: var(--warning); }
+
+/* The panel holds editors the app already had; they were made for a wider tab. */
+.profile-panel > header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 50px; padding: 0 10px 0 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.profile-panel > header h3 { margin: 0; color: var(--muted); font-size: 13px; font-weight: 500; }
+.ui-button.profile-panel-close { border-color: transparent; background: none; color: var(--muted); }
+.profile-panel-body { display: grid; gap: 16px; align-content: start; padding: 18px 20px 24px; font-size: 13.5px; line-height: 1.55; }
+.profile-panel-body h3 { margin: 0 0 8px; font-size: 15px; line-height: 1.4; }
+.profile-panel-body h4 { margin: 0 0 6px; font-size: 13.5px; }
+.profile-panel-body p { margin: 0 0 8px; font-size: 13.5px; }
+.profile-panel-body > section, .profile-panel-body .agent-tools, .profile-panel-body .agent-knowledge { min-width: 0; margin: 0; padding: 0; border: 0; }
+.profile-panel-body .agent-tool > header, .profile-panel-body .agent-section-heading, .profile-panel-body .routine-row > header { flex-wrap: wrap; }
+.profile-panel-body .agent-environment .ui-form, .profile-panel-body .ui-form { max-width: none; }
+.profile-panel-body textarea, .profile-panel-body select, .profile-panel-body input[type=text], .profile-panel-body input:not([type]) { max-width: 100%; }
+.profile-panel-body .setup-chat { border: 0; padding: 0; }
+.profile-panel-body .agent-knowledge article .ui-button { margin: 6px 8px 0 0; }
+.profile-panel-body .agent-knowledge-actions { margin-top: 12px; }
+.profile-switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+/* The panel's own title already names these. */
+.profile-panel-body .agent-lessons > h3, .profile-panel-body .agent-environment > section:first-child > h3, .profile-panel-body .shared-schedules > header h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.profile-panel-body .agent-advanced { border-top: 1px solid var(--border); padding-top: 12px; }
+
+@media (max-width: 1180px) {
+  .profile-page { grid-template-columns: minmax(0, 1fr) 300px; }
+  .profile-page:has(.profile-side.has-panel) { grid-template-columns: minmax(0, 1fr) minmax(320px, 380px); }
+  .profile-main { padding: 0 24px 20px; }
+  .profile-row { grid-template-columns: 104px minmax(0, 1fr) auto; }
+}
+/* Narrow windows and phones: one column; a panel takes the whole page. */
+@media (max-width: 900px) {
+  .profile-page, .profile-page:has(.profile-side.has-panel) { display: block; overflow: auto; }
+  .profile-main { overflow: visible; padding: 0 18px 8px; }
+  .profile-row { grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 14px 0; }
+  .profile-row-label { grid-column: 1; grid-row: 1; padding-top: 0; }
+  .profile-row-body { grid-column: 1 / -1; grid-row: 2; }
+  .profile-row > .profile-edit { grid-column: 2; grid-row: 1; margin: -6px 0; }
+  .profile-side { overflow: visible; border-left: 0; border-top: 1px solid var(--border); }
+  .profile-side.has-panel { position: absolute; inset: 0; z-index: 6; overflow: auto; border: 0; background: var(--surface); }
+  .profile-work { padding: 16px 18px; }
+  .profile-line small { display: none; }
+  .profile-plus-menu { position: fixed; top: auto; left: 12px; right: 12px; bottom: 16px; min-width: 0; box-shadow: 0 0 0 100vmax rgb(0 0 0 / 28%), 0 8px 24px var(--shadow-deep); }
+  .profile-plus-menu button { min-height: 46px; font-size: 15px; }
+}
+@media (pointer: coarse) { .profile-chip { min-height: 40px; } .profile-line { min-height: 44px; } }
+@media (forced-colors: active) { .profile-chip[aria-current="true"] { outline: 2px solid Highlight; } .profile-dot { background: CanvasText; forced-color-adjust: none; } }
+.agent-workspace { position: relative; }

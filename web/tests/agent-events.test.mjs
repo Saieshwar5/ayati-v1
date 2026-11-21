@@ -181,8 +181,7 @@ test('unavailable provider setup explains the missing source and starts no write
       const { EventTriggers } = await import('../src/react/agents/automation/events.tsx');
       await render(EventTriggers, { agent: 'a' });
       assert.equal(button('Create event trigger'), undefined, 'new triggers start from New automation');
-      assert.match(document.body.textContent, /operator must configure/);
-      assert.match(document.body.textContent, /no model calls/);
+      assert.match(document.body.textContent, /An operator sets one up and an admin approves it/);
       assert.equal(writes, 0);
     },
     {
