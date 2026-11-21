@@ -1,51 +1,34 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button, Dialog } from '../ui';
-import { errorMessage } from '../requests';
-import { denied, query, type ResultSource, type SavedFile } from './model';
+import { query, type ResultSource } from './model';
+import { useSavedFile } from './use-saved-file';
+
+type TextPreview = { text: string | null; truncated: boolean };
+
+/** A saved file that is not a picture: audio plays, text shows as plain text, and anything
+ * else offers its original. Pictures open in the image viewer (image-viewer.tsx). */
 export function FileViewer({ id, name, source, close }: { id: string; name: string; source: ResultSource; close: () => void }) {
-  const [file, setFile] = useState<SavedFile>();
-  const [preview, setPreview] = useState<{ text: string | null; truncated: boolean }>();
-  const [error, setError] = useState('');
+  const [preview, setPreview] = useState<TextPreview>();
   const [mediaFailed, setMediaFailed] = useState(false);
-  const [zoom, setZoom] = useState<number>();
-  const [naturalWidth, setNaturalWidth] = useState(0);
-  const [retry, setRetry] = useState(0);
-  useEffect(() => {
-    const abort = new AbortController(); let checking = false;
-    setFile(undefined); setPreview(undefined); setError(''); setMediaFailed(false);
-    setNaturalWidth(0); setZoom(undefined);
-    void source.read<SavedFile>(query(source.file(id), { metadata: true }), abort.signal).then(async data => {
-      if (abort.signal.aborted) return;
-      setFile(data);
-      if (!['image/png', 'image/jpeg'].includes(data.mime) && !data.mime.startsWith('audio/')) {
-        const text = await source.read<{ text: string | null; truncated: boolean }>(query(source.file(id), { preview: true, version: data.checksum }), abort.signal);
-        if (!abort.signal.aborted) setPreview(text);
-      }
-    }).catch(failure => { if (!abort.signal.aborted) { if (denied(failure)) setFile(undefined); setError(errorMessage(failure)); } });
-    const check = async () => {
-      if (checking || document.hidden || abort.signal.aborted) return;
-      checking = true;
-      try { await source.read(query(source.file(id), { access: true }), abort.signal); }
-      catch (failure) { if (!abort.signal.aborted) { if (denied(failure)) { setFile(undefined); setPreview(undefined); abort.abort(); } setError(errorMessage(failure)); } }
-      finally { checking = false; }
-    };
-    const timer = window.setInterval(() => void check(), 5000);
-    const unsubscribe = source.subscribe?.(() => void check());
-    return () => { abort.abort(); window.clearInterval(timer); unsubscribe?.(); };
-  }, [id, source, retry]);
-  const image = file && ['image/png', 'image/jpeg'].includes(file.mime);
-  const audio = file && file.mime.startsWith('audio/');
+  const { file, error, retry } = useSavedFile(id, source, async (opened, signal) => {
+    setPreview(undefined);
+    setMediaFailed(false);
+    if (opened.mime.startsWith('audio/')) return;
+    const text = await source.read<TextPreview>(query(source.file(id), { preview: true, version: opened.checksum }), signal);
+    if (!signal.aborted) setPreview(text);
+  });
+  const audio = file?.mime.startsWith('audio/');
+  // Without the file's details (still loading, or access was lost) nothing of it is shown.
+  const text = file ? preview?.text : undefined;
   return <Dialog title={name} close={close}>
     <div className="result-file-viewer">
       <div className="result-toolbar"><span>{file ? `${Math.ceil(file.size / 1024)} KB · Original file` : 'Loading file…'}</span>
-        {image && <><Button onClick={() => setZoom(undefined)}>Fit</Button><Button aria-label="Zoom out" onClick={() => setZoom(value => Math.max(25, (value ?? 100) - 25))}>−</Button><output aria-label="Zoom">{zoom ? `${zoom}%` : 'Fit'}</output><Button aria-label="Zoom in" onClick={() => setZoom(value => Math.min(400, (value ?? 100) + 25))}>+</Button></>}
         {file && <a className="ui-button" href={source.href(query(source.file(id), { version: file.checksum }))} download={file.name}>Download original</a>}
       </div>
-      {error && <p className="chat-error" role="alert">{error} <Button onClick={() => setRetry(value => value + 1)}>Retry</Button></p>}
-      {image && !mediaFailed && <div className={`result-image-stage${zoom ? ' result-image-zoomed' : ''}`} tabIndex={0} aria-label="Image preview"><img src={source.href(query(source.file(id), { inline: true, version: file.checksum }))} alt={file.name} style={zoom && naturalWidth ? { width: `${naturalWidth * zoom / 100}px` } : undefined} onLoad={event => setNaturalWidth(event.currentTarget.naturalWidth)} onError={() => setMediaFailed(true)} /></div>}
-      {audio && !mediaFailed && <audio className="result-audio" controls preload="metadata" src={source.href(query(source.file(id), { inline: true, version: file.checksum }))} aria-label={file.name} onError={() => setMediaFailed(true)} />}
-      {(mediaFailed || preview?.text === null) && <p className="result-note">Preview unavailable for this file. Download the original to open it.</p>}
-      {preview?.text !== null && preview?.text !== undefined && <><pre className="result-text-file" tabIndex={0}>{preview.text}</pre>{preview.truncated && <p className="result-note">Preview shortened to 64 KiB. Download the original for the complete file.</p>}</>}
+      {error && <p className="chat-error" role="alert">{error} <Button onClick={retry}>Retry</Button></p>}
+      {file && audio && !mediaFailed && <audio className="result-audio" controls preload="metadata" src={source.href(query(source.file(id), { inline: true, version: file.checksum }))} aria-label={file.name} onError={() => setMediaFailed(true)} />}
+      {file && (mediaFailed || text === null) && <p className="result-note">Preview unavailable for this file. Download the original to open it.</p>}
+      {typeof text === 'string' && <><pre className="result-text-file" tabIndex={0}>{text}</pre>{preview?.truncated && <p className="result-note">Preview shortened to 64 KiB. Download the original for the complete file.</p>}</>}
     </div>
   </Dialog>;
 }

@@ -365,8 +365,13 @@ Remove Check progress launchers from Chat; request activity remains in Agents Wo
 Keep ordinary reply status, Stop, questions and approval controls. Expanded saved
 replies retain exact Copy/Markdown actions and a secondary full reading view.
 New saved versions load explicitly so reading does not jump. Keep images as small
-thumbnails until opened in a fit/zoom viewer. See [saved reading](result-reading.md)
-for source authority, supported files and current limits.
+thumbnails until opened. A picture opens in the image viewer (2026-11-21): the whole
+window, dark in both themes so every picture has the same quiet background, with one
+slim bar (who shared it and when, its name and size, zoom as a real percentage,
+download, close as borderless icons), arrows and "2 of 5" for the conversation's other
+pictures, and no zoom buttons or arrows on phones (pinch and swipe). This is the one
+surface that does not follow the light theme. See [saved reading](result-reading.md#image-viewer-2026-11-21)
+for its behaviour, source authority, supported files and current limits.
 
 A reply may carry one page: a bordered card inside the response box (small picture,
 PAGE label, title, sections and reading time) that opens a near-full-window reading

@@ -11,6 +11,7 @@ import type { Attachment, Message } from './model';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { storageScope, workspaceSession } from '../../workspace-context';
 import { ChatMessage } from './message';
+import { conversationImages } from './conversation-images';
 import { ChatThread } from './thread';
 import { threadSummary } from './thread-line';
 import { mergeMessages, newerMessage } from './message-state';
@@ -259,7 +260,7 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   const working = partner?.kind === 'agent' ? workingForYou(allMessages, partner.who.id) : undefined;
   const agentFree = partner?.kind !== 'agent' || takesMessages(partner.who);
   const handOver = (message: Message) => canHandOver && message.author === partner?.who.id && (message.kind === 'agent') === (partner?.kind === 'agent') ? assistantName : undefined;
-  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
+  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }} images={() => conversationImages(allMessages, directory)}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} returnTo={returnTo} search={() => setSearching(true)} working={working}
       level={level} levelChanged={levelChanged} details={details}
       extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : <ThreadPill chat={chat.id} assistantName={assistantName} />} />

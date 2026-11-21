@@ -53,18 +53,24 @@ function DialogParts({ id, title, busy = false, status = '', close, back, childr
   </>;
 }
 
-function ModalDialog(props: DialogProps) {
-  const { drawer = false, busy = false, close, initialFocus } = props;
-  const dialog = useRef<HTMLDialogElement>(null);
-  const id = useId();
-  const latest = useRef(close); latest.current = close;
+/** Shows a native dialog as a modal while its component is mounted, then returns the
+ * focus to where it was. */
+export function useModal(dialog: RefObject<HTMLDialogElement | null>, initialFocus?: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const node = dialog.current!;
     const previous = document.activeElement as HTMLElement | null;
     node.showModal();
     initialFocus?.current?.focus();
     return () => { node.close(); if (previous?.isConnected) previous.focus(); };
-  }, [initialFocus]);
+  }, [dialog, initialFocus]);
+}
+
+function ModalDialog(props: DialogProps) {
+  const { drawer = false, busy = false, close, initialFocus } = props;
+  const dialog = useRef<HTMLDialogElement>(null);
+  const id = useId();
+  const latest = useRef(close); latest.current = close;
+  useModal(dialog, initialFocus);
   return createPortal(<dialog ref={dialog} className={`ui-dialog${drawer ? ' ui-drawer' : ''}`} aria-labelledby={id} aria-busy={busy}
     onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!busy) latest.current(); }}>
     <DialogParts {...props} id={id} />

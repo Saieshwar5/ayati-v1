@@ -116,9 +116,13 @@ test('long real Goose replies remain compact, freeze while reading and preserve 
   await page.getByRole('button',{name:'Open Business reference.png',exact:true}).click();
   const viewer=page.getByRole('dialog',{name:'Business reference.png',exact:true}); await viewer.locator('img').waitFor();
   await until(()=>viewer.locator('img').evaluate(node=>node.complete&&node.naturalWidth===390),'Image did not load');
+  // The picture opens fitted to the window, never enlarged, and the label is its real percentage.
+  const level=viewer.locator('.image-viewer-level'); await until(async()=>/^\d+%$/.test(await level.textContent()),'Image size was not measured');
+  const fitted=(await viewer.locator('img').boundingBox()).width; assert.ok(fitted<=390+1);
+  assert.equal(await level.textContent(),`${Math.round(fitted/390*100)}%`);
   await viewer.getByRole('button',{name:'Zoom in',exact:true}).click();
-  assert.ok(Math.abs((await viewer.locator('img').boundingBox()).width-390*1.25)<1);
-  assert.equal(await viewer.locator('output').textContent(),'125%'); await viewer.getByRole('button',{name:'Fit',exact:true}).click();
+  assert.equal(await level.textContent(),'150%'); assert.ok(Math.abs((await viewer.locator('img').boundingBox()).width-390*1.5)<1);
+  await level.click(); assert.ok(Math.abs((await viewer.locator('img').boundingBox()).width-fitted)<1);
   await page.screenshot({path:join(app.data,'image-viewer-desktop.png')});
   const originalEvent=page.waitForEvent('download'); await viewer.getByRole('link',{name:'Download original',exact:true}).click(); const original=await originalEvent;
   assert.equal(hash(await readFile(await original.path())),hash(image)); assert.equal(original.suggestedFilename(),'Business reference.png');
