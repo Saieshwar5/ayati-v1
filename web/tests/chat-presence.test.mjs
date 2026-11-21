@@ -80,6 +80,7 @@ test('dots and names: online people have a green dot and read "name, online, sta
     // The header shows the other person, not this tab's connection.
     const header = document.querySelector('.chat-pane-header');
     assert.ok(header.querySelector('.chat-header-identity .presence-dot'));
+    assert.equal(header.querySelectorAll('.presence-dot').length, 1, 'one dot, on the face; "Online" is words only');
     assert.equal(named(header.querySelector('.chat-header-meta')), 'Online In a meeting');
     assert.match(header.querySelector('.chat-header-meta').textContent, /^Online · 🗓️ In a meeting$/);
     assert.doesNotMatch(header.textContent, /Connect/);
@@ -91,6 +92,7 @@ test('dots and names: online people have a green dot and read "name, online, sta
     await click(button('View profile of Ravi Kumar, online, In a meeting'));
     const card = document.querySelector('aside.chat-side-panel');
     assert.ok(card.querySelector('.profile-card-face .presence-dot'));
+    assert.equal(card.querySelectorAll('.profile-card-identity .presence-dot').length, 1, 'one dot in the profile too');
     assert.equal(named(card.querySelector('.profile-card-presence')), 'Online');
     assert.equal(named(card.querySelector('.profile-card-status strong')), 'In a meeting');
     assert.equal(card.querySelector('.profile-card-status small').textContent, 'set by Ravi');
