@@ -19,7 +19,7 @@ test("Now's line opens History on events not handled, each with its reason", asy
     const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
     const { ActivityPage } = await import('../src/react/activity/activity-page.tsx');
     await render(ActivityPage, { href: nowUrl });
-    assert.match(document.querySelector('.activity-unhandled').textContent, /2 events not handled today/);
+    assert.match(document.querySelector('.activity-notice').textContent, /2 events not handled today/);
     await click(button('See why'));
     const type = [...document.querySelectorAll('label')].find(node => node.textContent.startsWith('Type')).querySelector('select');
     assert.equal(type.value, 'unhandled');

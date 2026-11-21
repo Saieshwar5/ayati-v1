@@ -34,7 +34,7 @@ export function ConversationHeader({ chat, directory, title, back, returnTo, sea
   // Its owners and admins reach a team agent's page from here; your assistant has its own link.
   const settings = agent && !agent.assistant && (agent.yours || directory.role === 'Admin');
   return <header className="chat-pane-header">
-    {returnTo ? <a className="chat-return" href={returnTo}>‹ For you</a> : <Button className="chat-back" onClick={back}>‹ Chats</Button>}
+    {returnTo ? <a className="chat-return" href={returnTo}>{returnTo.includes('view=activity') ? '‹ Needs you' : '‹ For you'}</a> : <Button className="chat-back" onClick={back}>‹ Chats</Button>}
     {/* The whole block opens the panel; the two buttons inside carry it for keyboards and screen readers. */}
     <div className="chat-header-who" onClick={event => { if (!(event.target as Element).closest('button, a')) details.toggle(); }}>
       {partner ? <button type="button" className="chat-header-identity" aria-label={`View profile of ${title}`} aria-expanded={details.open} onClick={details.toggle}>

@@ -7,23 +7,61 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
 
 ## Views
 
-- **Needs me** (default; `&tab=needs`): approvals, questions and work that needs
+Five since 2026-11-21 ([Design A](../designs/activity-next/README.md)); before that six.
+Links to the earlier ones still open the right place: `tab=now` and `tab=open` open
+Work, `tab=upcoming` Planned, `tab=review` Insights. The search box searches the view
+it is on (it is off on Insights).
+
+- **Needs you** (default; `&tab=needs`; "Needs me" until Design A): approvals, questions and work that needs
   a look, from every agent, grouped. The tab shows the count. Opening an item
   saves a personal read receipt first; if that fails the error shows and nothing
   opens. Reading never answers or approves. **Mark reviewed** clears a failed or
   interrupted outcome without retrying or changing it. It replaces Home's former
   "Your attention" pop-up; Home keeps a small panel that links here.
-- **Now** (`&tab=now`): "While you were away", one card per agent (Working,
-  Waiting, Failing, Paused or Idle with its next schedule run) and requests
-  running now with **Stop**. It follows the live change stream and polls every
-  10 seconds as a fallback.
-- **Tasks** (`&tab=open`): every open task the person may see (needs fixing first), with
-  each task's details, steps and closing. See [tasks](tasks.md). `&task=<id>` opens one.
+  In a window 1040 px or wider (2026-11-21, [Design A](../designs/activity-next/README.md),
+  step 1) the list is on the left and the opened item shows beside it, not in a dialog
+  over it: a row is one button, **J** and **K** (and the arrow keys inside the list)
+  open the next and previous row, an approval an admin may already decide carries the
+  label "An admin can decide now", and Mark reviewed sits under the opened request. The
+  list is read again as soon as a decision is saved; the decided item stays readable
+  beside it with **Next: …**. Nothing is opened, and so nothing marked read, until the
+  person picks a row or presses a key. Narrower windows keep the dialog and the named
+  button on every row. The count, the order and what each item offers are unchanged.
+  - **Needs fixing** is listed here too, for the agents the person manages
+    (`/activity/now?scope=mine`), each cause opening with its cases and its one fix. It
+    is **not** part of the count on the tab, the rail or Home: those stay decisions,
+    questions and failed work, read from `/attention`. The group that only says
+    "requests are waiting on a person" is left out, because those requests are the list.
+  - **Conversation**, under an opened approval or question in a wide window: the asking
+    message and the agent's reply from the request's own records
+    (`GET /activity/requests/{reply}`), **Open in Chat ›**, which opens the conversation at
+    that message with **‹ Needs you** in Chat's header to come back to the same row
+    (`&from=activity&item=<row>`), **Ask <agent> privately** (the direct chat, with a
+    draft started), and **Add to this request** for the person who asked while it runs.
+    Someone who is not in the conversation is shown none of it until they press **Read
+    the request**, because reading it is recorded in the audit log. Activity sends no
+    chat messages of its own: a reply in the channel is written in Chat, where the
+    conversation's routing is shown.
+  - The open row is kept in the address (`&item=`). A link to a row opens it only if the
+    person has read it before; otherwise the row is focused and waits for them.
+  - **A**, **R** and **C** press an opened approval's Approve, Reject and Request changes
+    while the keyboard is in the list or the opened item, never from elsewhere on the page.
+- **Work** (`&tab=work`; Now and Tasks until Design A), with **Agents / Tasks** beside the tabs.
+  - **Agents**: "While you were away", one flat row per agent (Working, Waiting, Failing,
+    Needs fixing, Paused or Idle with its next schedule run) with its own Pause, How to
+    fix it and Set up, and requests running now with **Stop**. An agent's name opens it
+    beside the list: what waits on you (each opening its row in Needs you), what it is
+    doing, what comes up in the next day, today's count and **All history**. It follows
+    the live change stream and polls every 10 seconds as a fallback.
+  - **Tasks** (`&tab=open` still opens it): every open task the person may see (needs
+    fixing first), with each task's details, steps and closing. See [tasks](tasks.md).
+    `&task=<id>` opens one.
+- **Planned** (`&tab=planned`; Upcoming until Design A): what agents will do on their own,
+  from a "Now" line on. See [shared agent schedules](shared-agent-schedules.md).
 - **History** (`&tab=history`): filters in one row (period, agent, person, where,
-  type, status) plus search; totals for the period; two charts (M7): requests per
-  day (empty days included, the busiest labelled, a tooltip on hover or focus) and
-  requests by agent (top 12), each with **Show as table**; a timeline grouped by
-  day with **Show older**. **Export CSV** downloads the filtered requests (UTC
+  type, status) plus search; the period's totals as one line, where **N need a look**
+  sets the status filter; a timeline grouped by day with **Show older**. In a wide
+  window a row opens beside the log. The two charts are on Insights. **Export CSV** downloads the filtered requests (UTC
   times, at most 5,000; cells that look like formulas are escaped). Type "Setting
   changes" lists agent profile and owner changes.
 - **Request details** (a drawer from any row): the asking message, each tool step
@@ -33,7 +71,7 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
   Running work can be stopped here.
 
 An agent's **Activity** tab is History filtered to that agent, with its own
-search. Direct chats with an agent say "Activity with <agent> is visible to its
+search and the drawer for details. Direct chats with an agent say "Activity with <agent> is visible to its
 owners and admins." In Chat, an agent reply's ⋯ menu has **See what it did**,
 which opens the same request details.
 
@@ -84,8 +122,8 @@ Activity is where people control agents as well as watch them
 (people-and-agents-first, Phase 1b). Every control uses a server route with its own
 checks; the screen only hides what a person may not do.
 
-- **My agents / All agents** on Now and History (not on Needs me, whose items are
-  already the person's own decisions and questions). The choice is remembered on the
+- **My agents / All agents** on Work, Planned, History and Insights (not on Needs you,
+  whose items are the person's own decisions and questions and the agents they manage). The choice is remembered on the
   device, per person and workspace; the default is My agents.
 - **Pause or resume one agent** from its card: `POST
   /api/identity/workspaces/{w}/agent-profiles/{id}/pause` with `{"paused": bool}`.
@@ -93,7 +131,7 @@ checks; the screen only hides what a person may not do.
   effect as the Agents page's pause and writes the same readable audit sentence
   ("Meera paused Atlas"); asking for the state it already has changes nothing. The
   card shows the button only when `can_pause` is true. While all agents are paused
-  the card has no button; the workspace switch decides.
+  the row has no button; the workspace switch (Work's ⋯ menu, for admins) decides.
 - **How to fix it** on a failing card opens today's latest failed request
   (`last_failed`), whose details explain the fix.
 - **Retry** in a failed request's details: `POST …/activity/requests/{reply}/retry`.
@@ -113,7 +151,8 @@ checks; the screen only hides what a person may not do.
 People-and-agents-first, Phase 4. For the people who can fix an agent (its owners,
 and admins; with My agents, the agents they own):
 
-- **Needs fixing** on Now, grouped by cause, each with one fix:
+- **Needs fixing** in Needs you (on Now until Design A; Work says how many and links
+  there), grouped by cause, each with one fix:
   - an account needs reconnecting (every agent using it; **Reconnect** in Settings for
     admins, "Ask an admin to reconnect" for others);
   - actions whose outcome couldn't be confirmed (Check it);
@@ -124,7 +163,7 @@ and admins; with My agents, the agents they own):
     last 30, at least 10 minutes);
   - what agents reported they need (see below; Dismiss);
   - tasks that need fixing (Open Tasks).
-  An agent in any group shows **Needs fixing** on its card. Someone who only talks to
+  An agent in any group shows **Needs fixing** on its row. Someone who only talks to
   an agent isn't asked to fix it.
 - **Agents report needs in a fixed shape.** The `report_problem {cause, detail, fix?}`
   tool (cause: connection, permission, information, external or other; detail up to 300
@@ -163,8 +202,12 @@ and admins; with My agents, the agents they own):
 
 ## Review: getting better over time (schema 63)
 
-People-and-agents-first, Phase 5. Activity → **Progress** (`&tab=review`), for the people
-who can fix an agent (its owners and admins; My agents narrows it):
+People-and-agents-first, Phase 5. Activity → **Insights** (`&tab=insights`; Review until
+Design A, and `&tab=review` still opens it), for the people who can fix an agent (its
+owners and admins; My agents narrows it). It also holds the two charts History used to
+open with (M7), for the same 30 days: requests per day (empty days included, the
+busiest labelled, a tooltip on hover or focus) and requests by agent (top 12), each with
+**Show as table**.
 
 - **Measures, last 30 days**, per agent and per person: tasks done of all, failed, done
   on time of those with a due time, tasks that needed a person, **person-minutes** (from
@@ -256,7 +299,13 @@ Measured locally with 30 agents and 81,000 requests over 90 days
   the agent's owners, admins and after leaving a channel; private-view audit; paging without
   gaps; filters and totals; older requests' summaries; away summary across
   catch-ups; disagreement warning; the 81,000-request budget).
-- Web: `tests/activity.test.mjs`, `tests/activity-panels.test.mjs`, `tests/activity-unhandled.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,
+- Web: `tests/activity-design-a.test.mjs` (earlier tab links, Needs fixing beside the list
+  and outside the count, A only from inside the list, the conversation for a member and
+  the question before it for someone outside, a linked row reopened without a receipt,
+  Work's rows and agent panel, History's totals line and the pause switch in its menu),
+  `tests/activity-needs-pane.test.mjs` (wide window: receipt before opening, no dialog,
+  re-read after a decision, Next, J and K, Mark reviewed once for a double click; a narrow
+  window keeps the dialog), `tests/activity.test.mjs`, `tests/activity-panels.test.mjs`, `tests/activity-unhandled.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,
   pause with a double click, How to fix it, Retry only for the asker, Discuss in chat),
   `tests/workspace-attention.test.mjs`.
 - Browser journeys with real Goose: `workspace_attention`, `channel_approvals`,

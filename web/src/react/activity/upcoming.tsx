@@ -11,8 +11,9 @@ import { cancel, filters, grouped, loadUpcoming, setRunning, type Filter, type U
 const kindLabel: Record<UpcomingItem['kind'], string> = { schedule: 'Schedule', trigger: 'Trigger', follow_up: 'Follow-up', due: 'Due' };
 type Undo = { label: string; item: UpcomingSchedule; revision: number };
 
-/** Activity › Upcoming (designs/automations-simplified 3): everything agents will do
- * on their own, with Pause and Resume in place and a link to where each is set up. */
+/** Activity › Planned (designs/automations-simplified 3, named Upcoming until Design A):
+ * everything agents will do on their own, from now on, with Pause and Resume in place
+ * and a link to where each is set up. */
 export function UpcomingView({ scope, search }: { scope: Scope; search: string }) {
   const { data, error, refresh } = useLive(useCallback(() => loadUpcoming(scope), [scope]));
   const [filter, setFilter] = useState<Filter>('all');
@@ -28,11 +29,12 @@ export function UpcomingView({ scope, search }: { scope: Scope; search: string }
   if (error) return <p role="alert">{error}</p>;
   if (!data) return <p role="status">Loading what’s coming up…</p>;
   const groups = grouped(data.items, filter, search);
-  return <section className="activity-upcoming" aria-label="Upcoming">
+  return <section className="activity-upcoming" aria-label="Planned">
     <div className="activity-kinds" role="group" aria-label="Kind">{filters.map(([value, label]) =>
       <Button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>{label}</Button>)}</div>
     <p className="ui-status" role="status">{m.busy ? 'Saving…' : m.status}
       {undo && !m.busy && <> <Button className="activity-undo" onClick={() => act(async () => { await setRunning(undo.item, true, undo.revision); return undefined; }, `${undo.label} is back on.`)}>Undo</Button></>}</p>
+    {groups.length > 0 && <p className="activity-nowline" aria-hidden="true">Now · {clock(Date.now())}</p>}
     {groups.map(([day, items]) => <section key={day} aria-label={day}>
       <h2 className="activity-group">{day}</h2>
       <ul className="activity-list">{items.map(item => <li key={`${item.kind}.${item.id}.${'app' in item ? item.app : ''}`}>

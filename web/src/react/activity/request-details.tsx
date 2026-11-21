@@ -49,7 +49,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
   // One conversation id per opening, so a double click opens one direct chat.
   const direct = useRef<string>(undefined);
   const toTask = (item: Details) => void mutation.run(async () => {
-    await makeTask(item.id); mutation.setStatus('Saved as a task. It stays in Activity → Tasks until it is closed.'); setVersion(v => v + 1);
+    await makeTask(item.id); mutation.setStatus('Saved as a task. It stays in Activity → Work → Tasks until it is closed.'); setVersion(v => v + 1);
   });
   const discuss = (item: Details) => void mutation.run(() =>
     openAgentChat({ id: item.agent, name: item.agent_name }, `About "${item.summary}" (${where(item)}, ${dayLabel(item.created_ms).toLowerCase()} ${clock(item.created_ms)}): `, direct));

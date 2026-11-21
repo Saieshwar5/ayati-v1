@@ -30,11 +30,11 @@ async function open(render, update) {
 const row = title => [...document.querySelectorAll('.activity-upcoming li')].find(li => li.textContent.includes(title));
 const within = (node, label) => [...node.querySelectorAll('button,a')].find(b => b.textContent === label);
 
-test('Upcoming groups what runs by day, then paused, then always on, and filters by kind', async () => {
+test('Planned groups what runs by day, then paused, then always on, and filters by kind', async () => {
   const reads = [];
   await reactFixture(async ({ render, update, click, button }) => {
     await open(render, update);
-    assert.equal(document.querySelector('[role=tab][aria-selected=true]').textContent, 'Upcoming');
+    assert.equal(document.querySelector('[role=tab][aria-selected=true]').textContent, 'Planned');
     assert.ok(reads.some(path => path.endsWith('/activity/upcoming?scope=mine')));
     const groups = [...document.querySelectorAll('.activity-upcoming h2')].map(h => h.textContent);
     assert.deepEqual(groups.slice(-2), ['Paused', 'Always on']);

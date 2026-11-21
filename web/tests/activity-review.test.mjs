@@ -25,18 +25,18 @@ async function activity() {
   return (await import('../src/react/activity/activity-page.tsx')).ActivityPage;
 }
 
-test('Review shows measures, a suggestion that opens the agent’s Tools, goals and weekly reviews; each choice sends one request', async () => {
+test('Insights shows measures, a suggestion that opens the agent’s Tools, goals and weekly reviews; each choice sends one request', async () => {
   const writes = [];
   await reactFixture(async ({ render, button, click, change, update }) => {
     await render(await activity(), { href: reviewUrl });
-    const text = document.querySelector('[aria-label="Review"]').textContent;
+    const text = document.querySelector('[aria-label="Insights"]').textContent;
     assert.match(text, /Nova asked 6 times to refund order, and each was approved/);
     assert.match(text, /36 of 40.*9 of 10.*12.*31\.5/);
     assert.match(text, /Nova: Quotes sent.*42 of 50 quotes this week · at risk: Two suppliers are late/);
     assert.match(text, /Suggested change: Add the price list skill/);
     assert.equal(document.querySelector('[role=progressbar]').getAttribute('aria-valuenow'), '84');
     assert.equal(button('Let it'), undefined, 'rules change on the agent, not here');
-    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent.replace(/\d+$/, '')), ['Needs me', 'Now', 'Upcoming', 'Tasks', 'History', 'Review']);
+    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent.replace(/\d+$/, '')), ['Needs you', 'Work', 'Planned', 'History', 'Insights']);
     const open = [...document.querySelectorAll('a')].find(a => a.textContent === 'Review in Nova › Connections');
     assert.equal(open.getAttribute('href'), `/w/${w}/?view=agents&selected=nova&section=connections&action=shop%2Forder.refund`);
     await click(button('Keep asking'));

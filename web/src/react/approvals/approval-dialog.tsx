@@ -37,9 +37,9 @@ export function ApprovalDialog({ id, close }: { id: string; close: () => void })
       <p className="ui-help">Approval applies once to these exact fields. The first decision counts.</p>
       <ApprovalFields fields={data.arguments} />
       {data.can_decide && <div className="approval-buttons">
-        <Button primary disabled={mutation.busy} onClick={() => void decide('approve')}>Approve this action</Button>
-        <Button disabled={mutation.busy} onClick={() => void decide('reject')}>Reject</Button>
-        <Button disabled={mutation.busy} onClick={() => void decide('request_changes')}>Request changes</Button>
+        <Button primary data-shortcut="a" disabled={mutation.busy} onClick={() => void decide('approve')}>Approve this action</Button>
+        <Button data-shortcut="r" disabled={mutation.busy} onClick={() => void decide('reject')}>Reject</Button>
+        <Button data-shortcut="c" disabled={mutation.busy} onClick={() => void decide('request_changes')}>Request changes</Button>
       </div>}
       {data.decision === 'request_changes' && <p>Ask for a revised proposal in the work conversation. The previous fields have not been approved.</p>}
       {data.state === 'invalidated' && <p>Permissions or routing changed. A new action request is required.</p>}

@@ -56,7 +56,7 @@ decision, people-and-agents-first): while it waits, the server adds `may_decide`
 looking. A person who may decide sees **Waiting for your decision** and **Review and
 decide**; everyone else in the conversation sees **Waiting for approval from Priya or
 Meera** (with "An admin can step in after …" while the backup delay runs) and a
-**Details** button that opens the same read-only review. Activity → Needs me always
+**Details** button that opens the same read-only review. Activity → Needs you always
 has the item; deciding in either place resolves both. The decision controls are:
 
 - **Approve this action:** dispatch the saved operation through the existing

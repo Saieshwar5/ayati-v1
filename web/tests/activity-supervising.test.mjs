@@ -30,29 +30,37 @@ const coming = [
   { kind: 'follow_up', id: 't1', agent: 'nova', agent_name: 'Nova', title: 'Call Acme back', at: now + 7200000, can_pause: true },
 ];
 
-test('Now groups what needs fixing by cause with one fix each, and points to Upcoming for what runs next', async () => {
+test('Needs you lists what needs fixing by cause with one fix each; Work says how many and points to Planned', async () => {
   const writes = [];
   await reactFixture(async ({ render, button, click, update }) => {
-    await render(await page(), { href: nowUrl });
+    await render(await page(), { href: needsUrl });
     const section = document.querySelector('[aria-label="Needs fixing"]');
     assert.match(section.textContent, /Needs fixing · 2/);
-    assert.match(section.textContent, /Shopify needs reconnecting · 3 agents stopped/);
-    assert.match([...section.querySelectorAll('a')].find(a => a.textContent === 'Ask an admin to reconnect').href, /view=settings&section=connections/);
-    const nova = document.querySelector('article[aria-label="Nova"]');
-    assert.match(nova.textContent, /Needs fixing/);
-    await click(button("See what's needed"));
+    assert.match(section.textContent, /Shopify needs reconnecting · 3 agents stopped.*Nova, Iris, Atlas/);
+    assert.equal(document.querySelector('.activity-count'), null, 'what needs fixing is listed here but is not part of the red count');
+    const fixes = [...section.querySelectorAll('button')].filter(node => node.textContent === 'See the fix');
+    await click(fixes[0]);
+    assert.match([...document.querySelectorAll('dialog a')].find(a => a.textContent === 'Ask an admin to reconnect').href, /view=settings&section=connections/);
+    await click(button('Close'));
+    await click(fixes[1]);
     assert.match(document.querySelector('dialog').textContent, /Nova: I need refunds allowed.*Fix: Allow order\.refund/);
     await update(() => { const b = button('Dismiss'); b.click(); });
     assert.ok(writes.some(w => w.path.endsWith('/activity/needs/n1/dismiss')));
     await click(button('Close'));
-    assert.equal(document.querySelector('[aria-label="Coming up"]'), null, 'what runs next moved to Upcoming');
-    assert.match(document.querySelector('.activity-next a').getAttribute('href'), /\?view=activity&tab=upcoming$/);
-  }, { url: nowUrl, fetch: async (path, options = {}) => {
+
+    await click(button('Work'));
+    assert.match(document.querySelector('article[aria-label="Nova"]').textContent, /Needs fixing.*2 things need fixing · in Needs you/);
+    assert.match(document.querySelector('.activity-notice').textContent, /2 things need fixing/);
+    assert.equal(document.querySelector('[aria-label="Coming up"]'), null, 'what runs next is on Planned');
+    assert.match(document.querySelector('.activity-next a').getAttribute('href'), /\?view=activity&tab=planned$/);
+    await click(button('Open Needs you'));
+    assert.equal(button('Needs you').getAttribute('aria-selected'), 'true');
+  }, { url: needsUrl, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (options.method === 'POST') { writes.push({ path, body: JSON.parse(options.body ?? '{}') }); return response({ ok: true, id: 's1', state: 'paused', revision: 5 }); }
     if (path.includes('/attention')) return response({ available: true, items: [], next_before: null });
     if (path.includes('/activity/now')) return response({ agents: [card('nova', 'Nova', { needs_fixing: 2 }), card('iris', 'Iris')], running: [],
-      away: { since: now, totals }, fixing, coming_up: coming });
+      away: { since: now, totals }, fixing: [...fixing, { cause: 'waiting', title: '1 request has waited over 4 hours', count: 1, fix: { kind: 'needs', label: 'Open Needs me' }, agents: [{ id: 'iris', name: 'Iris' }], items: [] }], coming_up: coming });
     return response({});
   } });
 });

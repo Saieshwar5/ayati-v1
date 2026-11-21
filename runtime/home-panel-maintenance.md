@@ -81,7 +81,7 @@ Since 2026-11-01 every published panel on Home carries the same frame
   fix it →** to the latest update (`maintenance.last_update`) in Activity.
 - **N need you →** counts the waiting approvals and questions from this panel's agent
   that the viewer can act on, from Home's one `needs_you` read (shared with the
-  Notifications panel, which now reads "2 need you →"). It opens Activity → Needs me.
+  Notifications panel, which now reads "2 need you →"). It opens Activity → Needs you.
 - **Show proof** opens the update that produced these numbers (`snapshot.task`) in
   Activity; **Ask about this** opens the person's direct chat with the agent, starting
   "About the <title> panel: " and keeping any existing draft.

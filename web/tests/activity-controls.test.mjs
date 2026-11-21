@@ -46,12 +46,12 @@ test('Now opens on My agents, switches to All agents, and remembers the choice o
   } });
 });
 
-test('History asks for the chosen scope and Needs me has no switch', async () => {
+test('History asks for the chosen scope and Needs you has no switch', async () => {
   const reads = [];
   await reactFixture(async ({ render, button, click }) => {
     await render(await page(), { href: `http://localhost/w/${w}/?view=activity&tab=history` });
     assert.ok(reads.filter(path => path.includes('/activity/history')).every(path => path.includes('scope=mine')));
-    await click(button('Needs me'));
+    await click(button('Needs you'));
     assert.equal(button('My agents'), undefined);
   }, { url: nowUrl, fetch: async path => {
     reads.push(path);

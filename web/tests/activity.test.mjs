@@ -32,7 +32,8 @@ test('History asks the server for each filter, pages without repeats and drops l
   await reactFixture(async ({ render, button, click, change, update }) => {
     await render(await page(), { href: url });
     assert.match(document.body.textContent, /Quote for Sharma Traders/);
-    assert.match(document.querySelector('[aria-label="Needs review"]').textContent, /1/);
+    assert.match(document.querySelector('[aria-label="Totals"]').textContent, /2 requests · 1 done · 1 need a look · 4 actions \(3 automatic, 1 approved\)/);
+    assert.equal(document.querySelector('.chart-columns'), null, 'the log comes first; charts are on Insights');
     await click(button('Show older'));
     assert.match(document.body.textContent, /Older request/);
     assert.equal(document.querySelectorAll('.activity-row').length, 2);
@@ -55,6 +56,18 @@ test('History asks the server for each filter, pages without repeats and drops l
     if (path.includes('before=')) return response({ items: [item('older', 'Older request')], next_before: null });
     return response({ items: [item('first', 'Quote for Sharma Traders')], next_before: 10 });
   } });
+});
+
+test('a History row names a schedule or trigger once, not twice', async () => {
+  await reactFixture(async ({ render }) => {
+    await render(await page(), { href: url });
+    const rows = [...document.querySelectorAll('.activity-row')].map(node => node.textContent);
+    assert.match(rows[0], /Schedule · Shared inbox/); assert.doesNotMatch(rows[0], /Schedule · Schedule/);
+    assert.match(rows[1], /Trigger in marketing/); assert.doesNotMatch(rows[1], /Trigger · trigger/);
+    assert.match(rows[2], /Kavya Nair · #sales/);
+  }, { url, fetch: async path => common(path) ?? response({ next_before: null, items: [
+    item('s', 'Reply to customer emails', { kind: 'schedule', conversation_name: 'Shared inbox' }),
+    item('t', 'Post new arrivals', { kind: 'trigger', conversation_name: 'marketing' }), item('c', 'Quote for Sharma Traders')] }) });
 });
 
 test('request details show each step, a fix, and a warning when the reply claims what the records do not', async () => {
@@ -133,23 +146,28 @@ test('Stop in request details sends one cancel for a double click and then shows
   } });
 });
 
-test('charts fill empty days, label the busiest one, keep a table, and Export carries the filters', async () => {
+test('Insights charts the last 30 days with empty days, labels the busiest one and keeps a table; History exports with its filters', async () => {
   const day = offset => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - offset); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const charted = { ...totals, per_day: [{ day: day(0), count: 4 }, { day: day(3), count: 9 }], by_agent: [{ agent: 'nova', name: 'Nova', avatar: null, count: 9 }, { agent: 'atlas', name: 'Atlas', avatar: null, count: 4 }] };
-  await reactFixture(async ({ render, change }) => {
-    await render(await page(), { href: url });
+  const reads = [];
+  await reactFixture(async ({ render, change, click, button }) => {
+    await render(await page(), { href: url.replace('tab=history', 'tab=insights') });
     const columns = [...document.querySelectorAll('.chart-columns > li')];
-    assert.equal(columns.length, 7, 'last 7 days, empty days included');
-    assert.deepEqual(columns.map(c => c.getAttribute('aria-label').split(': ')[1]), ['0 requests', '0 requests', '0 requests', '9 requests', '0 requests', '0 requests', '4 requests']);
+    assert.equal(columns.length, 30, 'the same 30 days as the measures, empty days included');
+    assert.deepEqual(columns.slice(-4).map(c => c.getAttribute('aria-label').split(': ')[1]), ['9 requests', '0 requests', '0 requests', '4 requests']);
     assert.deepEqual([...document.querySelectorAll('.chart-value')].map(v => v.textContent), ['9'], 'only the peak is labelled');
     assert.deepEqual([...document.querySelectorAll('.chart-bars li')].map(li => li.getAttribute('aria-label')), ['Nova: 9 requests', 'Atlas: 4 requests']);
-    assert.equal(document.querySelectorAll('.chart-table tbody tr').length, 9);
+    assert.equal(document.querySelectorAll('.chart-table tbody tr').length, 32);
+    assert.match(reads.find(path => path.includes('/activity/totals')), /scope=mine/);
+    await click(button('History'));
     await change(select('Status'), 'failed');
     const link = document.querySelector('.activity-export');
     assert.match(link.getAttribute('href'), /\/api\/identity\/workspaces\/.+\/activity\/export\?.*status=failed/);
     assert.equal(link.getAttribute('download'), 'cuckoo-activity.csv');
   }, { url, fetch: async path => {
+    reads.push(path);
     if (path.includes('/activity/totals')) return response(charted);
+    if (path.includes('/activity/review')) return response({ available: true, agents: [], people: [], suggestions: [], goals: [], reviews: [], weekly: [] });
     const shared = common(path); if (shared) return shared;
     return response({ items: [], next_before: null });
   } });

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Button } from '../ui';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, DialogPlacement } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { AgentFace } from '../faces';
 import { loadAgents } from '../agents/model';
@@ -7,7 +7,6 @@ import { loadMembers } from '../agents/create/people-step';
 import { chatRequest, type Conversation } from '../chat/model';
 import { clock, dayLabel, exportUrl, foldPanelUpdates, kindLabels, taskLabels, loadChanges, loadHistory, loadTotals, startOfToday, status, where, type ActivityItem, type Filters, type Scope, type Totals } from './model';
 import { RequestDetails } from './request-details';
-import { ActivityCharts } from './charts';
 import { UnhandledEvents } from './unhandled';
 
 const periods = [['today', 'Today'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days']] as const;
@@ -22,14 +21,19 @@ function useSettled(text: string): string {
   return settled;
 }
 
-/** History: totals and a timeline of everything agents did, with filters in one
- * row (designs/activity 3). An agent's Activity tab is this view for one agent. */
-export function HistoryView({ agent, search: outer, since, scope, initialKind }: { agent?: string; search?: string; since?: number; scope?: Scope; initialKind?: string }) {
+/** History: a timeline of everything agents did, with filters in one row and the
+ * period's totals as one line above it (designs/activity 3; the log first and a row
+ * opening beside it from designs/activity-next, Design A). The charts are on
+ * Insights. An agent's Activity tab is this view for one agent. */
+export function HistoryView({ agent, search: outer, since, scope, initialKind, initialAgent, pane = false }: {
+  agent?: string; search?: string; since?: number; scope?: Scope; initialKind?: string;
+  /** The agent the filter starts on, when a link asked for one. */
+  initialAgent?: string; pane?: boolean }) {
   // An agent's tab has no page search above it, so it brings its own.
   const [own, setOwn] = useState('');
   const search = useSettled(outer ?? own);
   const [period, setPeriod] = useState(since ? 'since' : '7');
-  const [filters, setFilters] = useState<Filters>({ agent, kind: initialKind });
+  const [filters, setFilters] = useState<Filters>({ agent: agent ?? initialAgent, kind: initialKind });
   // Setting changes and unhandled events aren't requests: no status filter or export.
   const special = filters.kind === 'changes' || filters.kind === 'unhandled';
   const from = period === 'since' && since ? since : fromPeriod(period);
@@ -72,13 +76,13 @@ export function HistoryView({ agent, search: outer, since, scope, initialKind }:
       ? <Changes key={agent ?? filters.agent ?? ''} agent={agent ?? filters.agent} />
       : filters.kind === 'unhandled'
         ? <UnhandledEvents key={JSON.stringify(query)} agent={query.agent} from={query.from} scope={scope} />
-        : <Results key={JSON.stringify(query)} query={query} />}
+        : <Results key={JSON.stringify(query)} query={query} pane={pane} needLook={() => set('status', 'review')} />}
   </section>;
 }
 
 /** Totals and the timeline for one set of filters. It is keyed by those filters,
  * so a change starts fresh and late pages for old filters are dropped. */
-function Results({ query }: { query: Filters }) {
+function Results({ query, pane, needLook }: { query: Filters; pane: boolean; needLook: () => void }) {
   const [filters] = useState(query);
   const totals = useResource(useCallback(() => loadTotals(filters), [filters]));
   const first = useResource(useCallback(() => loadHistory(filters), [filters]));
@@ -93,10 +97,11 @@ function Results({ query }: { query: Filters }) {
   });
   const [expanded, setExpanded] = useState<string[]>([]);
   const toggle = (key: string) => setExpanded(old => old.includes(key) ? old.filter(k => k !== key) : [...old, key]);
+  const placement = useMemo(() => pane ? {} : undefined, [pane]);
   let day = '';
   return <>
-    {totals.data && <><Summary totals={totals.data} /><ActivityCharts totals={totals.data} from={filters.from ?? startOfToday()} /></>}
-    <div className="activity-timeline">
+    {totals.data && <Summary totals={totals.data} needLook={needLook} />}
+    <div className="activity-cols activity-cols-wide"><div className="activity-timeline activity-cols-list">
       {first.error && <p role="alert">{first.error}</p>}
       {!first.data && !first.error && <p role="status">Loading history…</p>}
       {first.data && !items.length && <p className="activity-empty">No agent work matches these filters.</p>}
@@ -119,8 +124,11 @@ function Results({ query }: { query: Filters }) {
       })}</ul>
       {next && <Button disabled={more.busy} onClick={() => loadOlder(next)}>{more.busy ? 'Loading…' : 'Show older'}</Button>}
       {more.status && <p role="alert">{more.status}</p>}
-      {open && <RequestDetails reply={open} close={() => setOpen(undefined)} />}
     </div>
+    <DialogPlacement.Provider value={placement}><div className="activity-pane">
+      {open && <RequestDetails key={open} reply={open} close={() => setOpen(undefined)} />}
+      {pane && !open && items.length > 0 && <p className="activity-empty">Choose a request to see every step it took, how each was allowed, and the reply.</p>}
+    </div></DialogPlacement.Provider></div>
   </>;
 }
 
@@ -128,27 +136,28 @@ function Row({ item, open }: { item: ActivityItem; open: (id: string) => void })
   const shown = status(item);
   // A conversation turn that isn't part of any task reads lighter than real work.
   const light = item.kind === 'chat' && !item.task;
+  // A schedule's or trigger's place already starts with its kind ("Schedule · Shared inbox").
+  const place = where(item);
+  const about = item.kind === 'chat' ? `${item.requester_name ?? 'Someone'} · ${place}`
+    : item.kind === 'schedule' || item.kind === 'trigger' ? place[0].toUpperCase() + place.slice(1) : `${kindLabels[item.kind]} · ${place}`;
   return <button type="button" className={`activity-row-button${light ? ' activity-row-light' : ''}`} onClick={() => open(item.id)}>
     <time>{clock(item.created_ms)}</time>
     <span className="activity-agent"><AgentFace agent={{ id: item.agent, name: item.agent_name, avatar: item.agent_avatar }} className="activity-face" />{item.agent_name}</span>
     <span className="activity-main"><strong>{item.kind === 'chat' ? `“${item.summary}”` : item.summary}</strong>
-      <small>{item.kind === 'chat' ? `${item.requester_name ?? 'Someone'} · ${where(item)}` : `${kindLabels[item.kind]} · ${where(item)}`}</small>
+      <small>{about}</small>
       {item.approvals.map(a => <small key={a.id} className="activity-action">→ {a.title} · {a.state === 'completed' ? 'done' : a.state}</small>)}
       {item.task && item.task.kind === 'commitment' && <small className="activity-action">Task: {item.task.title} · {taskLabels[item.task.status]}</small>}</span>
     <span className={`activity-status ${shown.tone}`}>{shown.label}</span>
   </button>;
 }
 
-function Summary({ totals }: { totals: Totals }) {
-  const cards = [
-    ['Requests', totals.requests, `${totals.done} done`],
-    ['Needs review', totals.review, 'failed or unconfirmed'],
-    ['Actions', totals.automatic + totals.approved, `${totals.automatic} automatic · ${totals.approved} approved`],
-    ['People', totals.people, `and ${totals.channels} ${totals.channels === 1 ? 'channel' : 'channels'}`],
-    ['Schedule runs', totals.schedule_runs, totals.waiting ? `${totals.waiting} waiting now` : 'none waiting'],
-  ] as const;
-  return <div className="activity-totals">{cards.map(([label, value, note]) => <article key={label} aria-label={label}>
-    <small>{label}</small><strong>{value}</strong><span>{note}</span></article>)}</div>;
+/** The period in one line. "Need a look" is the one number worth a click: it filters the log. */
+function Summary({ totals, needLook }: { totals: Totals; needLook: () => void }) {
+  return <p className="activity-summary" aria-label="Totals">
+    <strong>{totals.requests} {totals.requests === 1 ? 'request' : 'requests'}</strong> · {totals.done} done ·{' '}
+    {totals.review > 0 ? <button type="button" className="activity-summary-link" onClick={needLook}>{totals.review} need a look</button> : 'none need a look'}
+    {' '}· {totals.automatic + totals.approved} actions ({totals.automatic} automatic, {totals.approved} approved) · {totals.schedule_runs} schedule runs
+    {totals.waiting ? ` · ${totals.waiting} waiting now` : ''} · {totals.people} {totals.people === 1 ? 'person' : 'people'} in {totals.channels} {totals.channels === 1 ? 'channel' : 'channels'}</p>;
 }
 
 function Changes({ agent }: { agent?: string }) {

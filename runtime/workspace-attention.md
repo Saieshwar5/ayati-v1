@@ -1,7 +1,7 @@
 # Managed-work attention
 
 > **Updated 2026-10-31 (D235, M4):** the inbox moved to [Activity](activity.md) →
-> **Needs me**. Home's panel links there; Recent work is Activity → History.
+> **Needs you**. Home's panel links there; Recent work is Activity → History.
 > Receipts, audiences and review rules below are unchanged.
 
 Implemented and locally verified on `feat/scoped-attention-inbox`, 26 October
