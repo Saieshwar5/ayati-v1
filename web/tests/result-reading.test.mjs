@@ -37,17 +37,28 @@ test('old source and unmounted reads cannot replace current content', async () =
     assert.doesNotMatch(document.body.textContent,/PRIVATE_OLD_BODY/);
   });
 });
-test('file viewer requests full bytes only through explicit image opening and offers the exact original', async () => {
-  const calls = []; const file={id:'image',name:'Business image.png',mime:'image/png',size:1024,checksum:'exacthash'};
-  await reactFixture(async ({ render, button, click }) => {
+test('file viewer shows a text file as plain text, reports a failed preview and clears the text when access is lost', async () => {
+  let check, failing = true, denied = false; const calls = []; const file={id:'notes',name:'notes.txt',mime:'text/plain',size:1024,checksum:'exacthash'};
+  const adapter = { ...source(async path => { calls.push(path);
+    if (denied) throw Object.assign(new Error('Source access revoked'),{status:403});
+    if (path.includes('preview=true')) { if (failing) throw new Error('Preview could not be read'); return { text:'PRIVATE_FILE_TEXT', truncated:true }; }
+    return file; }), subscribe: fn => { check = fn; return () => { check = undefined; }; } };
+  await reactFixture(async ({ render, button, click, update }) => {
     const { FileViewer } = await import('../src/react/results/file-viewer.tsx');
-    await render(FileViewer,{id:file.id,name:file.name,source:source(async path=>{calls.push(path);return file;}),close:()=>{}});
-    assert.ok(calls.every(path=>path.includes('metadata=true')));
-    assert.match(document.querySelector('img').getAttribute('src'),/inline=true&version=exacthash/);
-    await click(button('Zoom in')); assert.equal(document.querySelector('output').textContent,'125%');
-    await click(button('Fit')); assert.equal(document.querySelector('output').textContent,'Fit');
+    await render(FileViewer,{id:file.id,name:file.name,source:adapter,close:()=>{}});
+    assert.match(document.querySelector('[role=alert]').textContent,/Preview could not be read/);
     assert.match(document.querySelector('a[download]').getAttribute('href'),/version=exacthash/);
+    failing = false; await click(button('Retry'));
+    assert.equal(document.querySelector('.result-text-file').textContent,'PRIVATE_FILE_TEXT'); assert.match(document.body.textContent,/Preview shortened/);
+    assert.ok(calls.some(path=>path.includes('preview=true&version=exacthash')));
+    assert.equal(document.querySelector('img'),null); assert.equal(button('Zoom in'),undefined);
+    // Access is rechecked only while the page is visible; jsdom starts hidden.
+    Object.defineProperty(document,'hidden',{value:false,configurable:true});
+    denied = true; await update(()=>check());
+    assert.doesNotMatch(document.body.textContent,/PRIVATE_FILE_TEXT/); assert.equal(document.querySelector('a[download]'),null);
+    assert.match(document.body.textContent,/Source access revoked/);
   });
+  assert.equal(check,undefined);
 });
 test('file viewer plays audio from its exact version instead of asking for a text preview', async () => {
   const calls = []; const file={id:'voice',name:'voice-message.ogg',mime:'audio/ogg',size:2048,checksum:'voicehash'};

@@ -44,10 +44,6 @@
 .result-note, .result-update { padding:12px 20px; margin:0; font-size:13px; color:var(--muted); }
 .result-update { display:flex; gap:10px; align-items:center; border-bottom:1px solid var(--border); flex-shrink:0; height:64px; }
 .result-update span { flex:1; line-height:20px; }
-.result-image-stage { flex:1; overflow:auto; min-height:0; padding:16px; display:flex; align-items:center; justify-content:center; background:var(--soft); }
-.result-image-stage img { object-fit:contain; max-width:100%; max-height:100%; }
-.result-image-zoomed { display:block; }
-.result-image-zoomed img { max-width:none; max-height:none; height:auto; }
 .result-audio { display:block; width:calc(100% - 40px); margin:20px; flex-shrink:0; }
 .result-text-file { flex:1; overflow:auto; min-height:0; padding:20px; margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
 .result-files { max-width:100%; }

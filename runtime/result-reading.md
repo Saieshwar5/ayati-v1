@@ -52,7 +52,7 @@ copying, refreshing and downloading do not create a task or invoke a model.
 
 Existing file/object IDs remain the source of filenames, bytes, media types and
 versions. PNG/JPEG thumbnails are bounded; full image bytes load on explicit open
-with zoom, fit, close and original download. Active formats and model-written
+in the [image viewer](#image-viewer-2026-11-21), with the original download. Active formats and model-written
 remote image URLs do not execute or make automatic tracking requests. Unsupported
 previews retain an authorized original download. File groups remain bounded.
 Downloads recheck current rights and preserve filename, MIME and exact identity.
@@ -65,6 +65,45 @@ frozen saved text and focus; removed messages/view teardown unmount their reads.
 Expanding suspends transcript auto-scrolling until all reading views close. Close
 returns to the same conversation, draft, scroll and current launcher. Source
 revocation/identity changes clear pending reads and displayed private content.
+
+## Image viewer (2026-11-21)
+
+A PNG or JPEG opens in its own viewer (`results/image-viewer.tsx`) instead of the
+760 px reading dialog, which left a wide screenshot too small to read. Other files
+(audio, text, anything without a preview) keep that dialog (`file-viewer.tsx`).
+The [design](../designs/chat-image-viewer/README.md) has the captures.
+
+- **Layout.** A native modal dialog over the whole window, dark in both themes.
+  One bar: who shared the picture and when, its name and size, zoom controls,
+  Download original and Close. The picture uses the rest, clear of the arrows.
+- **Fit and zoom.** It opens fitted to the window and is never enlarged to fit.
+  The label is the real percentage; pressing it fits again. Zoom in and out step
+  through 25, 50, 75, 100, 150, 200, 300 and 400%, starting from the fitted size
+  and ending there. The wheel and a two-finger pinch zoom around the pointer,
+  double-click switches between real size and fit, and a drag moves a zoomed
+  picture, which cannot leave the stage.
+- **Other pictures.** The arrows, the Left/Right keys at the fitted size and a
+  sideways swipe move through the PNG/JPEG attachments of the loaded part of the
+  conversation, oldest first, thread replies included ("2 of 5"). A forwarded
+  picture is listed once; deleted messages add none. Older pages that are not
+  loaded are not listed. Each picture's bytes load only when it is shown.
+- **Keys.** `+`, `-`, `0` (fit), arrows (move a zoomed picture), Escape. A click
+  beside the picture closes it. Focus returns to the file that opened it.
+- **Access.** The same checks as other files (below): details are read on open
+  with the exact checksum, access is rechecked every five seconds and on access
+  changes, and a denied read removes the picture and its download.
+- **Phones.** Full screen; no zoom buttons or arrows (pinch and swipe).
+
+The viewer is given only a file id and name plus the conversation's picture list,
+which Chat builds while the viewer is open (`chat/conversation-images.ts`).
+
+Verified 2026-11-21: 5 viewer tests and the file-viewer test in `web/tests`
+(fitted zoom levels, exact versions, stale reads, lost access, cleanup); web
+type check, production build and the full web suite; 14 checks in Chromium on a
+test page with real PNGs and a stubbed file source (fit, zoom, wheel anchor,
+drag limits, keys, focus return, resize, light theme, 390 px touch swipe and
+pinch, 320 px). Not run: `tests/result_reading.mjs`, whose viewer steps were
+updated for the new controls but need the local server, PostgreSQL and Goose.
 
 ## Verification
 
