@@ -46,12 +46,6 @@
 .result-update span { flex:1; line-height:20px; }
 .result-audio { display:block; width:calc(100% - 40px); margin:20px; flex-shrink:0; }
 .result-text-file { flex:1; overflow:auto; min-height:0; padding:20px; margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
-.result-files { max-width:100%; }
-.result-thumbnail { display:block; padding:0; border:1px solid var(--border); border-radius:8px; background:var(--surface); cursor:pointer; }
-.result-thumbnail img { display:block; max-width:192px; max-height:128px; object-fit:contain; }
-.result-files .chat-file > div { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-.result-files .chat-file a { color:inherit; }
-.result-files .chat-file button { max-width:100%; overflow-wrap:anywhere; }
 @media(max-width:640px) {
   .ui-dialog:has(.result-reader), .ui-dialog:has(.result-file-viewer), .ui-dialog:has(.result-reader-expanded) { width:100vw; height:100dvh; max-height:100dvh; margin:0; border-radius:0; }
   .result-body { padding:20px; }

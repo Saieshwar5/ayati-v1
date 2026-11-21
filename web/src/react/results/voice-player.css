@@ -1,12 +1,12 @@
 /* Sent voice messages: one player for sender and receiver (designs/chat-and-account, D245). */
-/* One width for every voice message, as in the design; narrower bubbles shrink the waveform. */
-.voice-player, .result-files .chat-file > .voice-player { display:flex; flex-wrap:nowrap; align-items:center; gap:10px; width:280px; min-width:0; max-width:100%; margin:4px 0 2px; }
+/* The width files and pictures share (message-files.css); narrower bubbles shrink the waveform. */
+.voice-player, .result-files .chat-file > .voice-player { display:flex; flex-wrap:nowrap; align-items:center; gap:10px; width:300px; min-width:0; max-width:100%; margin:4px 0 2px; }
 .chat-file .voice-player > audio, .voice-player > audio { display:none; }
-.voice-play { position:relative; flex:none; display:inline-grid; place-items:center; width:32px; height:32px; padding:0; border:0; border-radius:50%; background:var(--accent); color:var(--on-accent); cursor:pointer; }
-/* A 44 px target around the 32 px circle. */
-.voice-play::after { content:''; position:absolute; inset:-6px; }
-.voice-play svg { width:14px; height:14px; fill:currentColor; stroke:none; }
-.voice-track { flex:1 1 auto; display:flex; align-items:center; min-width:48px; max-width:200px; height:32px; border-radius:6px; cursor:pointer; touch-action:manipulation; }
+.voice-play { position:relative; flex:none; display:inline-grid; place-items:center; width:36px; height:36px; padding:0; border:0; border-radius:50%; background:var(--accent); color:var(--on-accent); cursor:pointer; }
+/* A 44 px target around the 36 px circle. */
+.voice-play::after { content:''; position:absolute; inset:-4px; }
+.voice-play svg { width:15px; height:15px; fill:currentColor; stroke:none; }
+.voice-track { flex:1 1 auto; display:flex; align-items:center; min-width:48px; height:32px; border-radius:6px; cursor:pointer; touch-action:manipulation; }
 .voice-track[aria-disabled=true] { cursor:default; }
 .voice-track:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 /* Played bars use the text colour and the rest the muted one, in both themes. */
@@ -16,6 +16,8 @@
 .voice-progress { width:100%; height:4px; border-radius:2px; overflow:hidden; background:color-mix(in srgb, var(--muted) 35%, transparent); }
 .voice-progress > span { display:block; height:100%; background:var(--text); }
 .voice-length { flex:none; color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+.voice-speed { flex:none; min-width:34px; height:22px; padding:0 6px; border:0; border-radius:11px; background:color-mix(in srgb, var(--text) 7%, transparent); color:var(--text); font:inherit; font-size:11px; font-weight:600; font-variant-numeric:tabular-nums; cursor:pointer; }
+.voice-speed:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
 .chat-message .voice-error { display:block; color:var(--danger); font-size:12px; }
 
 /* "≡ Transcript ⌄" under the player; the text opens below it. */
@@ -39,11 +41,12 @@
 
 @media (pointer:coarse) {
   .voice-track { height:44px; }
+  .voice-speed { min-width:44px; height:44px; border-radius:22px; }
   .chat-transcript-toggle, .result-files .chat-transcript.is-waiting { min-height:44px; }
 }
 @media (prefers-reduced-motion:reduce) { .chat-transcript-chevron { transition:none; } }
 @media (forced-colors:active) {
-  .voice-play { border:1px solid ButtonText; }
+  .voice-play, .voice-speed { border:1px solid ButtonText; }
   .voice-wave i { background:GrayText; opacity:1; }
   .voice-wave i.is-played, .voice-progress > span { background:CanvasText; }
 }

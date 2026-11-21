@@ -12,7 +12,7 @@ import { QuestionCards } from '../questions/card';
 import { useResults, useResultSource, useResultReading } from '../results/provider';
 import { InlineResponse } from '../results/inline-response';
 import { HandoffCard, CoordinationView } from './handoffs';
-import { MessageFiles } from '../results/files';
+import { MessageFiles, MessagePictures } from '../results/files';
 import { AiTag } from '../faces';
 import { messageAuthor } from './message-author';
 import { useShowProfile } from './profile-card';
@@ -65,9 +65,12 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const door = via ? <span className="chat-message-door">{via}</span> : null;
   // Another person's words sit in a bubble under their name; an agent's reply has its own box.
   const bubble = !own && message.kind !== 'agent';
+  // A person's pictures lead their message, with any words under them; an agent's follow its reply.
+  const pictures = files.own.length ? <MessagePictures files={files.own} /> : null;
   const body = deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
     {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
     {message.forwarded && <ForwardedBlock forwarded={message.forwarded} files={files.carried} />}
+    {message.kind !== 'agent' && pictures}
     {(text || message.response?.page) && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} openPage={openResult ? () => openResult({ kind: 'page', id: message.id }) : undefined} /> : message.kind === 'agent' ? <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} /> : <MessageText text={text} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
     {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
     <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
@@ -76,6 +79,7 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
     {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
     {message.agent_setup && <AgentDraftCard reply={message.id} ready={message.state === 'complete'} assistant={name} />}
     {message.questions && <QuestionCards questions={message.questions} />}
+    {message.kind === 'agent' && pictures}
     {files.own.length ? <MessageFiles files={files.own} /> : null}
     {!own && edited}
     <ReactionBar message={message} reactions={reactions} directory={directory} />

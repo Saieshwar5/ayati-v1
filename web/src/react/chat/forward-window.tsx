@@ -8,13 +8,13 @@ import { existingDirect } from './direct-conversation';
 import { forwardedOnly } from './forward-message';
 import { ForwardRecipient, type ForwardTarget } from './forward-recipient';
 import { chatRequest, filesOnlyContent, type Attachment, type Conversation, type Directory, type Message } from './model';
+import { fileSize } from '../results/file-kind';
 import { MAX_BYTES, MAX_FILES, uploadChatFile } from './upload-chat-file';
 import './forward-window.css';
 
 /** A document you add, kept here until Forward is pressed. */
 type Draft = { key: string; file: File };
 
-const fileSize = (bytes: number) => bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 function FileIcon() {
   return <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

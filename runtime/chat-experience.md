@@ -353,3 +353,48 @@ Checked: `web/tests/chat-profile.test.mjs` (Resume once and Settings for an owne
 none for a member, the owner row, Edit profile and Copy on your own profile, search
 past eight members) and the updated Details and People tests.
 
+## Pictures, files and voice in a message (2026-11-21)
+
+Before, every attachment went through one row: a bordered button with the file's
+name, a loose "· 368 KB" and a bare arrow. A file read like a form field inside its
+bubble, and a picture had that row repeated under a 192 px thumbnail.
+
+Now each kind has its own shape, all at one width (the owner's choice of
+[`designs/chat-attachments`](../designs/chat-attachments/README.md)):
+
+| Kind | Shown as | Component |
+|---|---|---|
+| PNG and JPEG | the picture itself: one at 16:10, or up to four tiles with the rest counted ("+3"); each opens the image viewer | `MessagePictures` |
+| Voice message | the player and its folded Transcript | `VoicePlayer` |
+| Uploaded audio | the same player with its name, size and download under it | `MessageFiles` |
+| Any other file | one row: type tile, name, type and size; the row opens it, the arrow downloads | `MessageFiles` |
+
+A person's pictures come first in their message, their words under them and their
+files last; an agent's follow its reply. Where no viewer is available a picture is
+listed as a file. Your own picture-only message shows its time on the picture. A
+preview that cannot be drawn shows the picture's name and still opens. The voice
+player's length counts while it plays ("0:05 / 0:38") and a chip steps 1×, 1.5×, 2×
+for that message. In the message box, files waiting to send are previews and tiles
+with their own ×, and a file being stored shows there as "Uploading…".
+
+Server: previews are now 640 px on the long side instead of 256 (`src/media.rs`),
+so a 322 px picture is sharp on dense screens. They are still PNG and not cached.
+
+Checked: `web/tests/chat-attachments.test.mjs` (types, sizes and name splitting; a
+row opens the file and downloads it; one, three, four, five and seven pictures; the
+order inside your own and another person's message; the message box's previews,
+tiles, remove and an upload in place), the updated voice player tests (speed chip,
+counting length, uploaded audio), all 544 client tests, type checking, the
+production build, the media tests, and a browser render of the real components at
+1100 px light and dark and 380 px with no sideways scroll.
+
+Limits:
+
+- A single picture is cropped to 16:10 and tiles to squares, because a message does
+  not say how large its pictures are. Storing width and height at upload would let
+  a picture keep its own shape with its space still held.
+- A message being sent still shows as text with "N uploaded attachment(s)"; the
+  outbox keeps file IDs only. Upload progress is not shown as a percentage.
+- GIF, WebP and SVG are files, not pictures (the viewer shows PNG and JPEG only).
+- Previews of a PNG photo are larger than before (640 px PNG, sent on every view).
+- The forward window keeps its own small file list.

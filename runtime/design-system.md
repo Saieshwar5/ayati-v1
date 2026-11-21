@@ -301,7 +301,7 @@ and sends it with any typed text at once; the same button, now a mic with ×, ca
 Recording stops at 5 minutes (or 10 MiB) and waits for Send or Delete rather than sending itself. A
 failed upload or send stays as "Voice message 0:12 not sent" with Retry and Delete. Sent voice
 messages share one player for sender and receiver (play/pause, a waveform that fills, the length, a
-keyboard slider; one plays at a time) with the folded Transcript line under it. Recipient selection is under
+keyboard slider, a speed chip once it plays; one plays at a time) with the folded Transcript line under it. Recipient selection is under
 @; typing an @name alone does not dispatch an agent. Private-agent tools remain
 in the header overflow menu. Do not restore the permanent Create panel button
 above the composer; explicit creation-mode links and Home creation still work.
@@ -379,8 +379,22 @@ keyboard or find-in-page opens the message. Short messages are unchanged, and th
 Remove Check progress launchers from Chat; request activity remains in Agents Work.
 Keep ordinary reply status, Stop, questions and approval controls. Expanded saved
 replies retain exact Copy/Markdown actions and a secondary full reading view.
-New saved versions load explicitly so reading does not jump. Keep images as small
-thumbnails until opened. A picture opens in the image viewer (2026-11-21): the whole
+New saved versions load explicitly so reading does not jump.
+
+What a message shares (2026-11-21, [`designs/chat-attachments`](../designs/chat-attachments/README.md),
+`message-files.css`) has three shapes at one width, a 322 px bubble. Pictures are the
+message: no name, size or download under them, 16:10 for one and square tiles for two
+to four with "+3" on the last, running to the bubble's corners, above any words. Your
+own picture-only message carries its time on the picture, on `--picture-scrim`. A file
+is one row with no box of its own: a 40 px type tile (`--file-pdf`, `--file-doc`,
+`--file-sheet`, grey otherwise), the name with its middle shortened, then type and
+size; the row opens it and the download arrow shows on hover, focus and touch. Voice
+keeps its player, with the length counting and a 1×/1.5×/2× chip once it plays; an
+uploaded recording has its name and size under the same player. In the message box a
+waiting picture is a 56 px preview and a file a tile with its name, each with ×. Do
+not restore a file row under a picture or a bordered file button.
+
+A picture opens in the image viewer (2026-11-21): the whole
 window, dark in both themes so every picture has the same quiet background, with one
 slim bar (who shared it and when, its name and size, zoom as a real percentage,
 download, close as borderless icons), arrows and "2 of 5" for the conversation's other
