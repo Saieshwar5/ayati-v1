@@ -41,6 +41,9 @@ pub(crate) async fn thumbnail(bytes: Vec<u8>, permit: OwnedSemaphorePermit) -> R
     .await
     .context("Image preview could not finish")?
 }
+/// The longest side of a preview, in pixels: twice the 320 px a picture takes in a
+/// conversation, so it stays sharp on dense screens. Smaller pictures keep their size.
+const PREVIEW_EDGE: u32 = 640;
 fn decode_thumbnail(bytes: &[u8]) -> Result<Vec<u8>> {
     ensure!(
         bytes.len() <= MAX_FILE_BYTES as usize,
@@ -70,7 +73,7 @@ fn decode_thumbnail(bytes: &[u8]) -> Result<Vec<u8>> {
     );
     let orientation = decoder.orientation()?;
     let decoded = DynamicImage::from_decoder(decoder)?;
-    let edge = 256.min(width.max(height));
+    let edge = PREVIEW_EDGE.min(width.max(height));
     let mut small = decoded.thumbnail(edge, edge);
     // Apply camera orientation after shrinking to avoid a second full-size buffer.
     small.apply_orientation(orientation);
@@ -259,7 +262,7 @@ mod tests {
             .unwrap();
         let preview = decode_thumbnail(png.get_ref()).unwrap();
         let result = image::load_from_memory(&preview).unwrap();
-        assert_eq!((result.width(), result.height()), (256, 128));
+        assert_eq!((result.width(), result.height()), (640, 320));
         let mut jpeg = Cursor::new(Vec::new());
         DynamicImage::new_rgb8(80, 40)
             .write_to(&mut jpeg, ImageFormat::Jpeg)

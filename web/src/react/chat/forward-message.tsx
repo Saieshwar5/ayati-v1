@@ -1,5 +1,5 @@
 import { messageHtml } from '../../markdown';
-import { MessageFiles } from '../results/files';
+import { MessageFiles, MessagePictures } from '../results/files';
 import type { Attachment } from './model';
 import './forward-message.css';
 
@@ -29,6 +29,6 @@ export function ForwardedBlock({ forwarded, files = [] }: { forwarded: Forwarded
   return <section className="chat-forwarded" aria-label={`Forwarded message from ${forwarded.name}`}>
     <header><ForwardIcon /><span>Forwarded from <strong>{forwarded.name}</strong></span>{forwarded.kind === 'agent' && <span className="ai-tag">AI</span>}<span>· {[forwarded.place, when].filter(Boolean).join(' · ')}</span></header>
     {forwarded.text && <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(forwarded.text) }} />}
-    {files.length > 0 && <MessageFiles files={files} />}
+    {files.length > 0 && <><MessagePictures files={files} /><MessageFiles files={files} /></>}
   </section>;
 }
