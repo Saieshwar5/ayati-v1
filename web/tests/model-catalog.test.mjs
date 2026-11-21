@@ -59,7 +59,7 @@ test('Admins limit the workspace to catalog models without naming providers', as
   await reactFixture(async ({ render, button, click, change }) => {
     const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
     const { SettingsPage } = await import('../src/react/settings/settings-page.tsx');
-    await render(SettingsPage, { href: `http://localhost/w/${w}/?view=settings&section=workspace` });
+    await render(SettingsPage, { href: `http://localhost/w/${w}/?view=settings&section=company-rules` });
     const text = document.body.textContent;
     assert.match(text, /Llama 70B/);
     assert.match(text, /gpt-4o.*Not one of Cuckoo’s models/);
@@ -67,14 +67,17 @@ test('Admins limit the workspace to catalog models without naming providers', as
     const options = [...document.querySelector('[aria-label="Model to add"]').options].map(o => o.textContent);
     assert.deepEqual(options, ['Choose a model…', 'Reasoner'], 'listed and retiring models are not offered again');
     await change(document.querySelector('[aria-label="Model to add"]'), 'reasoner');
+    // Each change saves at once (2026-11-21): adding, then removing after a confirmation.
     await click(button('Add model'));
+    assert.match(document.body.textContent, /Model added/);
     await click(button('Remove gpt-4o'));
-    await click(document.querySelector('.settings-rules button[type=submit]'));
     assert.deepEqual(writes.at(-1).models, [{ provider: '', model: 'llama-70b' }, { provider: '', model: 'reasoner' }]);
-    assert.match(document.body.textContent, /Workspace settings saved/);
-  }, { url: `http://localhost/w/${w}/?view=settings&section=workspace`, fetch: async (path, options = {}) => {
+    assert.equal(writes.at(-1).timezone, 'Asia/Kolkata', 'the rest of the settings are sent unchanged');
+    assert.match(document.body.textContent, /gpt-4o removed/);
+  }, { url: `http://localhost/w/${w}/?view=settings&section=company-rules`, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
     if (path.endsWith('/models')) return response(catalog);
+    if (path.endsWith('/guard/rules')) return response({ rules: [], actions: [], can_manage: true });
     if (options.body) { writes.push(JSON.parse(options.body)); return response({ ...saved, ...JSON.parse(options.body) }); }
     return response(saved);
   } });

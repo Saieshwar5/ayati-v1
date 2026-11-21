@@ -30,3 +30,15 @@
 @media(max-width:600px) { .workspace-menu { left:58px; width:min(300px,calc(100vw - 64px)); } .workspace-profile { bottom:6px; } }
 @media(pointer:coarse) { .workspace-menu-trigger, .workspace-menu-action { min-height:44px; } }
 @media(forced-colors:active) { .workspace-menu-action[aria-current] { outline:1px solid Highlight; } }
+/* Help and feedback (help-dialog.tsx): the report form beside the first-days guides. */
+.help-dialog { display:grid; grid-template-columns:minmax(0,1.5fr) minmax(0,1fr); gap:24px; }
+.help-dialog h3 { margin:0 0 4px; font-size:15px; }
+.help-dialog .ui-form { display:grid; gap:14px; align-content:start; }
+.help-dialog .ui-form .ui-help { margin:0; }
+.help-dialog-check { align-items:center; padding:0; }
+.help-dialog nav { padding-left:24px; border-left:1px solid var(--border); }
+.help-dialog-guides { list-style:none; margin:4px 0 0; padding:0; }
+.help-dialog-guides a { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:44px; color:var(--text); text-decoration:none; border-bottom:1px solid var(--border); }
+.help-dialog-guides a:hover { text-decoration:underline; }
+@media(max-width:700px) { .help-dialog { grid-template-columns:1fr; } .help-dialog nav { padding-left:0; border-left:0; } }
+.ui-dialog:has(.help-dialog) { width:min(720px,calc(100vw - 32px)); }

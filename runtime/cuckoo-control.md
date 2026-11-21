@@ -40,7 +40,7 @@ Problem reports are the exception: people write them for the Cuckoo team.
 | --- | --- | --- |
 | Overview | Active workspaces, calls per minute, failed calls and fallbacks, executor slots, charged and cost today; live messaging on this server; last-hour traffic per provider; alerts; busiest workspaces | — |
 | Spend | Charged, cost and margin this month with forecasts; per day; by model; by workspace against its budget, with its biggest agent | — |
-| Problem reports | Reports from Settings → Help | — |
+| Problem reports | Reports from Help and feedback in the account menu | — |
 | Workspaces | Owner, people, agents, 7-day calls, charged against budget, failure rate, status. Detail: counts, models, Library size, operator history | Suspend, lift suspension |
 | Invite codes | The invite codes | Issue, revoke |
 | Providers | Every provider: source, where its key is, last-hour health, the catalog models it serves; connected-app providers with this month's calls, errors and estimated cost, circuit breaker and last drift check | Keep a provider's key here or replace it, add a provider outside the file, remove, emergency switch |

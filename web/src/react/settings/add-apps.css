@@ -1,4 +1,4 @@
-/* Add more apps (schema 135): search the library, then review one app's actions. */
+/* Add apps (schema 135): search the library, then review one app's actions. */
 .ui-dialog:has(.add-apps) { width: min(680px, calc(100vw - 32px)); height: min(720px, calc(100dvh - 32px)); }
 .ui-dialog:has(.add-apps) .ui-dialog-body { flex: 1; overflow: auto; overscroll-behavior: contain; }
 .add-apps { display: grid; gap: 14px; align-content: start; font-size: 14px; }

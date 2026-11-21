@@ -47,7 +47,7 @@ connected systems), **Computers** (the agent's computer and what it may do),
 
 ## Admins: every connection in one list
 
-**There is no Apps page any more.** Settings › Connections (admins) lists every
+**There is no Apps page any more.** Settings › Apps (admins) lists every
 app and MCP server connected in the workspace: the account, the agent it belongs
 to (linked to its Connections tab), who connected it and when, when it was last
 used and whether it needs a new sign-in. **Remove** disconnects an app; an MCP

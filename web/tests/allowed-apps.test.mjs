@@ -109,14 +109,20 @@ test('an admin allows an undecided app and switches one off with a warning and a
   await reactFixture(async ({ render, click, change }) => {
     const { AllowedApps } = await import('../src/react/settings/allowed-apps.tsx');
     await render(AllowedApps);
-    assert.match(row('Google Drive').textContent, /Not decided: members ask first/);
-    assert.match(row('Gmail').textContent, /Allowed · .* by Asha Rao · 2 connections/);
-    assert.match(row('Google Sheets').textContent, /Switched off · Not for now/);
-    assert.equal(row('Gmail').querySelector('button[aria-label="Allow Gmail"]'), null);
-    assert.equal(row('Google Sheets').querySelector('button[aria-label="Switch off Google Sheets"]'), null);
-    await click(row('Google Drive').querySelector('button[aria-label="Allow Google Drive"]'));
+    assert.match(row('Google Drive').textContent, /Members ask an admin first/);
+    assert.match(row('Gmail').textContent, /2 connections · .* by Asha Rao/);
+    assert.match(row('Google Sheets').textContent, /Nobody can use it · “Not for now”/);
+    // One choice per app (2026-11-21): Ask first is offered only until an admin decides.
+    const choice = name => row(name).querySelector(`select[aria-label="${name}: who may use it"]`);
+    const offered = name => [...choice(name).options].map(option => option.textContent);
+    assert.deepEqual([choice('Google Drive').value, offered('Google Drive')], ['undecided', ['Ask first', 'Allowed', 'Off']]);
+    assert.deepEqual([choice('Gmail').value, offered('Gmail')], ['allowed', ['Allowed', 'Off']]);
+    assert.equal(choice('Google Sheets').value, 'blocked');
+    assert.deepEqual([...document.querySelectorAll('.settings-filters button')].map(node => node.textContent), ['All · 3', 'Allowed · 1', 'Ask first · 1', 'Off · 1']);
+    await change(choice('Google Drive'), 'allowed');
     assert.deepEqual(writes[0], { path: '/apps/allowed', body: { app: 'drive', allowed: true, note: '', revision: 0 } });
-    await click(row('Gmail').querySelector('button[aria-label="Switch off Gmail"]'));
+    await change(choice('Gmail'), 'blocked');
+    assert.equal(choice('Gmail').value, 'allowed', 'nothing changes until the warning is answered');
     const dialog = () => [...document.querySelectorAll('dialog')].find(node => /Switch off Gmail/.test(node.textContent));
     assert.match(dialog().textContent, /2 connections of Gmail end at once/);
     await change(dialog().querySelector('textarea'), 'Mail stays in the shared inbox');

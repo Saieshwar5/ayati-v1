@@ -4,10 +4,26 @@
 .usage-report-head h3 { margin: 0; font-size: 16px; }
 .usage-period { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
 .usage-period select { padding: 8px 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 8px; }
-.usage-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
-.usage-totals article { display: grid; gap: 4px; padding: 14px 16px; border: 1px solid var(--border-panel); border-radius: 10px; }
-.usage-totals small { color: var(--muted); font-size: 12px; }
-.usage-totals strong { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.usage-hero { display: grid; gap: 2px; }
+.usage-hero small, .usage-hero span { color: var(--muted); font-size: 13px; }
+.usage-hero strong { font-size: 34px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums; }
+/* Charges per day (usage-chart.tsx): one series, so one hue; a lighter step on the dark surface. */
+.usage-chart { --usage-bar: #2a78d6; --usage-bar-on: #1b4f91; margin: 0; display: grid; gap: 6px; }
+:root[data-theme=dark] .usage-chart { --usage-bar: #3987e5; --usage-bar-on: #8bbcf5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .usage-chart { --usage-bar: #3987e5; --usage-bar-on: #8bbcf5; } }
+.usage-chart figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; font-size: 13px; color: var(--muted); }
+.usage-chart-readout strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.usage-chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--border-panel); }
+.usage-chart-bars > span { flex: 1; min-width: 0; height: 100%; display: flex; align-items: flex-end; }
+.usage-chart-bars i { display: block; width: 100%; border-radius: 4px 4px 0 0; background: var(--usage-bar); }
+.usage-chart-bars .on i { background: var(--usage-bar-on); }
+.usage-chart-axis { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.usage-switch { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.usage-groups { display: inline-flex; flex-wrap: wrap; padding: 3px; border-radius: 10px; background: var(--canvas); }
+.usage-groups button { min-height: 34px; padding: 6px 14px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.usage-groups button[aria-pressed=true] { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 2px var(--shadow-deep); }
+.usage-tokens { display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
+.usage-tokens input { accent-color: var(--accent); }
 .usage-tables { display: grid; gap: 20px; }
 .usage-table-wrap { overflow-x: auto; }
 .usage-table { border-collapse: collapse; width: 100%; font-size: 14px; }
@@ -15,12 +31,14 @@
 .usage-table th, .usage-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .usage-table th:first-child { text-align: left; white-space: normal; overflow-wrap: anywhere; min-width: 120px; }
 .usage-table thead th { color: var(--muted); font-weight: 500; font-size: 12px; }
-@media (max-width: 760px) {
-  .usage-totals { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .usage-totals strong { font-size: 18px; }
-}
+.usage-table .usage-share { width: 180px; text-align: left; color: var(--muted); font-size: 13px; }
+.usage-share-bar { display: inline-block; vertical-align: middle; width: 110px; height: 6px; margin-right: 8px; border-radius: 3px; background: var(--selection); }
+.usage-share-bar i { display: block; height: 6px; border-radius: 3px; background: var(--usage-share, #2a78d6); }
+:root[data-theme=dark] .usage-share-bar i { background: #3987e5; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme=light]) .usage-share-bar i { background: #3987e5; } }
+@media (max-width: 760px) { .usage-hero strong { font-size: 28px; } .usage-table .usage-share { width: auto; } .usage-share-bar { display: none; } }
 /* Monthly budgets (MG3). */
-.usage-budgets { display: grid; gap: 12px; padding-top: 20px; border-top: 1px solid var(--border); }
+.usage-budgets { display: grid; gap: 12px; }
 .usage-budgets h3 { margin: 0; font-size: 16px; }
 .usage-budget-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .usage-budget-list li { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--border-panel); border-radius: 10px; }
@@ -43,3 +61,4 @@
 .model-operations-resting { color: var(--warning); margin: 0; }
 .model-operations-loss { color: var(--danger); font-weight: 600; }
 .usage-table td[colspan] { text-align: left; color: var(--muted); }
+.usage-report + .usage-budgets { padding-top: 20px; border-top: 1px solid var(--border); }

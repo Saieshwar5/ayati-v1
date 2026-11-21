@@ -1,24 +1,25 @@
-// Settings pages and the links that open them. Connections lists every agent's
-// and the workspace's connections for admins (schema 132). One sidebar replaced the two rows of
-// tabs on 2026-10-30 (D232); links from that layout still open the right page.
-export type Section = 'profile' | 'preferences' | 'help' | 'this-workspace'
-  | 'workspace' | 'people' | 'connections' | 'company-rules' | 'usage' | 'billing' | 'audit-log';
+// Settings pages and the links that open them. One sidebar replaced the two rows of
+// tabs on 2026-10-30 (D232); the 2026-11-21 redesign renamed three pages (Workspace →
+// General, Connections → Apps, Company rules → Agent rules) and removed Help (now in
+// the account menu) and Billing. The ids in links did not change.
+export type Section = 'profile' | 'preferences' | 'this-workspace'
+  | 'workspace' | 'people' | 'connections' | 'company-rules' | 'usage' | 'audit-log';
 
 export const labels: Record<Section, string> = {
-  profile: 'Profile', preferences: 'Preferences', help: 'Help', 'this-workspace': 'This workspace',
-  workspace: 'Workspace', people: 'People', connections: 'Connections', 'company-rules': 'Company rules', usage: 'Usage', billing: 'Billing', 'audit-log': 'Audit log',
+  profile: 'Profile', preferences: 'Preferences', 'this-workspace': 'This workspace',
+  workspace: 'General', people: 'People', connections: 'Apps', 'company-rules': 'Agent rules', usage: 'Usage', 'audit-log': 'Audit log',
 };
-export const personal: Section[] = ['profile', 'preferences', 'help'];
-export const adminWorkspace: Section[] = ['workspace', 'people', 'connections', 'company-rules', 'usage', 'billing', 'audit-log'];
+export const personal: Section[] = ['profile', 'preferences'];
+export const adminWorkspace: Section[] = ['workspace', 'people', 'connections', 'company-rules', 'usage', 'audit-log'];
 // Members see the model use made for them on Usage (MG2); admins see the workspace's.
 export const memberWorkspace: Section[] = ['this-workspace', 'company-rules', 'usage'];
-export const comingLater: ReadonlySet<Section> = new Set(['billing']);
 
+// Links from earlier layouts. Help's and Billing's links open the nearest page that exists.
 const oldSections: Record<string, Section> = {
-  'my-account': 'profile', appearance: 'preferences', 'help-&-feedback': 'help',
-  general: 'workspace', access: 'people', activity: 'audit-log', teams: 'workspace',
+  'my-account': 'profile', appearance: 'preferences', 'help-&-feedback': 'profile', help: 'profile',
+  general: 'workspace', access: 'people', activity: 'audit-log', teams: 'workspace', billing: 'usage',
 };
-const oldViews: Record<string, Section> = { people: 'people', users: 'people', company: 'workspace', feedback: 'help', account: 'profile' };
+const oldViews: Record<string, Section> = { people: 'people', users: 'people', company: 'workspace', feedback: 'profile', account: 'profile' };
 
 /** The page a URL asks for, or undefined when it names none (phones then show the list). */
 export function requestedSection(url: URL): Section | undefined {

@@ -1,23 +1,20 @@
-import { useEffect, useState } from 'react';
-import { chatRequest } from '../chat/model';
-import { subscribeChanges } from '../chat/live';
-import { useMutation, useResource } from '../requests';
-import { setNotifyDefaults } from '../chat/notifications';
-import { refreshUnread } from '../chat/unread-counts';
-import { currentWorkspace, workspaceSession } from '../../workspace-context';
+import { useState } from 'react';
+import { currentWorkspace, workspaceSession, workspaceUrl } from '../../workspace-context';
 import { MyProfile } from './my-profile';
+import { sectionUrl } from './settings-sections';
+import { usePreferences } from './use-preferences';
 
 /** The one place to edit your name, photo, job title and About (D245). */
 export function ProfileSettings() {
   if (!workspaceSession?.user) return null;
   return <section className="settings-profile"><h2>Profile</h2>
-    <p>How colleagues and agents see you in {currentWorkspace()?.name || 'this workspace'}. The only place to change these.</p>
+    <p>How colleagues and agents see you in {currentWorkspace()?.name || 'this workspace'}.</p>
     <MyProfile />
   </section>;
 }
 
-/** Preferences (designs/settings 2): theme on this device, notification
- * defaults on the server so they follow you. Each choice saves as you go. */
+/** Preferences: theme on this device, notification defaults on the server so they
+ * follow you. Each choice saves as you go. Status and presence are on Profile. */
 export function Preferences() {
   const [theme, setTheme] = useState(document.documentElement.dataset.theme ?? 'system');
   const [status, setStatus] = useState('');
@@ -28,51 +25,30 @@ export function Preferences() {
     try { localStorage.setItem('ayati.theme', value); setStatus('Appearance saved on this device.'); }
     catch { setStatus('Appearance applied. This browser could not save it for next time.'); }
   }
-  return <section className="settings-preferences"><h2>Preferences</h2><p>Changes save as you go.</p>
-    <fieldset className="settings-themes"><legend>Appearance</legend><p className="ui-help">Saved on this device.</p>{['light', 'dark', 'system'].map(value => <label className={`settings-theme theme-${value}`} key={value}>
-    <span className="settings-theme-preview" aria-hidden="true"><i /><span><i /><i /></span></span>
-    <span>{value[0].toUpperCase() + value.slice(1)}<input type="radio" name="theme" value={value} checked={theme === value} onChange={() => change(value)} /></span>
-  </label>)}</fieldset><p role="status">{status}</p>
+  return <section className="settings-preferences"><h2>Preferences</h2><p>Each change saves as you make it.</p>
+    <fieldset className="settings-themes"><legend>Appearance <small>Saved on this device</small></legend>{['light', 'dark', 'system'].map(value => <label className={`settings-theme theme-${value}`} key={value}>
+      <span className="settings-theme-preview" aria-hidden="true"><i /><span><i /><i /></span></span>
+      <span>{value[0].toUpperCase() + value.slice(1)}<input type="radio" name="theme" value={value} checked={theme === value} onChange={() => change(value)} /></span>
+    </label>)}</fieldset><p className="ui-status" role="status">{status}</p>
     <NotificationDefaults />
   </section>;
 }
 
-/** `show_online` is "Show when I'm online" (D245); the server keeps it with your presence. */
-type Saved = { desktop_alerts: boolean; channel_level: string; approval_alerts: boolean; show_online?: boolean };
-const loadPreferences = () => chatRequest<Saved>('/preferences');
-
 function NotificationDefaults() {
-  const resource = useResource(loadPreferences);
-  const mutation = useMutation();
-  const data = resource.data;
-  // Changed on another device (schema 140): show what is saved now.
-  const { refresh } = resource;
-  useEffect(() => subscribeChanges(change => { if (change.kind === 'levels') void refresh(); }), [refresh]);
-  const save = (change: Partial<Saved>) => {
-    if (!data) return;
-    const next = { ...data, ...change };
-    void mutation.run(async () => { resource.setData(await chatRequest<Saved>('/preferences', next)); setNotifyDefaults(next); refreshUnread(); mutation.setStatus('Saved.'); });
-  };
-  return <><section className="settings-notifications" aria-label="Notifications"><h3>Notifications</h3>
-    {resource.error && <p role="alert">{resource.error}</p>}
-    {!data && !resource.error && <p role="status">Loading notifications…</p>}
-    {data && <fieldset className="ui-fieldset settings-rows" disabled={mutation.busy}>
-      <div className="settings-row"><span><strong>Desktop alerts</strong><small>Show alerts while Cuckoo is open in a tab.</small></span>
+  const { data, error, busy, status, save } = usePreferences();
+  return <section className="settings-notifications" aria-label="Notifications"><h3>Notifications</h3>
+    {error && <p role="alert">{error}</p>}
+    {!data && !error && <p role="status">Loading notifications…</p>}
+    {data && <fieldset className="ui-fieldset settings-rows" disabled={busy}>
+      <div className="settings-row"><span><strong>Desktop alerts</strong><small>Show an alert while Cuckoo is open in a tab.</small></span>
         <label className="ui-switch"><input type="checkbox" role="switch" checked={data.desktop_alerts} onChange={event => save({ desktop_alerts: event.target.checked })} /><span>Desktop alerts</span></label></div>
-      <div className="settings-row"><span><strong>Direct messages</strong><small>Always notify, from people and agents.</small></span><span className="ui-badge">Always</span></div>
-      <div className="settings-row"><span><strong>Channels</strong><small>Default for channels; change any channel from its bell.</small></span>
+      <div className="settings-row"><span><strong>Channels</strong><small>The default. Change one channel from its bell.</small></span>
         <select aria-label="Channels" value={data.channel_level} onChange={event => save({ channel_level: event.target.value })}>
           <option value="all">Every message</option><option value="mentions">Mentions and replies</option><option value="none">Nothing</option></select></div>
-      <div className="settings-row"><span><strong>Approvals for agents I manage</strong><small>Requests to approve an agent’s action.</small></span>
+      <div className="settings-row"><span><strong>Approvals for agents I manage</strong><small>When an agent asks before it acts.</small></span>
         <label className="ui-switch"><input type="checkbox" role="switch" checked={data.approval_alerts} onChange={event => save({ approval_alerts: event.target.checked })} /><span>Approvals for agents I manage</span></label></div>
-      <div className="settings-row"><span><strong>Email alerts</strong><small>When you are away from Cuckoo.</small></span><span className="ui-badge settings-soon">Coming later</span></div>
     </fieldset>}
-  </section>
-  {data && <section className="settings-presence" aria-label="Presence"><h3>Presence</h3>
-    <fieldset className="ui-fieldset settings-rows" disabled={mutation.busy}>
-      <div className="settings-row"><span><strong>Show when I’m online</strong><small>Off: nobody sees a green dot or “last seen” for you. Your status still shows.</small></span>
-        <label className="ui-switch"><input type="checkbox" role="switch" checked={data.show_online !== false} onChange={event => save({ show_online: event.target.checked })} /><span>Show when I’m online</span></label></div>
-    </fieldset>
-  </section>}
-  <p className="ui-status" role="status">{mutation.status}</p></>;
+    <p className="ui-help">Direct messages always notify you. Your status and “Show when I’m online” are on <a href={workspaceUrl(sectionUrl('profile'))}>Profile</a>.</p>
+    <p className="ui-status" role="status">{status}</p>
+  </section>;
 }

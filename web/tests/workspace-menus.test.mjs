@@ -39,7 +39,7 @@ async function shell(run, { simulation = false, user = { id: 'one', email: 'priy
   } });
 }
 
-test('The account menu holds only you, your status, your workspaces, Settings and Sign out (D245)', async () => {
+test('The account menu holds only you, your status, your workspaces, Settings, Help and Sign out (D245)', async () => {
   await shell(async () => {
     assert.equal(document.querySelectorAll('aside button[aria-label="Your account"]').length, 1);
     assert.equal(document.querySelector('aside').lastElementChild.getAttribute('aria-label'), 'Your account');
@@ -47,7 +47,7 @@ test('The account menu holds only you, your status, your workspaces, Settings an
     assert.equal(trigger().getAttribute('popovertarget'), 'workspace-profile');
     assert.equal(named(menu().querySelector('.account-menu-identity')), 'Priya Shah priya@example.com');
     assert.equal(menu().querySelector('h2').textContent, 'Workspaces');
-    assert.deepEqual(items(), ['Set a status Available', 'Lotus Interiors Admin', 'Kapoor Home Studio Member', 'All workspaces…', 'Settings', 'Sign out']);
+    assert.deepEqual(items(), ['Set a status Available', 'Lotus Interiors Admin', 'Kapoor Home Studio Member', 'All workspaces…', 'Settings', 'Help and feedback', 'Sign out']);
     assert.deepEqual([...menu().querySelectorAll('a')].map(link => link.getAttribute('href')),
       [`/w/${first}/`, `/w/${second}/`, '/?view=account&choose=1', `/w/${first}/?view=settings&section=profile`]);
     // The current workspace is ticked; the others are plain choices.
@@ -93,7 +93,7 @@ test('Escape closes the menu and returns focus to your photo', async () => {
 
 test('Simulations keep the switch-employee entry', async () => {
   await shell(async () => {
-    assert.deepEqual(items(), ['Set a status Available', 'Lotus Interiors Admin', 'Kapoor Home Studio Member', 'All workspaces…', 'Simulation · switch employee', 'Settings', 'Sign out']);
+    assert.deepEqual(items(), ['Set a status Available', 'Lotus Interiors Admin', 'Kapoor Home Studio Member', 'All workspaces…', 'Simulation · switch employee', 'Settings', 'Help and feedback', 'Sign out']);
     assert.equal([...menu().querySelectorAll('a')].find(link => named(link) === 'Simulation · switch employee').getAttribute('href'), '/index.html?view=simulation');
   }, { simulation: true });
 });
@@ -118,5 +118,39 @@ test('Sign out sends one request, reports a failure, and returns to sign-in', as
     logouts.push(path);
     if (fail) throw new Error('offline');
     return new Promise(resolve => { release = () => resolve(ok({ ok: true })); });
+  } });
+});
+
+test('Help and feedback opens from the menu and sends one report per click', async () => {
+  const reports = [];
+  let fail = true;
+  await shell(async ({ click, change, update, button, hidden }) => {
+    await click([...menu().querySelectorAll('button')].find(node => named(node) === 'Help and feedback'));
+    assert.deepEqual(hidden, ['workspace-profile'], 'the menu closes first');
+    const dialog = document.querySelector('dialog');
+    assert.equal(dialog.querySelector('h2').textContent, 'Help and feedback');
+    // Admins get the guide that needs their role; every guide stays inside the workspace.
+    assert.deepEqual([...dialog.querySelectorAll('.help-dialog-guides a')].map(link => link.getAttribute('href')),
+      [`/w/${first}/?view=settings&section=people`, `/w/${first}/?view=agents`, `/w/${first}/?view=agents`, `/w/${first}/?view=activity&tab=history`]);
+    assert.equal(button('Send report').disabled, true, 'nothing to send yet');
+    await change(dialog.querySelector('textarea'), 'Atlas emailed the wrong customer');
+    await click(dialog.querySelector('input[type=checkbox]'));
+    const form = dialog.querySelector('form');
+    await update(() => { for (let i = 0; i < 2; i++) form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })); });
+    assert.equal(reports.length, 1);
+    assert.equal(reports[0].technical, undefined, 'unticked: no technical details');
+    assert.match(dialog.textContent, /Report unavailable/);
+    assert.equal(dialog.querySelector('textarea').value, 'Atlas emailed the wrong customer', 'the draft stays');
+    fail = false;
+    await update(() => form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
+    // The retry reuses the same id, so the server stores one report.
+    assert.equal(reports[1].id, reports[0].id);
+    assert.match(dialog.textContent, /Report sent/);
+    await click(button('Close'));
+    assert.equal(document.querySelector('dialog'), null);
+  }, { respond: (path, options) => {
+    if (!path.endsWith('/problem-reports')) return undefined;
+    reports.push(JSON.parse(options.body));
+    return fail ? { ok: false, status: 503, json: async () => ({ error: 'Report unavailable' }) } : ok({ saved: true });
   } });
 });
