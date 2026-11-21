@@ -39,30 +39,7 @@ pub(super) async fn upload(
         size: bytes.len() as i64,
         checksum: checksum(&bytes),
     };
-    if hosting::hosted(&app) {
-        shared_storage(&app)?;
-        tokio::time::timeout(
-            std::time::Duration::from_secs(30),
-            app.library.put(&format!("chat/{w}/{}", object.id), bytes),
-        )
-        .await
-        .context("File upload not confirmed; check stored records before retrying")??;
-    } else {
-        let root = app.runtimes.object_root(&w);
-        tokio::fs::create_dir_all(&root).await?;
-        use std::os::unix::fs::PermissionsExt;
-        tokio::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).await?;
-        let path = root.join(&object.id);
-        let mut file = tokio::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&path)
-            .await?;
-        file.write_all(&bytes).await?;
-        file.sync_all().await?;
-        std::fs::File::open(&root)?.sync_all()?;
-    }
+    put(&app, &w, &object.id, bytes, false).await?;
     // Retain orphan bytes on uncertain DB failure; reconciliation must not destroy evidence.
     let transcribe = app.config.transcription_model.is_some();
     app.store
@@ -72,6 +49,69 @@ pub(super) async fn upload(
         crate::identity::transcription::wake();
     }
     Ok(Json(json!(object)))
+}
+/// Stores a chat file's bytes under `id`: private S3 when hosted, else the
+/// local object root. `replace` is for a copy that a retried request stores
+/// again: it is written beside the file and renamed over it.
+async fn put(app: &App, w: &str, id: &str, bytes: Bytes, replace: bool) -> ApiResult<()> {
+    if hosting::hosted(app) {
+        shared_storage(app)?;
+        tokio::time::timeout(
+            std::time::Duration::from_secs(30),
+            app.library.put(&format!("chat/{w}/{id}"), bytes),
+        )
+        .await
+        .context("File upload not confirmed; check stored records before retrying")??;
+        return Ok(());
+    }
+    let root = app.runtimes.object_root(w);
+    tokio::fs::create_dir_all(&root).await?;
+    use std::os::unix::fs::PermissionsExt;
+    tokio::fs::set_permissions(&root, std::fs::Permissions::from_mode(0o700)).await?;
+    let path = root.join(id);
+    let written = if replace {
+        root.join(format!("{id}.{}.part", uuid::Uuid::new_v4()))
+    } else {
+        path.clone()
+    };
+    let mut file = tokio::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&written)
+        .await?;
+    file.write_all(&bytes).await?;
+    file.sync_all().await?;
+    if replace {
+        tokio::fs::rename(&written, &path).await?;
+    }
+    std::fs::File::open(&root)?.sync_all()?;
+    Ok(())
+}
+/// Stores the copies a forward carries, before the forward itself is saved:
+/// each chosen file of the forwarded message, under the ID its copy gets.
+/// Like an upload, bytes whose forward then fails stay as orphans.
+pub(crate) async fn copy_forwarded(
+    app: &App,
+    user: &User,
+    w: &str,
+    chat: &str,
+    message: &str,
+    input: &crate::identity::chat::model::Forward,
+) -> ApiResult<()> {
+    if input.files.is_empty() {
+        return Ok(());
+    }
+    let sources = app
+        .store
+        .forward_sources(user, w, chat, message, input)
+        .await?;
+    for source in sources {
+        let bytes = stored(app, w, &source).await?;
+        let id = crate::identity::postgres::copy_id(&input.id, &source.id);
+        put(app, w, &id, bytes, true).await?;
+    }
+    Ok(())
 }
 pub(super) async fn download(
     State(app): State<Shared>,

@@ -22,7 +22,8 @@ import { RequestDetails } from '../activity/request-details';
 import { SaveAnswer } from './save-answer';
 import { doorLabel } from './doors';
 import { ThreadLine, type threadSummary } from './thread-line';
-import { ForwardedBlock, ForwardMessage, forwardedOnly } from './forward-message';
+import { ForwardedBlock, forwardedFiles, forwardedOnly } from './forward-message';
+import { ForwardMessage } from './forward-window';
 import { AssistantMark } from './assistant-threads';
 import { TakeOver } from './assistant-takeover';
 export function ChatMessage({ message, directory, thread, openThread, reply, quoted, handOver, read, place = '', compact = false, focused = false }: { focused?: boolean;
@@ -47,6 +48,8 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const placeholder = message.content === filesOnlyContent && Boolean(message.attachments?.length);
   // A forward without words of its own shows only what it forwards (schema 125).
   const bareForward = Boolean(message.forwarded) && message.content === forwardedOnly;
+  // The files that came with a forwarded message show inside its copy; the sender's own below their words.
+  const files = forwardedFiles(message.forwarded, message.attachments);
   const text = message.state === 'queued' ? message.progress?.text || message.content : placeholder || bareForward ? '' : message.content;
   // Just a voice message: its time and ticks can share the transcript line.
   const voiceOnly = own && placeholder && message.attachments?.length === 1 && message.attachments[0].mime.startsWith('audio/');
@@ -71,7 +74,7 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
     <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}</header>}
       {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
       {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
-      {message.forwarded && <ForwardedBlock forwarded={message.forwarded} />}
+      {message.forwarded && <ForwardedBlock forwarded={message.forwarded} files={files.carried} />}
       {(text || message.response?.page) && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} openPage={openResult ? () => openResult({ kind: 'page', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
       {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
       <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
@@ -80,7 +83,7 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
       {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
       {message.agent_setup && <AgentDraftCard reply={message.id} ready={message.state === 'complete'} assistant={name} />}
       {message.questions && <QuestionCards questions={message.questions} />}
-      {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
+      {files.own.length ? <MessageFiles files={files.own} /> : null}
       {!own && edited}
       <ReactionBar message={message} reactions={reactions} directory={directory} />
       </>}
