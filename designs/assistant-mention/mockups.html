@@ -1,0 +1,439 @@
+<title>Assistant Mention Designs</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a storyboard on Cuckoo's grey canvas. Words on the left, the chat screen for
+   that moment on the right, inside the product's white rounded frame. Purple (--working)
+   is used for one thing only: what the person alone can see. */
+:root {
+  --surface: #ffffff; --canvas: #f3f4f5; --text: #22252a; --muted: #5f6670;
+  --border: #e5e7ea; --border-panel: #d1d6dd; --border-control: #aeb8c5;
+  --soft: #f7f8f9; --selection: #eef0f2; --accent: #22252a; --on-accent: #ffffff;
+  --warning: #945b10; --warning-bg: #fff3e2; --online: #1f9d55;
+  --working: #6257cf; --working-bg: #f2f1fc; --working-line: #cfcaf3;
+  --frame-shadow: 0 8px 24px rgb(23 33 43 / 10%);
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1c1f26; --canvas: #111318; --text: #f0f1f5; --muted: #abb1bf;
+    --border: #303540; --border-panel: #414956; --border-control: #697487;
+    --soft: #252a34; --selection: #303540; --accent: #f0f1f5; --on-accent: #20222a;
+    --warning: #efbc77; --warning-bg: #423222; --online: #4cc38a;
+    --working: #afa5ff; --working-bg: #2a2845; --working-line: #4b4683;
+    --frame-shadow: 0 8px 24px rgb(0 0 0 / 32%);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1c1f26; --canvas: #111318; --text: #f0f1f5; --muted: #abb1bf;
+  --border: #303540; --border-panel: #414956; --border-control: #697487;
+  --soft: #252a34; --selection: #303540; --accent: #f0f1f5; --on-accent: #20222a;
+  --warning: #efbc77; --warning-bg: #423222; --online: #4cc38a;
+  --working: #afa5ff; --working-bg: #2a2845; --working-line: #4b4683;
+  --frame-shadow: 0 8px 24px rgb(0 0 0 / 32%);
+}
+body { background: var(--canvas); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 72px; }
+.page { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3, p, ul, ol { margin: 0; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; }
+h2 { font-size: 1.3rem; line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
+h3 { font-size: 1rem; line-height: 1.3; }
+.lede { max-width: 62ch; color: var(--muted); font-size: 1.02rem; }
+.lede strong, .words strong, li strong, td strong { color: var(--text); font-weight: 600; }
+.eyebrow { font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.section { display: flex; flex-direction: column; gap: 24px; }
+.words { display: flex; flex-direction: column; gap: 10px; color: var(--muted); max-width: 62ch; }
+p.words { display: block; }
+.words ul { padding-left: 1.1em; display: flex; flex-direction: column; gap: 6px; }
+code { font: 500 .9em/1 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--selection); color: var(--text); padding: 2px 5px; border-radius: 5px; white-space: nowrap; }
+svg.i { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.mark { color: var(--working); }
+
+/* The whole flow on one line */
+.flow { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; }
+.flow li { flex: 1 1 150px; min-width: 0; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.flow b { font-size: .92rem; }
+.flow span { color: var(--muted); font-size: .84rem; }
+.flow li.private { border-color: var(--working-line); background: var(--working-bg); }
+
+/* One storyboard step: words beside the screen */
+.step { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 32px; align-items: start; }
+.step .num { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: .82rem; font-weight: 600; }
+.pair, .trio { display: grid; gap: 20px; align-items: start; }
+.pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trio { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.shot { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+@media (max-width: 860px) { .step, .pair, .trio { grid-template-columns: minmax(0, 1fr); } .step { gap: 16px; } }
+
+/* The product's chat pane, simplified */
+.frame { background: var(--surface); border-radius: 18px; box-shadow: var(--frame-shadow); overflow: hidden; display: flex; flex-direction: column; font-size: 14px; line-height: 1.45; min-width: 0; }
+.fh { display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+.fh strong { font-weight: 600; }
+.fh .meta { color: var(--muted); font-size: 12.5px; margin-left: 4px; }
+.msgs { display: flex; flex-direction: column; gap: 14px; padding: 16px; }
+.msg { display: flex; gap: 10px; min-width: 0; }
+.msg > div { min-width: 0; }
+.msg p { overflow-wrap: anywhere; }
+.who { font-weight: 600; font-size: 13.5px; }
+.who time, .mine time { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.av { width: 34px; height: 34px; border-radius: 50%; background: var(--selection); color: var(--text); display: grid; place-items: center; font-size: 12px; font-weight: 600; flex-shrink: 0; position: relative; }
+.av.sm { width: 26px; height: 26px; font-size: 10.5px; }
+.av.me { background: var(--working-bg); color: var(--working); }
+.av.on::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 9px; height: 9px; border-radius: 50%; background: var(--online); box-shadow: 0 0 0 2px var(--surface); }
+.msg.own { justify-content: flex-end; }
+.msg.own .bubble { background: var(--selection); padding: 8px 11px; border-radius: 12px 12px 3px 12px; max-width: 88%; }
+.mine { display: flex; justify-content: flex-end; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.mine time { margin: 0; }
+.at { color: var(--text); font-weight: 600; background: var(--selection); border-radius: 5px; padding: 0 4px; }
+.tag { font-size: 10px; font-weight: 700; letter-spacing: .04em; border: 1px solid var(--border-control); color: var(--muted); border-radius: 4px; padding: 0 4px; margin-left: 4px; vertical-align: 1px; }
+
+/* Message box */
+.composer { margin: 4px 14px 16px; border: 1px solid var(--border-control); border-radius: 16px; padding: 6px; display: flex; flex-direction: column; gap: 4px; background: var(--surface); }
+.composer.asking { border-color: var(--working); box-shadow: 0 0 0 1px var(--working); }
+.line { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding: 3px 6px 7px; border-bottom: 1px solid var(--border); font-size: 12.5px; color: var(--muted); }
+.line strong { color: var(--text); font-weight: 600; }
+.line.warn { color: var(--warning); background: var(--warning-bg); border: 0; border-radius: 10px; padding: 7px 9px; }
+.line.warn strong { color: inherit; }
+.box { display: flex; align-items: flex-end; gap: 6px; }
+.tool { width: 34px; height: 34px; display: grid; place-items: center; color: var(--muted); flex-shrink: 0; }
+.typed { flex: 1; min-width: 0; padding: 6px 2px; overflow-wrap: anywhere; }
+.typed.empty { color: var(--muted); }
+.caret { display: inline-block; width: 1.5px; height: 1.1em; background: var(--text); vertical-align: -3px; margin-left: 1px; }
+.chip { color: var(--working); background: var(--working-bg); border-radius: 5px; padding: 1px 5px; font-weight: 600; white-space: nowrap; }
+.btn { display: inline-flex; align-items: center; gap: 5px; min-height: 32px; padding: 0 12px; border-radius: 9px; font-size: 12.5px; font-weight: 600; border: 1px solid var(--border-control); color: var(--text); background: var(--surface); white-space: nowrap; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn.ask { background: var(--working); color: var(--surface); border-color: var(--working); }
+.btn.quiet { border-color: transparent; color: var(--muted); background: transparent; padding: 0 8px; }
+.push { margin-left: auto; }
+
+/* The @ list */
+.menu { margin: 0 14px; border: 1px solid var(--border-panel); border-radius: 12px; background: var(--surface); box-shadow: 0 6px 18px rgb(23 33 43 / 12%); padding: 5px; display: flex; flex-direction: column; }
+.menu .row { display: flex; align-items: center; gap: 9px; padding: 6px 8px; border-radius: 8px; min-width: 0; }
+.menu .row.sel { background: var(--working-bg); }
+.menu .row small { color: var(--muted); font-size: 12px; }
+.menu .row > span:last-child { min-width: 0; }
+.menu .label { padding: 7px 8px 3px; }
+
+/* Private things: the working strip and the draft card */
+.private { margin: 0 14px; border: 1px solid var(--working-line); background: var(--working-bg); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.private .top { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; font-size: 12.5px; color: var(--muted); }
+.private .top strong { color: var(--text); }
+.draft { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; overflow-wrap: anywhere; }
+.quote { border-left: 2px solid var(--working-line); padding-left: 9px; color: var(--muted); font-size: 12.5px; }
+.used { font-size: 12.5px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.used span { border: 1px solid var(--working-line); border-radius: 999px; padding: 1px 9px; background: var(--surface); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.refine { border: 1px solid var(--border-control); background: var(--surface); border-radius: 9px; padding: 7px 10px; color: var(--muted); font-size: 12.5px; }
+
+/* Tables */
+.tablewrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: .92rem; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+tr:last-child td { border-bottom: 0; }
+th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+td { color: var(--muted); }
+.rules { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.rules li { background: var(--surface); border: 1px solid var(--border-panel); border-radius: 12px; padding: 14px 16px; color: var(--muted); }
+.rules li > strong:first-child { display: block; margin-bottom: 4px; }
+.rules.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 700px) { .rules.two { grid-template-columns: minmax(0, 1fr); } }
+/* Flat rows in one panel, for a list that is read top to bottom */
+.rules.rows { display: block; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; }
+.rules.rows li { background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; }
+.rules.rows li:last-child { border-bottom: 0; }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="mark" viewBox="0 0 24 24"><path d="M11 4l1.8 5.2L18 11l-5.2 1.8L11 18l-1.8-5.2L4 11l5.2-1.8z"/><path d="M19 16v4M17 18h4"/></symbol>
+  <symbol id="clip" viewBox="0 0 24 24"><path d="M20 11.5l-8.2 8.2a5 5 0 01-7-7L13 4.4a3.3 3.3 0 014.7 4.7l-8.3 8.2a1.7 1.7 0 01-2.3-2.3L14.6 7.5"/></symbol>
+  <symbol id="up" viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></symbol>
+</svg>
+
+<main class="page">
+
+<header class="stack">
+  <p class="eyebrow">Design proposal · not built yet</p>
+  <h1>Ask your own assistant with @, review its draft, send it as you</h1>
+  <p class="lede">You type <code>@</code>, pick <strong>your</strong> assistant, and say what you want. It works where only you can see it and gives you a draft. If you press Send, the message goes out <strong>from you</strong>. If you don't, nobody ever knows you asked.</p>
+  <p class="lede">In these screens the person is <strong>Meera</strong> and she named her assistant <strong>Tara</strong>. Her colleague Karthik named his <strong>Max</strong>. "Ayati" is only the name an assistant has until its person changes it.</p>
+</header>
+
+<section class="section" aria-labelledby="flow-h">
+  <h2 id="flow-h">The whole idea in five moments</h2>
+  <ol class="flow">
+    <li><b>1. You ask</b><span>@Tara and what you want, in any conversation</span></li>
+    <li class="private"><b>2. Tara works</b><span>Reads the conversation and your data. Only you see it.</span></li>
+    <li class="private"><b>3. Draft card</b><span>The reply, and what it was based on. Only you see it.</span></li>
+    <li><b>4. You decide</b><span>Send, edit, ask for a change, or discard</span></li>
+    <li><b>5. Message from you</b><span>Others see an ordinary message with your name</span></li>
+  </ol>
+  <p class="words">The purple steps are private. Nothing in them reaches the channel or the other person.</p>
+</section>
+
+<section class="section" aria-labelledby="names-h">
+  <div class="stack">
+    <h2 id="names-h">Every person has their own assistant, with their own name</h2>
+    <p class="words">The design never depends on the name. Each person sees only their own assistant in the @ list, always first, always marked "Your assistant".</p>
+  </div>
+  <div class="pair">
+    <div class="shot">
+      <p class="eyebrow">Meera types @ in #sales</p>
+      <div class="frame" role="img" aria-label="Meera's mention list. First row: Tara, your assistant. Then Karthik Rao, Iris the agent, Ananya Rao. Karthik's assistant Max is not in the list.">
+        <div class="menu" style="margin:14px">
+          <div class="row sel"><span class="av sm me"><svg class="i"><use href="#mark"/></svg></span><span><strong>Tara</strong> <small>· Your assistant · Only you see what you ask</small></span></div>
+          <p class="eyebrow label">People and agents</p>
+          <div class="row"><span class="av sm on">KR</span><span>Karthik Rao <small>· Sales lead</small></span></div>
+          <div class="row"><span class="av sm on">IR</span><span>Iris<span class="tag">AI</span> <small>· Order desk</small></span></div>
+          <div class="row"><span class="av sm">AR</span><span>Ananya Rao <small>· Finance</small></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shot">
+      <p class="eyebrow">Karthik types @ in the same channel</p>
+      <div class="frame" role="img" aria-label="Karthik's mention list. First row: Max, your assistant. Then Meera Iyer, Iris the agent, Ananya Rao. Meera's assistant Tara is not in the list.">
+        <div class="menu" style="margin:14px">
+          <div class="row sel"><span class="av sm me"><svg class="i"><use href="#mark"/></svg></span><span><strong>Max</strong> <small>· Your assistant · Only you see what you ask</small></span></div>
+          <p class="eyebrow label">People and agents</p>
+          <div class="row"><span class="av sm on">MI</span><span>Meera Iyer <small>· Operations</small></span></div>
+          <div class="row"><span class="av sm on">IR</span><span>Iris<span class="tag">AI</span> <small>· Order desk</small></span></div>
+          <div class="row"><span class="av sm">AR</span><span>Ananya Rao <small>· Finance</small></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <ul class="rules two">
+    <li><strong>The mention holds an ID, not a name.</strong> Cuckoo already stores mentions this way. Renaming Tara to anything else changes nothing.</li>
+    <li><strong>You can't reach someone else's assistant.</strong> Max is not in Meera's list. If she types "@Max" by hand it is ordinary text.</li>
+    <li><strong>You don't have to remember the name.</strong> Typing <code>@assistant</code> or <code>@my</code> finds your own assistant, whatever it is called.</li>
+    <li><strong>Same name as a teammate or a team agent?</strong> The purple mark and "Your assistant" tell them apart. Renaming can warn when the name is already used.</li>
+  </ul>
+</section>
+
+<section class="section" aria-labelledby="story-h">
+  <h2 id="story-h">Step by step, in a channel</h2>
+
+  <div class="step">
+    <div class="words">
+      <span class="num">1</span>
+      <h3>Type @ and pick your assistant</h3>
+      <p>Karthik asked Meera a question in #sales. She doesn't have the numbers in her head, so she types <code>@</code> and chooses Tara.</p>
+      <p>This is the same list she already uses to mention people and team agents. Her assistant is the first row.</p>
+    </div>
+    <div class="frame" role="img" aria-label="The sales channel. Karthik asks Meera how November sales are going against target. Meera has typed @ and the mention list shows Tara, her assistant, first.">
+      <div class="fh"><span class="meta" style="margin:0;font-size:15px">#</span><strong>sales</strong><span class="meta">12 people · 2 agents</span></div>
+      <div class="msgs">
+        <div class="msg"><span class="av on">KR</span><div><p class="who">Karthik Rao <time>2:10 PM</time></p><p><span class="at">@Meera Iyer</span> how are November sales going against target? I need it for the 3 pm review.</p></div></div>
+      </div>
+      <div class="menu">
+        <div class="row sel"><span class="av sm me"><svg class="i"><use href="#mark"/></svg></span><span><strong>Tara</strong> <small>· Your assistant · Only you see what you ask</small></span></div>
+        <div class="row"><span class="av sm on">KR</span><span>Karthik Rao <small>· Sales lead</small></span></div>
+        <div class="row"><span class="av sm on">IR</span><span>Iris<span class="tag">AI</span> <small>· Order desk</small></span></div>
+      </div>
+      <div class="composer"><div class="box"><span class="tool"><svg class="i"><use href="#clip"/></svg></span><span class="typed">@<span class="caret"></span></span><span class="btn primary"><svg class="i"><use href="#up"/></svg>Send</span></div></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="words">
+      <span class="num">2</span>
+      <h3>The message box changes, so you know it is private</h3>
+      <p>As soon as Tara is mentioned, three things change: the box turns purple, a line says <strong>nothing is posted</strong>, and the button reads <strong>Ask Tara</strong> instead of Send.</p>
+      <p>This matters because <code>@Iris</code> (a team agent) is the opposite: that message <em>is</em> posted and Iris answers in public as itself.</p>
+    </div>
+    <div class="frame" role="img" aria-label="The message box in asking mode. A line reads: Asking Tara, only you see this, nothing is posted in sales. Meera typed: @Tara go through November sales and answer Karthik, keep it short. The button reads Ask Tara.">
+      <div class="fh"><span class="meta" style="margin:0;font-size:15px">#</span><strong>sales</strong><span class="meta">12 people · 2 agents</span></div>
+      <div class="msgs">
+        <div class="msg"><span class="av on">KR</span><div><p class="who">Karthik Rao <time>2:10 PM</time></p><p><span class="at">@Meera Iyer</span> how are November sales going against target? I need it for the 3 pm review.</p></div></div>
+      </div>
+      <div class="composer asking">
+        <div class="line"><svg class="i mark"><use href="#mark"/></svg><strong>Asking Tara</strong><span>Only you see this. Nothing is posted in #sales.</span></div>
+        <div class="box"><span class="tool"><svg class="i"><use href="#clip"/></svg></span><span class="typed"><span class="chip">@Tara</span> go through November sales and answer Karthik. Keep it short.<span class="caret"></span></span><span class="btn ask"><svg class="i"><use href="#mark"/></svg>Ask Tara</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="words">
+      <span class="num">3</span>
+      <h3>Tara works. The channel sees nothing.</h3>
+      <p>Her instruction is <strong>not</strong> added to the conversation. A private line shows what Tara is doing, with Cancel.</p>
+      <p>The message box is empty and free again, so Meera can keep chatting while Tara reads the sales sheet. A request like this can take a minute.</p>
+    </div>
+    <div class="frame" role="img" aria-label="The channel still shows only Karthik's message. A private strip reads: Tara is writing a reply for you, reading Sales sheet November, only you see this, with a Cancel button. The message box is empty.">
+      <div class="fh"><span class="meta" style="margin:0;font-size:15px">#</span><strong>sales</strong><span class="meta">12 people · 2 agents</span></div>
+      <div class="msgs">
+        <div class="msg"><span class="av on">KR</span><div><p class="who">Karthik Rao <time>2:10 PM</time></p><p><span class="at">@Meera Iyer</span> how are November sales going against target? I need it for the 3 pm review.</p></div></div>
+      </div>
+      <div class="private">
+        <div class="top"><svg class="i mark"><use href="#mark"/></svg><strong>Tara is writing a reply for you…</strong><span>Reading "Sales sheet · November" · Only you see this</span><span class="btn quiet push">Cancel</span></div>
+      </div>
+      <div class="composer"><div class="box"><span class="tool"><svg class="i"><use href="#clip"/></svg></span><span class="tool"><svg class="i"><use href="#mark"/></svg></span><span class="typed empty">Message #sales</span><span class="btn primary"><svg class="i"><use href="#up"/></svg>Send</span></div></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="words">
+      <span class="num">4</span>
+      <h3>The draft comes back as a private card</h3>
+      <p>The card sits above the message box. It says where the message will go and whose name will be on it, and shows what Tara used, so Meera can check the numbers before they go out under her name.</p>
+      <ul>
+        <li><strong>Send as me</strong> posts it exactly as written.</li>
+        <li><strong>Edit</strong> moves the text into the message box. Tara learns from what she changes, as it does today.</li>
+        <li><strong>Ask Tara to change it</strong> gives a new draft ("shorter", "add the wholesale number").</li>
+        <li><strong>Discard</strong> removes it. Nobody was told anything.</li>
+      </ul>
+    </div>
+    <div class="frame" role="img" aria-label="A private draft card from Tara. It will be sent as Meera in the sales channel. The draft gives November sales against target. Under it: what Tara used, and buttons Send as me, Edit and Discard, plus a box to ask Tara to change it.">
+      <div class="fh"><span class="meta" style="margin:0;font-size:15px">#</span><strong>sales</strong><span class="meta">12 people · 2 agents</span></div>
+      <div class="msgs">
+        <div class="msg"><span class="av on">KR</span><div><p class="who">Karthik Rao <time>2:10 PM</time></p><p><span class="at">@Meera Iyer</span> how are November sales going against target? I need it for the 3 pm review.</p></div></div>
+      </div>
+      <div class="private">
+        <div class="top"><svg class="i mark"><use href="#mark"/></svg><strong>Draft from Tara</strong><span>Only you see this · Will be sent as you in #sales</span></div>
+        <p class="draft">Karthik, November so far: ₹41.2 lakh booked against a ₹48 lakh target (86%), with 9 days left. Retail is ahead of plan. Wholesale is ₹5.1 lakh behind because two orders moved to December. I'll share the full sheet before 3 pm.</p>
+        <div class="used">What Tara used: <span>Sales sheet · November</span><span>Last 20 messages in #sales</span><span>Memory: "Karthik wants numbers first"</span></div>
+        <div class="actions"><span class="btn primary">Send as me</span><span class="btn">Edit</span><span class="btn quiet">Discard</span></div>
+        <div class="refine">Ask Tara to change it…</div>
+      </div>
+      <div class="composer"><div class="box"><span class="tool"><svg class="i"><use href="#clip"/></svg></span><span class="tool"><svg class="i"><use href="#mark"/></svg></span><span class="typed empty">Message #sales</span><span class="btn primary"><svg class="i"><use href="#up"/></svg>Send</span></div></div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="words">
+      <span class="num">5</span>
+      <h3>It goes out as Meera, not as Tara</h3>
+      <p>Everyone else sees a normal message from Meera Iyer. There is no "AI" tag and no assistant name.</p>
+      <p>Only Meera sees the small purple mark beside the time, so she remembers Tara wrote it. Admins have the same record in the Audit log. Both of these exist in Cuckoo today.</p>
+    </div>
+    <div class="pair">
+      <div class="shot">
+        <p class="eyebrow">What Meera sees</p>
+        <div class="frame" role="img" aria-label="Meera's view: her own message on the right, with a small purple assistant mark beside the time.">
+          <div class="msgs">
+            <div class="msg own"><div class="bubble"><p class="mine"><svg class="i mark" style="width:13px;height:13px"><use href="#mark"/></svg><time>2:13 PM</time></p><p>Karthik, November so far: ₹41.2 lakh booked against a ₹48 lakh target (86%), with 9 days left. Retail is ahead of plan…</p></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="shot">
+        <p class="eyebrow">What Karthik and everyone else see</p>
+        <div class="frame" role="img" aria-label="Karthik's view: an ordinary message from Meera Iyer with no assistant mark.">
+          <div class="msgs">
+            <div class="msg"><span class="av on">MI</span><div><p class="who">Meera Iyer <time>2:13 PM</time></p><p>Karthik, November so far: ₹41.2 lakh booked against a ₹48 lakh target (86%), with 9 days left. Retail is ahead of plan…</p></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="short-h">
+  <div class="stack">
+    <h2 id="short-h">The short way, and two safety cases</h2>
+    <p class="words">Not every request needs a long instruction, and two things can go wrong. These screens cover them.</p>
+  </div>
+  <div class="trio">
+    <div class="shot">
+      <p class="eyebrow">Just "@Tara respond"</p>
+      <div class="frame" role="img" aria-label="A direct chat with Karthik. Meera typed only: @Tara respond. The draft card quotes the message it answers and proposes a reply.">
+        <div class="fh"><span class="av sm on">KR</span><strong>Karthik Rao</strong></div>
+        <div class="msgs"><div class="msg"><span class="av on">KR</span><div><p class="who">Karthik Rao <time>4:02 PM</time></p><p>Are we still on for the Friday demo? Who is presenting?</p></div></div></div>
+        <div class="private">
+          <div class="top"><svg class="i mark"><use href="#mark"/></svg><strong>Draft from Tara</strong><span>Will be sent as you to Karthik</span></div>
+          <p class="quote">Answering: "Are we still on for the Friday demo? Who is presenting?"</p>
+          <p class="draft">Yes, Friday 11 am is on. Ananya presents the first half and I'll take pricing.</p>
+          <div class="actions"><span class="btn primary">Send as me</span><span class="btn">Edit</span><span class="btn quiet">Discard</span></div>
+        </div>
+        <div class="composer"><div class="box"><span class="typed empty" style="padding-left:8px">Message Karthik</span><span class="btn primary"><svg class="i"><use href="#up"/></svg>Send</span></div></div>
+      </div>
+      <p class="words">With no instruction, Tara answers the newest message meant for you. The card always <strong>quotes what it is answering</strong>, so a wrong guess is visible at once.</p>
+    </div>
+    <div class="shot">
+      <p class="eyebrow">The conversation moved on</p>
+      <div class="frame" role="img" aria-label="A draft card with a warning: 2 new messages since Tara wrote this, with an Update draft button. Send as me is still available.">
+        <div class="fh"><span class="meta" style="margin:0;font-size:15px">#</span><strong>sales</strong></div>
+        <div class="msgs"><div class="msg"><span class="av on">KR</span><div><p class="who">Karthik Rao <time>2:12 PM</time></p><p>Never mind the total, I only need wholesale.</p></div></div></div>
+        <div class="private">
+          <div class="top"><svg class="i mark"><use href="#mark"/></svg><strong>Draft from Tara</strong><span>Will be sent as you in #sales</span></div>
+          <div class="line warn"><strong>2 new messages since Tara wrote this.</strong><span class="btn push">Update draft</span></div>
+          <p class="draft">Karthik, November so far: ₹41.2 lakh booked against a ₹48 lakh target (86%)…</p>
+          <div class="actions"><span class="btn">Send as me</span><span class="btn">Edit</span><span class="btn quiet">Discard</span></div>
+        </div>
+        <div class="composer"><div class="box"><span class="typed empty" style="padding-left:8px">Message #sales</span><span class="btn primary"><svg class="i"><use href="#up"/></svg>Send</span></div></div>
+      </div>
+      <p class="words">A draft can go out of date while Tara writes. The card says so, and Send stops being the main button until you update or decide it still fits.</p>
+    </div>
+    <div class="shot">
+      <p class="eyebrow">The mention got broken</p>
+      <div class="frame" role="img" aria-label="The message box holds plain text starting with @Tara. A warning reads: this will be posted in sales as written, did you mean to ask Tara, with an Ask Tara instead button.">
+        <div class="fh"><span class="meta" style="margin:0;font-size:15px">#</span><strong>sales</strong></div>
+        <div class="msgs"><div class="msg"><span class="av on">KR</span><div><p class="who">Karthik Rao <time>2:10 PM</time></p><p>How are November sales going against target?</p></div></div></div>
+        <div class="composer">
+          <div class="line warn"><strong>This would be posted in #sales as written.</strong><span>Did you mean to ask Tara?</span><span class="btn push">Ask Tara instead</span></div>
+          <div class="box"><span class="typed" style="padding-left:8px">@Tara tell him wholesale is behind, don't mention the two lost orders<span class="caret"></span></span><span class="btn primary"><svg class="i"><use href="#up"/></svg>Send</span></div>
+        </div>
+      </div>
+      <p class="words">If the mention turns into plain text (for example after editing inside it), the instruction would be posted for everyone. The box warns before sending, and <strong>the server also refuses</strong> any posted message that mentions an assistant.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" aria-labelledby="where-h">
+  <h2 id="where-h">Where it works, and who receives the message</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Where you ask</th><th>The card says</th><th>What happens on Send</th></tr></thead>
+      <tbody>
+        <tr><td><strong>A channel</strong></td><td>Will be sent as you in #sales</td><td>Posted in that channel as your message.</td></tr>
+        <tr><td><strong>A reply thread</strong></td><td>Will be sent as you in this thread</td><td>Posted as a reply in that thread only.</td></tr>
+        <tr><td><strong>A chat with a person</strong></td><td>Will be sent as you to Karthik</td><td>Karthik reads it as written by you.</td></tr>
+        <tr><td><strong>A chat with a team agent</strong></td><td>Will be sent as you to Iris</td><td>Iris takes it as your request and answers you as usual.</td></tr>
+        <tr><td><strong>Your assistant's own chat</strong></td><td>No card</td><td>You are already talking to it. Nothing changes there.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="words">A draft is tied to the conversation where you asked. It cannot be sent anywhere else.</p>
+</section>
+
+<section class="section" aria-labelledby="rules-h">
+  <h2 id="rules-h">Five rules that never bend</h2>
+  <ul class="rules rows">
+    <li><strong>Your instruction is never posted.</strong> Only you and your assistant see what you asked.</li>
+    <li><strong>Nothing is sent until you press Send.</strong> One draft, one decision, every time.</li>
+    <li><strong>Words don't give permission to send.</strong> "@Tara handle this" still gives a draft. Replying without review stays the separate <em>Let Tara take over</em> action.</li>
+    <li><strong>You see what it used.</strong> Tara can read your private data, so the card shows its sources before the text goes to other people.</li>
+    <li><strong>It is your message.</strong> Sent under your name, marked for you alone, recorded in the Audit log.</li>
+  </ul>
+</section>
+
+<section class="section" aria-labelledby="change-h">
+  <h2 id="change-h">What changes from today</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Today</th><th>With this design</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Draft button</strong> in the message box sends what you typed as "what I want to say".</td><td>The button stays, but it only puts <code>@Tara</code> in the box. One way of asking, two ways to start it.</td></tr>
+        <tr><td>The draft is <strong>written into the message box</strong>, replacing your text.</td><td>The draft arrives in a <strong>card above the box</strong>. Your box stays free while Tara works.</td></tr>
+        <tr><td>You can't see what the draft was based on.</td><td>The card lists what Tara used.</td></tr>
+        <tr><td>Waits up to two minutes for a draft.</td><td>Longer wait for research requests, with the current step shown.</td></tr>
+        <tr><td><strong>Take over</strong>, suggested chats, regular checks, the private mark, learning from your edits.</td><td>Unchanged.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="words">Underneath, it is the request Cuckoo already has for drafts (conversation, thread and instruction). The new work is the message box mode, the card, and the server rule that refuses to post an assistant mention.</p>
+</section>
+
+<section class="section" aria-labelledby="choose-h">
+  <h2 id="choose-h">Three choices that are yours</h2>
+  <ul class="rules">
+    <li><strong>Card or message box?</strong> I recommend the card. Two days ago the card was replaced by writing into the box; that is simpler for quick replies but blocks the box during slow requests.</li>
+    <li><strong>"Respond" in a busy channel.</strong> Answer the newest message that mentions you (recommended), or make the person pick a message first.</li>
+    <li><strong>Keep the Draft button?</strong> I recommend yes, as a shortcut. Without it new people won't discover that they can mention their assistant.</li>
+  </ul>
+</section>
+
+</main>
