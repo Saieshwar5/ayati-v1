@@ -75,11 +75,11 @@ function Goals({ goals, agents, busy, act }: { goals: Goal[]; agents: Measure[];
     {agents.length > 0 && <form className="activity-goal-form" onSubmit={event => { event.preventDefault();
       act('/goals', { agent: form.agent || agents[0].id, name: form.name, target: Number(form.target), unit: form.unit, period: form.period }, 'Goal saved. The agent reports progress as it works.');
       setForm(f => ({ ...f, name: '', target: '' })); }}>
-      <select aria-label="Agent" value={form.agent || agents[0].id} onChange={e => setForm({ ...form, agent: e.target.value })}>{agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select>
-      <input aria-label="Goal" placeholder="Quotes sent" maxLength={80} required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />
-      <input aria-label="Target" type="number" min="1" step="any" placeholder="50" required value={form.target} onChange={e => setForm({ ...form, target: e.target.value })} />
-      <input aria-label="Unit" placeholder="quotes" maxLength={16} value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} />
-      <select aria-label="Period" value={form.period} onChange={e => setForm({ ...form, period: e.target.value })}><option value="week">per week</option><option value="month">per month</option></select>
+      <label>Agent<select aria-label="Agent" value={form.agent || agents[0].id} onChange={e => setForm({ ...form, agent: e.target.value })}>{agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}</select></label>
+      <label>Goal<input aria-label="Goal" placeholder="Quotes sent" maxLength={80} required value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
+      <label>Target<input aria-label="Target" type="number" min="1" step="any" placeholder="50" required value={form.target} onChange={e => setForm({ ...form, target: e.target.value })} /></label>
+      <label>Unit<input aria-label="Unit" placeholder="quotes" maxLength={16} value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} /></label>
+      <label>Period<select aria-label="Period" value={form.period} onChange={e => setForm({ ...form, period: e.target.value })}><option value="week">per week</option><option value="month">per month</option></select></label>
       <Button type="submit" disabled={busy}>Add goal</Button>
     </form>}
   </section>;

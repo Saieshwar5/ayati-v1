@@ -4,20 +4,26 @@
 .activity-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .activity-header h1 { margin: 0; font-size: 26px; font-weight: 600; }
 .activity-search { width: min(320px, 100%); padding: 10px 12px; font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 8px; }
-.activity-tabs { display: flex; gap: 6px; margin-top: 18px; flex-wrap: wrap; }
-.activity-tabs button { min-height: 38px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; font: inherit; font-size: 14px; color: var(--muted); background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
+.activity-bar { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; margin-top: 18px; }
+.activity-tabs { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+.activity-tabs button { flex: none; white-space: nowrap; min-height: 38px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; font: inherit; font-size: 14px; color: var(--muted); background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
 .activity-tabs button:hover:not([aria-selected=true]) { background: var(--soft); }
 .activity-tabs button[aria-selected=true] { color: var(--text); background: var(--selection); font-weight: 600; }
 .activity-tabs button:focus-visible { outline-offset: -3px; }
 .activity-scope { margin-left: auto; display: inline-flex; border: 1px solid var(--border-control); border-radius: 9px; overflow: hidden; }
-.activity-tabs .activity-scope button { min-height: 36px; border-radius: 0; padding: 6px 14px; font-size: 13px; color: var(--text); }
-.activity-tabs .activity-scope button:hover:not([aria-pressed=true]) { background: var(--soft); }
-.activity-tabs .activity-scope button[aria-pressed=true] { color: var(--on-accent); background: var(--accent); font-weight: 600; }
+/* A filter, so its chosen side is the pale selection fill; dark is for primary actions. */
+.activity-scope button { min-height: 36px; padding: 6px 14px; font: inherit; font-size: 13px; color: var(--text); background: transparent; border: 0; cursor: pointer; }
+.activity-scope button + button { border-left: 1px solid var(--border-control); }
+.activity-scope button:hover:not([aria-pressed=true]) { background: var(--soft); }
+.activity-scope button[aria-pressed=true] { background: var(--selection); font-weight: 600; }
+.activity-scope button:focus-visible { outline-offset: -3px; }
 .activity-count { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: var(--danger); color: var(--on-accent); font-size: 11px; font-weight: 700; text-align: center; }
 .activity-panel { margin-top: 18px; }
 .activity-panel:focus-visible { outline-offset: 4px; }
 .activity-group { margin: 22px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
-h2.activity-group:first-child { margin-top: 0; }
+.activity-needs-list > section:first-of-type > .activity-group, .activity-open > section:first-of-type > .activity-group,
+.activity-review > section:first-of-type > .activity-group { margin-top: 0; }
+.activity-upcoming > section:first-of-type > .activity-group { margin-top: 14px; }
 .activity-list { list-style: none; margin: 0; padding: 0; }
 .activity-list > li { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border); }
 .activity-list > li.selected { background: var(--selection); border-radius: 8px; }
@@ -31,7 +37,7 @@ h2.activity-group:first-child { margin-top: 0; }
 .activity-mark.outcome { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 .activity-status { flex: none; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; background: var(--soft); color: var(--muted); }
 .activity-status.done { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); }
-.activity-status.working { background: color-mix(in srgb, var(--working) 12%, transparent); color: var(--working); }
+.activity-status.working { display: inline; padding: 2px 8px; font-size: 12px; background: color-mix(in srgb, var(--working) 12%, transparent); color: var(--working); }
 .activity-status.waiting { background: var(--warning-bg); color: var(--warning); }
 .activity-status.problem { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
 .activity-empty { padding: 32px 0; color: var(--muted); }
@@ -110,6 +116,10 @@ button.activity-row-button:hover { background: var(--soft); }
   .activity-row-button .activity-main { grid-column: 2; grid-row: 2; }
   .activity-row-button .activity-status { grid-column: 3; grid-row: 1; }
   .activity-list > li { flex-wrap: wrap; }
+  /* The title takes the row; its buttons go under it instead of squeezing it. */
+  .activity-needs .activity-list > li > .activity-main, .activity-now .activity-list > li > .activity-main { flex-basis: calc(100% - 46px); }
+  .activity-needs .activity-main small { display: block; line-height: 1.55; }
+  .activity-needs .activity-main small > .activity-face { display: inline-grid; vertical-align: -5px; margin-right: 6px; }
 }
 @media (forced-colors: active) {
   .activity-tabs button[aria-selected=true] { outline: 2px solid Highlight; }
@@ -156,7 +166,6 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-row-light strong { font-weight: 500; color: var(--muted); }
 .activity-task-line { margin: 0; font-size: 13px; color: var(--muted); }
 .activity-task-line a { color: var(--text); font-weight: 600; }
-.activity-open > section + section { margin-top: 8px; }
 
 /* Needs fixing and Coming up (Phase 4). */
 .activity-fix-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -182,9 +191,43 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-goal-bar { display: block; height: 6px; margin-top: 6px; border-radius: 3px; background: var(--soft); overflow: hidden; max-width: 320px; }
 .activity-goal-bar span { display: block; height: 100%; background: var(--success, #2e7d32); }
 .activity-goal-bar.problem span { background: var(--danger); }
-.activity-goal-form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.activity-goal-form input, .activity-goal-form select { min-width: 0; max-width: 100%; }
-.activity-review-card { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border-control); }
+.activity-goal-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 12px; }
+.activity-goal-form label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); min-width: 0; }
+.activity-goal-form input, .activity-goal-form select { min-width: 0; max-width: 100%; min-height: 36px; padding: 6px 10px; font: inherit; font-size: 14px; color: var(--text); background: var(--surface); border: 1px solid var(--border-control); border-radius: 8px; }
+.activity-goal-form input[type=number] { width: 96px; }
+.activity-review-card { display: grid; gap: 4px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .activity-review-card h3, .activity-review-card p { margin: 0; }
+.activity-review-card h3 { font-size: 14px; font-weight: 600; }
 .activity-review .activity-list li { flex-wrap: wrap; }
 .activity-review .activity-list li .activity-main { flex: 1 1 260px; }
+
+/* Needs me in a wide window (designs/activity-next, Design A): the list on the left and
+ * the opened item beside it. The page stops scrolling as a whole; each side scrolls. */
+.activity-pane:empty { display: none; }
+.activity-list > li.unread .activity-main strong { font-weight: 600; }
+.activity-page.activity-split { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.activity-split > * { width: 100%; flex: none; }
+.activity-split > .activity-panel { flex: 1; min-height: 0; display: flex; }
+.activity-split .activity-needs { flex: 1; min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(320px, 420px) minmax(0, 1fr); border-top: 1px solid var(--border); }
+.activity-split .activity-needs-list { min-height: 0; overflow: auto; padding: 16px 12px 32px 0; border-right: 1px solid var(--border); }
+.activity-split .activity-list > li { padding: 0; gap: 8px; border-bottom: 0; }
+.activity-split .activity-list > li.selected { background: none; }
+.activity-need-row { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 12px; padding: 10px; font: inherit; text-align: left; color: var(--text); background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
+.activity-need-row:hover { background: var(--soft); }
+.activity-need-row[aria-current=true] { background: var(--selection); }
+.activity-need-row:focus-visible { outline-offset: -3px; }
+.activity-need-row .activity-main strong { font-size: 15px; }
+/* The agent's face sits in the line of text, so a narrow column doesn't strand it on a row of its own. */
+.activity-need-row .activity-main small { display: block; line-height: 1.55; }
+.activity-need-row .activity-main small > .activity-face { display: inline-grid; vertical-align: -5px; margin-right: 6px; }
+.activity-need-row .activity-main small > .activity-status { margin-right: 8px; }
+.activity-need-action { flex: none; padding-top: 2px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.activity-pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.activity-pane > .activity-empty { margin: auto; padding: 32px; text-align: center; }
+.activity-pane-next { flex: none; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0; padding: 12px 20px; border-top: 1px solid var(--border); }
+.activity-pane-next small { color: var(--muted); font-size: 12px; }
+.ui-pane { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.ui-pane > .ui-dialog-header { padding: 16px 20px 14px; }
+.ui-pane > .ui-dialog-body { flex: 1; }
+.ui-pane [hidden] { display: none !important; }
+@media (forced-colors: active) { .activity-need-row[aria-current=true] { outline: 2px solid Highlight; } }

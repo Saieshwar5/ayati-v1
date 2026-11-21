@@ -351,6 +351,18 @@ view with an "On this page" list, soft callouts, framed tables, Home panel chart
 and step diagrams. Pages are for reading only; questions and approvals stay in
 Chat. See [pages in agent replies](agent-pages.md).
 
+## Activity
+
+Needs me, in a window 1040 px or wider, is a list with the opened item beside it
+(2026-11-21, `designs/activity-next` Design A, step 1). The page stops scrolling as a
+whole there: the list and the opened item scroll on their own, under one divider. Rows
+are flat, with the pale selection fill on the open one and no button of their own; the
+opened item keeps its own buttons. Dialogs shown this way (`DialogPlacement` in
+`ui.tsx`) take no focus and cover nothing; a dialog opened from inside one is an
+ordinary modal. The tab row is one line that scrolls sideways when it does not fit.
+My agents / All agents is a filter, so its chosen side uses the pale selection fill,
+not the dark primary fill. See [Activity](activity.md).
+
 ## Agents and people management
 
 Agents follows the selected **B / Agent workspace** concept: a searchable flat

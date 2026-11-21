@@ -128,11 +128,15 @@ function Row({ item, open }: { item: ActivityItem; open: (id: string) => void })
   const shown = status(item);
   // A conversation turn that isn't part of any task reads lighter than real work.
   const light = item.kind === 'chat' && !item.task;
+  // A schedule's or trigger's place already starts with its kind ("Schedule · Shared inbox").
+  const place = where(item);
+  const about = item.kind === 'chat' ? `${item.requester_name ?? 'Someone'} · ${place}`
+    : item.kind === 'schedule' || item.kind === 'trigger' ? place[0].toUpperCase() + place.slice(1) : `${kindLabels[item.kind]} · ${place}`;
   return <button type="button" className={`activity-row-button${light ? ' activity-row-light' : ''}`} onClick={() => open(item.id)}>
     <time>{clock(item.created_ms)}</time>
     <span className="activity-agent"><AgentFace agent={{ id: item.agent, name: item.agent_name, avatar: item.agent_avatar }} className="activity-face" />{item.agent_name}</span>
     <span className="activity-main"><strong>{item.kind === 'chat' ? `“${item.summary}”` : item.summary}</strong>
-      <small>{item.kind === 'chat' ? `${item.requester_name ?? 'Someone'} · ${where(item)}` : `${kindLabels[item.kind]} · ${where(item)}`}</small>
+      <small>{about}</small>
       {item.approvals.map(a => <small key={a.id} className="activity-action">→ {a.title} · {a.state === 'completed' ? 'done' : a.state}</small>)}
       {item.task && item.task.kind === 'commitment' && <small className="activity-action">Task: {item.task.title} · {taskLabels[item.task.status]}</small>}</span>
     <span className={`activity-status ${shown.tone}`}>{shown.label}</span>

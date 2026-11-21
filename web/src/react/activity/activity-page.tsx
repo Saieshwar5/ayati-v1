@@ -8,6 +8,7 @@ import { OpenTasks } from './open-tasks';
 import { ReviewView } from './review';
 import { UpcomingView } from './upcoming';
 import { saveScope, savedScope, type Scope } from './model';
+import { useMediaQuery } from '../use-media-query';
 import './activity.css';
 
 type Tab = 'needs' | 'now' | 'upcoming' | 'open' | 'history' | 'review';
@@ -38,6 +39,8 @@ export function ActivityPage({ href }: { href: string }) {
   const [historyKind, setHistoryKind] = useState<string>();
   const attention = useAttention('needs_you', null);
   const count = attention.data?.items.length ?? 0;
+  // A wide window reads Needs me as a list with the opened item beside it.
+  const wide = useMediaQuery('(min-width: 1040px)');
   const buttons = useRef<(HTMLButtonElement | null)[]>([]);
   const select = (next: Tab) => { setTab(next); if (next !== 'history') { setSince(undefined); setHistoryKind(undefined); } };
   const keys = (event: React.KeyboardEvent, index: number) => {
@@ -47,25 +50,25 @@ export function ActivityPage({ href }: { href: string }) {
     const next = (moves[event.key] + tabs.length) % tabs.length;
     select(tabs[next][0]); buttons.current[next]?.focus();
   };
-  return <section className="activity-page" aria-labelledby="activity-title">
+  return <section className={`activity-page${wide && tab === 'needs' ? ' activity-split' : ''}`} aria-labelledby="activity-title">
     <header className="activity-header">
       <h1 id="activity-title">Activity</h1>
       <input type="search" className="activity-search" aria-label="Search activity" placeholder="Search activity"
         value={search} onChange={event => setSearch(event.target.value)} />
     </header>
-    <div className="activity-tabs" role="tablist" aria-label="Activity views">{tabs.map(([id, label], index) =>
+    <div className="activity-bar"><div className="activity-tabs" role="tablist" aria-label="Activity views">{tabs.map(([id, label], index) =>
       <button key={id} type="button" role="tab" id={`activity-tab-${id}`} aria-controls="activity-panel" aria-selected={tab === id}
         tabIndex={tab === id ? 0 : -1} ref={node => { buttons.current[index] = node; }}
         onClick={() => select(id)} onKeyDown={event => keys(event, index)}>
         {label}{id === 'needs' && count > 0 && <span className="activity-count" aria-label={`${count}${attention.data?.next_before ? ' or more' : ''} waiting`}>
           {count}{attention.data?.next_before ? '+' : ''}</span>}
-      </button>)}
+      </button>)}</div>
       {tab !== 'needs' && <div className="activity-scope" role="group" aria-label="Whose agents">
         {([['mine', 'My agents'], ['all', 'All agents']] as const).map(([value, label]) =>
           <button key={value} type="button" aria-pressed={scope === value} onClick={() => pick(value)}>{label}</button>)}
       </div>}</div>
     <div id="activity-panel" className="activity-panel" role="tabpanel" aria-labelledby={`activity-tab-${tab}`}>
-      {tab === 'needs' && <NeedsMe first={attention} search={search} />}
+      {tab === 'needs' && <NeedsMe first={attention} search={search} pane={wide} />}
       {tab === 'now' && <NowView scope={scope} search={search} waiting={attention.data?.items} openHistory={from => { setSince(from); setTab('history'); }}
         openUnhandled={() => { setSince(undefined); setHistoryKind('unhandled'); setTab('history'); }} />}
       {tab === 'upcoming' && <UpcomingView scope={scope} search={search} />}

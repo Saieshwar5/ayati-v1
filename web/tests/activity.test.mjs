@@ -57,6 +57,18 @@ test('History asks the server for each filter, pages without repeats and drops l
   } });
 });
 
+test('a History row names a schedule or trigger once, not twice', async () => {
+  await reactFixture(async ({ render }) => {
+    await render(await page(), { href: url });
+    const rows = [...document.querySelectorAll('.activity-row')].map(node => node.textContent);
+    assert.match(rows[0], /Schedule · Shared inbox/); assert.doesNotMatch(rows[0], /Schedule · Schedule/);
+    assert.match(rows[1], /Trigger in marketing/); assert.doesNotMatch(rows[1], /Trigger · trigger/);
+    assert.match(rows[2], /Kavya Nair · #sales/);
+  }, { url, fetch: async path => common(path) ?? response({ next_before: null, items: [
+    item('s', 'Reply to customer emails', { kind: 'schedule', conversation_name: 'Shared inbox' }),
+    item('t', 'Post new arrivals', { kind: 'trigger', conversation_name: 'marketing' }), item('c', 'Quote for Sharma Traders')] }) });
+});
+
 test('request details show each step, a fix, and a warning when the reply claims what the records do not', async () => {
   await reactFixture(async ({ render, button, click }) => {
     await render(await page(), { href: url });

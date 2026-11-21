@@ -13,6 +13,15 @@ runs, hand-offs and agent setting changes. Opening it never starts work.
   opens. Reading never answers or approves. **Mark reviewed** clears a failed or
   interrupted outcome without retrying or changing it. It replaces Home's former
   "Your attention" pop-up; Home keeps a small panel that links here.
+  In a window 1040 px or wider (2026-11-21, [Design A](../designs/activity-next/README.md),
+  step 1) the list is on the left and the opened item shows beside it, not in a dialog
+  over it: a row is one button, **J** and **K** (and the arrow keys inside the list)
+  open the next and previous row, an approval an admin may already decide carries the
+  label "An admin can decide now", and Mark reviewed sits under the opened request. The
+  list is read again as soon as a decision is saved; the decided item stays readable
+  beside it with **Next: …**. Nothing is opened, and so nothing marked read, until the
+  person picks a row or presses a key. Narrower windows keep the dialog and the named
+  button on every row. The count, the order and what each item offers are unchanged.
 - **Now** (`&tab=now`): "While you were away", one card per agent (Working,
   Waiting, Failing, Paused or Idle with its next schedule run) and requests
   running now with **Stop**. It follows the live change stream and polls every
@@ -256,7 +265,9 @@ Measured locally with 30 agents and 81,000 requests over 90 days
   the agent's owners, admins and after leaving a channel; private-view audit; paging without
   gaps; filters and totals; older requests' summaries; away summary across
   catch-ups; disagreement warning; the 81,000-request budget).
-- Web: `tests/activity.test.mjs`, `tests/activity-panels.test.mjs`, `tests/activity-unhandled.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,
+- Web: `tests/activity-needs-pane.test.mjs` (wide window: receipt before opening, no dialog,
+  re-read after a decision, Next, J and K, Mark reviewed once for a double click; a narrow
+  window keeps the dialog), `tests/activity.test.mjs`, `tests/activity-panels.test.mjs`, `tests/activity-unhandled.test.mjs`, `tests/activity-controls.test.mjs` (scope switch,
   pause with a double click, How to fix it, Retry only for the asker, Discuss in chat),
   `tests/workspace-attention.test.mjs`.
 - Browser journeys with real Goose: `workspace_attention`, `channel_approvals`,

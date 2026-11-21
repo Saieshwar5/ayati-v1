@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { Button } from '../ui';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Button, DialogPlacement } from '../ui';
 import { AgentFace } from '../faces';
 import { useMutation } from '../requests';
 import { QuestionDialog } from '../questions/dialog';
@@ -32,13 +32,21 @@ function folded(list: AttentionItem[]): (AttentionItem | AttentionItem[])[] {
 }
 const waitLine = (item: AttentionItem, now = Date.now()) => item.backup_at && item.backup_at <= now ? ' · an admin can decide now'
   : item.backup_at ? ` · admin backup in ${Math.max(1, Math.round((item.backup_at - now) / 3600000))} h` : '';
+const late = (item: AttentionItem, now = Date.now()) => Boolean(item.backup_at && item.backup_at <= now);
+const glyph = (item: AttentionItem) => item.kind === 'question' ? '?' : item.kind === 'approval' && item.status !== 'uncertain' ? '◇' : '!';
+/** One row of the list: a single item, or similar approvals folded together. */
+type Entry = AttentionItem | AttentionItem[];
+const entryKey = (entry: Entry) => Array.isArray(entry) ? `group.${attentionKey(entry[0])}` : attentionKey(entry);
+const entryTitle = (entry: Entry) => Array.isArray(entry) ? `${entry.length} × ${entry[0].operation_title ?? clean(entry[0].title)}` : clean(entry.title);
 const action = (item: AttentionItem) => item.kind === 'question' ? item.status === 'browser' ? 'Take over' : 'Answer' : item.kind === 'approval' ? item.status === 'uncertain' ? 'Check' : 'Review' : 'Open';
 
 /** Needs me: approvals, questions and work that needs a look, from every agent
  * (designs/activity 1). Opening an item records a read receipt first; reading
  * never answers or approves anything. `first` is the page's own read, which also
- * gives the tab its count. */
-export function NeedsMe({ first, search }: { first: Attention; search: string }) {
+ * gives the tab its count. With `pane` (a wide window) the opened item shows beside
+ * the list instead of over it (designs/activity-next, Design A): rows are the
+ * buttons, J and K move through them, and the list is re-read after each decision. */
+export function NeedsMe({ first, search, pane = false }: { first: Attention; search: string; pane?: boolean }) {
   const [cursors, setCursors] = useState<string[]>([]);
   const older = useAttention('needs_you', cursors.at(-1) ?? null, cursors.length > 0);
   const { data, error, loading, refresh } = cursors.length ? older : first;
@@ -56,7 +64,7 @@ export function NeedsMe({ first, search }: { first: Attention; search: string })
   }, [open]);
   const select = (item: AttentionItem) => void mutation.run(async () => {
     opener.current = document.activeElement as HTMLElement | null;
-    try { await acknowledgeAttention(item); if (alive.current) setOpen(item); }
+    try { await acknowledgeAttention(item); if (alive.current) { setTogether(undefined); setOpen(item); } }
     catch (failure) { await refresh(); throw failure; }
   });
   const reviewed = (item: AttentionItem) => void mutation.run(async () => {
@@ -64,6 +72,7 @@ export function NeedsMe({ first, search }: { first: Attention; search: string })
     catch (failure) { await refresh(); throw failure; }
   });
   const close = () => { restore.current = true; setOpen(undefined); void refresh(); };
+  const activate = (entry: Entry) => { if (Array.isArray(entry)) { setOpen(undefined); setTogether(entry); } else select(entry); };
   const items = (data?.items ?? []).filter(item => !search || `${item.title} ${item.agent_name} ${item.conversation_name}`.toLowerCase().includes(search.toLowerCase()));
   const groups: [string, AttentionItem[]][] = [
     ['Approvals', items.filter(i => i.kind === 'approval' && i.status !== 'uncertain').sort((a, b) => urgent(a, b))],
@@ -72,38 +81,92 @@ export function NeedsMe({ first, search }: { first: Attention; search: string })
     ['Questions', items.filter(i => i.kind === 'question' && i.status !== 'browser').sort((a, b) => urgent(a, b))],
     ['Needs review', items.filter(i => i.kind === 'outcome' || i.status === 'uncertain')],
   ];
+  const sections = groups.filter(([, list]) => list.length).map(([title, list]) => [title, list.length, folded(list)] as const);
+  const entries = sections.flatMap(([, , rows]) => rows);
+  const shown = together ? entryKey(together) : open ? attentionKey(open) : undefined;
+  const listed = entries.some(entry => entryKey(entry) === shown);
+
+  // J and K (and the arrow keys inside the list) open the next and previous row.
+  const list = useRef<HTMLDivElement>(null);
+  const move = useRef<(step: number) => void>(() => {});
+  move.current = step => {
+    if (!entries.length) return;
+    const next = entries[Math.min(entries.length - 1, Math.max(0, entries.findIndex(entry => entryKey(entry) === shown) + step))];
+    if (entryKey(next) === shown) return;
+    [...list.current?.querySelectorAll<HTMLElement>('[data-entry]') ?? []].find(node => node.dataset.entry === entryKey(next))?.focus();
+    activate(next);
+  };
+  useEffect(() => {
+    if (!pane) return;
+    const keys = (event: KeyboardEvent) => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable]') || document.querySelector('dialog[open]')) return;
+      const inList = Boolean(target?.closest('.activity-needs-list'));
+      const step = event.key === 'j' || (inList && event.key === 'ArrowDown') ? 1 : event.key === 'k' || (inList && event.key === 'ArrowUp') ? -1 : 0;
+      if (!step) return;
+      event.preventDefault(); move.current(step);
+    };
+    document.addEventListener('keydown', keys);
+    return () => document.removeEventListener('keydown', keys);
+  }, [pane]);
+  const placement = useMemo(() => pane ? { settled: () => void refresh() } : undefined, [pane, refresh]);
+
+  const row = (entry: Entry) => {
+    const item = Array.isArray(entry) ? entry[0] : entry, group = Array.isArray(entry) ? entry : undefined;
+    const key = entryKey(entry), selected = key === shown;
+    const label = group ? 'Review together' : action(item);
+    const waiting = group || item.kind === 'approval' ? waitLine(item) : '';
+    const main = <>
+      <span className={`activity-mark ${group ? 'approval' : item.kind}`} aria-hidden="true">{group ? '◇' : glyph(item)}</span>
+      <span className="activity-main"><strong>{entryTitle(entry)}</strong>
+        <small>{pane && late(item) && <span className="activity-status waiting">An admin can decide now</span>}
+          <AgentFace agent={{ id: item.agent, name: item.agent_name }} className="activity-face" />{item.agent_name}
+          {group ? ` · oldest ${ago(Math.min(...group.map(i => i.created_at ?? i.at)))}` : ` · ${item.conversation_name} · ${ago(item.created_at ?? item.at)}${item.read ? '' : ' · new'}`}
+          {pane && late(item) ? '' : waiting}</small>
+        {!group && item.status === 'uncertain' && <small>The app didn’t confirm it, so its writes are paused. Check whether it went out.</small>}</span></>;
+    const mark = !group && item.kind === 'outcome' && item.status !== 'complete' && !item.reviewed
+      && <Button disabled={mutation.busy} onClick={() => reviewed(item)}>Mark reviewed</Button>;
+    const state = [group && 'activity-folded', selected && 'selected', !group && !item.read && 'unread'].filter(Boolean).join(' ') || undefined;
+    if (pane) return <li key={key} className={state}>
+      <button type="button" className="activity-need-row" data-entry={key} aria-current={selected ? 'true' : undefined} onClick={() => activate(entry)}>
+        {main}<span className="activity-need-action">{label}</span></button></li>;
+    return <li key={key} className={state}>{main}{mark}
+      <Button primary={Boolean(group) || (item.kind === 'approval' && item.status !== 'uncertain')} disabled={mutation.busy} onClick={() => activate(entry)}>{label}</Button></li>;
+  };
+  // In the pane a failed outcome is cleared from beside its details, not from its row.
+  const current = open && items.find(item => attentionKey(item) === attentionKey(open));
+  const clearable = current?.kind === 'outcome' && current.status !== 'complete' && !current.reviewed ? current : undefined;
+  const details = together ? <ReviewTogether items={together} close={() => { setTogether(undefined); void refresh(); }} />
+    : open?.kind === 'approval' && open.status !== 'uncertain' ? <ApprovalDialog key={open.id} id={open.id} close={close} />
+    : open?.kind === 'approval' ? <OutcomeDialog key={open.id} id={open.id} close={close} />
+    : open?.kind === 'question' ? <QuestionDialog key={open.id} id={open.id} close={close} />
+    : open?.kind === 'outcome' ? <RequestDetails key={open.id} reply={open.reply} close={close} /> : null;
   return <section className="activity-needs" aria-label="Needs me">
-    {error && <p role="alert">{error} <Button disabled={loading} onClick={() => void refresh()}>Retry</Button></p>}
-    {mutation.status && <p role="alert">{mutation.status}</p>}
-    {!data && !error && <p role="status">Checking what needs you…</p>}
-    {data?.available === false && <p className="activity-empty">Shared-work notifications are unavailable in this workspace.</p>}
-    {data?.available && !items.length && <div className="activity-empty"><strong>Nothing needs you right now</strong>
-      <p>Approvals, questions and work that needs a look appear here.</p></div>}
-    {groups.filter(([, list]) => list.length).map(([title, list]) => <section key={title} aria-label={title}>
-      <h2 className="activity-group">{title} · {list.length}</h2>
-      <ul className="activity-list">{folded(list).map(entry => Array.isArray(entry) ? <li key={`group.${attentionKey(entry[0])}`} className="activity-folded">
-        <span className="activity-mark approval" aria-hidden="true">◇</span>
-        <span className="activity-main"><strong>{entry.length} × {entry[0].operation_title ?? clean(entry[0].title)}</strong>
-          <small><AgentFace agent={{ id: entry[0].agent, name: entry[0].agent_name }} className="activity-face" />{entry[0].agent_name} · oldest {ago(Math.min(...entry.map(i => i.created_at ?? i.at)))}{waitLine(entry[0])}</small></span>
-        <Button primary disabled={mutation.busy} onClick={() => setTogether(entry)}>Review together</Button>
-      </li> : (item => <li key={attentionKey(item)} className={open && attentionKey(open) === attentionKey(item) ? 'selected' : undefined}>
-        <span className={`activity-mark ${item.kind}`} aria-hidden="true">{item.kind === 'question' ? '?' : item.kind === 'approval' && item.status !== 'uncertain' ? '◇' : '!'}</span>
-        <span className="activity-main"><strong>{clean(item.title)}</strong>
-          <small><AgentFace agent={{ id: item.agent, name: item.agent_name }} className="activity-face" />{item.agent_name} · {item.conversation_name} · {ago(item.created_at ?? item.at)}{item.read ? '' : ' · new'}{item.kind === 'approval' ? waitLine(item) : ''}</small>
-          {item.status === 'uncertain' && <small>The app didn’t confirm it, so its writes are paused. Check whether it went out.</small>}</span>
-        {item.kind === 'outcome' && item.status !== 'complete' && !item.reviewed
-          && <Button disabled={mutation.busy} onClick={() => reviewed(item)}>Mark reviewed</Button>}
-        <Button primary={item.kind === 'approval' && item.status !== 'uncertain'} disabled={mutation.busy} onClick={() => select(item)}>{action(item)}</Button>
-      </li>)(entry))}</ul>
-    </section>)}
-    {(cursors.length > 0 || data?.next_before) && <nav className="activity-pages" aria-label="Needs me pages">
-      {cursors.length > 0 && <Button disabled={loading} onClick={() => setCursors(old => old.slice(0, -1))}>Newer</Button>}
-      {data?.next_before && <Button disabled={loading} onClick={() => setCursors(old => [...old, data.next_before as string])}>Older</Button>}
-    </nav>}
-    {together && <ReviewTogether items={together} close={() => { setTogether(undefined); void refresh(); }} />}
-    {open?.kind === 'approval' && open.status !== 'uncertain' && <ApprovalDialog key={open.id} id={open.id} close={close} />}
-    {open?.kind === 'approval' && open.status === 'uncertain' && <OutcomeDialog key={open.id} id={open.id} close={close} />}
-    {open?.kind === 'question' && <QuestionDialog key={open.id} id={open.id} close={close} />}
-    {open?.kind === 'outcome' && <RequestDetails key={open.id} reply={open.reply} close={close} />}
+    <div className="activity-needs-list" ref={list}>
+      {error && <p role="alert">{error} <Button disabled={loading} onClick={() => void refresh()}>Retry</Button></p>}
+      {mutation.status && <p role="alert">{mutation.status}</p>}
+      {!data && !error && <p role="status">Checking what needs you…</p>}
+      {data?.available === false && <p className="activity-empty">Shared-work notifications are unavailable in this workspace.</p>}
+      {data?.available && !items.length && <div className="activity-empty"><strong>Nothing needs you right now</strong>
+        <p>Approvals, questions and work that needs a look appear here.</p></div>}
+      {sections.map(([title, count, rows]) => <section key={title} aria-label={title}>
+        <h2 className="activity-group">{title} · {count}</h2>
+        <ul className="activity-list">{rows.map(row)}</ul>
+      </section>)}
+      {(cursors.length > 0 || data?.next_before) && <nav className="activity-pages" aria-label="Needs me pages">
+        {cursors.length > 0 && <Button disabled={loading} onClick={() => setCursors(old => old.slice(0, -1))}>Newer</Button>}
+        {data?.next_before && <Button disabled={loading} onClick={() => setCursors(old => [...old, data.next_before as string])}>Older</Button>}
+      </nav>}
+    </div>
+    <DialogPlacement.Provider value={placement}><div className="activity-pane">
+      {details}
+      {pane && !details && entries.length > 0 && <p className="activity-empty">Choose something on the left to read it here. J and K move through the list.</p>}
+      {pane && clearable && <p className="activity-pane-next">
+        <Button disabled={mutation.busy} onClick={() => reviewed(clearable)}>Mark reviewed</Button>
+        <small>Clears it from this list. Nothing is retried or changed.</small></p>}
+      {pane && details && !listed && entries.length > 0 && <p className="activity-pane-next">
+        <Button primary disabled={mutation.busy} onClick={() => activate(entries[0])}>Next: {entryTitle(entries[0])}</Button></p>}
+    </div></DialogPlacement.Provider>
   </section>;
 }

@@ -1,8 +1,23 @@
 # Activity: review and three redesign proposals (2026-11-21)
 
-**Status: proposal, not approved.** Nothing here changes the built page. The approved
-design is still [`designs/activity`](../activity/README.md) (2026-10-30) and the built
-behaviour is in [`runtime/activity.md`](../../runtime/activity.md).
+**Status: Design A is being built in steps; B and C are proposals.** The owner asked
+for Design A to be worked on (2026-11-21). The built behaviour is in
+[`runtime/activity.md`](../../runtime/activity.md); the design approved earlier is
+[`designs/activity`](../activity/README.md) (2026-10-30).
+
+| Step | What | State |
+| --- | --- | --- |
+| 0 | The five bugs listed below | Built and tested |
+| 1 | Needs me as a list with the opened item beside it (wide windows), J and K | Built and tested |
+| 2 | Fix items (connections, failing agents, late tasks) in the same list and count | Waits for the owner: what the rail's red count means |
+| 3 | The conversation shown and answered inside the item; "‹ Needs you" back from Chat | Not started: needs a read of the messages around a request |
+| 4 | Work tab with agent rows; History with the log first; Insights | Not started: includes the new tab names, an owner decision |
+| 5 | The list-then-item layout on phones; A, R and C keys | Not started |
+
+Step 1 keeps every item's own content and buttons (the approval, question, outcome,
+request and review-together dialogs are shown in place, unchanged), the count, the
+order and the read receipts. It does not open the first item by itself, because opening
+saves a read receipt and that should follow a person's action.
 
 `mockups.html` is one page: what Activity is for, a review of the page as built today
 (annotated screenshots in `current/`), and three live mockups in Cuckoo's own tokens,
