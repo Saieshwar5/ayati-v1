@@ -37,7 +37,8 @@ P.views.history = {
     const days = [...new Set(list.map(entry => entry.day))];
     const chosen = list.find(entry => entry.id === h.sel);
     const names = [...new Set(P.s.agents.map(agent => agent.name))];
-    const pane = chosen ? P.pane(detail(chosen), { back: 'History', bar: (P.s.items.some(item => item.id === chosen.item && !item.done) ? P.button('Open in Needs you', 'open-item', { primary: true }) : '') + (chosen.status[0] === 'work' ? P.button('Stop request', 'stop') : '') + P.button('Open conversation', 'talk') + P.button('Discuss in chat', 'talk') + P.button('Make this a task', 'totask') })
+    const linked = chosen?.item && P.s.items.find(item => item.id === chosen.item);
+    const pane = chosen ? P.pane(detail(chosen), { back: 'History', talk: linked ? P.peek(linked, P.s.draft) : '', bar: (P.s.items.some(item => item.id === chosen.item && !item.done) ? P.button('Open in Needs you', 'open-item', { primary: true }) : '') + (chosen.status[0] === 'work' ? P.button('Stop request', 'stop') : '') + (linked ? '' : P.button('Open in Chat', 'talk') + P.button(`Ask ${chosen.agent} privately`, 'ask')) + P.button('Make this a task', 'totask') })
       : `<div class="pane-scroll">${P.empty('Choose a request', 'Every step it took, how each step was allowed, and the reply show here.')}</div>`;
     root.innerHTML = `<div class="stack"><div class="toolbar">
         <select data-act="period" aria-label="Period"><option value="7" ${h.period === '7' ? 'selected' : ''}>Last 7 days</option><option value="today" ${h.period === 'today' ? 'selected' : ''}>Today</option></select>
@@ -56,7 +57,9 @@ P.views.history = {
     const h = P.s.hist, button = target.closest('[data-act]');
     if (button?.dataset.act === 'fold') { h.open = h.open.includes(button.dataset.id) ? h.open.filter(id => id !== button.dataset.id) : [...h.open, button.dataset.id]; return P.draw(); }
     const picked = target.closest('.hrow');
-    if (picked && !button) { h.sel = picked.dataset.id; P.s.paneOpen = true; return P.draw(); }
+    if (picked && !button) { h.sel = picked.dataset.id; P.s.draft = {}; P.s.paneOpen = true; return P.draw(); }
+    const entry = P.s.history.find(found => found.id === h.sel), linked = entry?.item && P.s.items.find(item => item.id === entry.item);
+    if (button && linked && P.talkAct(button.dataset.act, linked, P.s.draft, 'History')) return;
     if (!button || button.tagName === 'SELECT') return;
     const act = button.dataset.act;
     if (act === 'status') h.status = button.dataset.status;
@@ -65,11 +68,13 @@ P.views.history = {
     else if (act === 'insights') return P.go('insights');
     else if (act === 'export') return P.toast('Downloads the filtered requests as a CSV file (at most 5,000).');
     else if (act === 'talk') return P.elsewhere('the conversation in Chat, at this message');
+    else if (act === 'ask') return P.openChat({ agent: entry.agent, title: entry.title, where: entry.meta }, 'direct', 'History');
     else if (act === 'totask') return P.toast('Saved as a task. It stays in Work → Tasks until it is closed.');
     else if (act === 'stop') return P.toast('Stop requested.');
     else if (act === 'open-item') { P.selectItem(P.s.history.find(entry => entry.id === h.sel).item); P.s.paneOpen = true; return P.go('needs'); }
     P.draw();
   },
+  input(target) { P.talkInput(target, P.s.draft); },
   change(target) { if (['period', 'agent', 'type'].includes(target.dataset.act)) { P.s.hist[target.dataset.act] = target.value; P.draw(); } },
   key(key) {
     const step = { j: 1, ArrowDown: 1, k: -1, ArrowUp: -1 }[key]; if (!step) return false;

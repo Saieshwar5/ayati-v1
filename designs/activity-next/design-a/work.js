@@ -98,7 +98,7 @@ P.views.work = {
     else if (act === 'stop') { agent.doing = agent.doing.filter(job => job.id !== button.dataset.job); P.toast('Stop requested.'); }
     else if (act === 'agent-history') return P.go('history', { agent: agent.name });
     else if (act === 'setup') return P.elsewhere(`${agent.name}’s page in Agents`);
-    else if (act === 'message') return P.elsewhere(`your direct chat with ${agent.name}`);
+    else if (act === 'message') return P.openChat({ agent: agent.name }, 'direct', 'Work');
     else if (act === 'task-close') { P.s.tasks = P.s.tasks.filter(task => task.id !== w.task); w.task = null; P.s.paneOpen = false; P.toast(button.dataset.how); }
     P.draw();
   },

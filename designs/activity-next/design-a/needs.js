@@ -41,17 +41,18 @@ function body(item, draft) {
   return '';
 }
 function bar(item, draft) {
-  const talk = P.button('Open conversation', 'talk');
   if (item.done) return `<span class="decided">✓ ${item.done.label} by you · just now. It can’t be changed here.</span>${P.button('See it in History', 'history')}`;
-  if (item.kind === 'approval') return P.button('Approve this action', 'approve', { primary: true, key: 'A' }) + P.button('Reject', 'reject', { key: 'R' }) + P.button('Request changes', 'changes', { key: 'C' }) + talk;
-  if (item.kind === 'group') return P.button(`Approve all ${left(item)}`, 'approve', { primary: true, key: 'A' }) + talk;
-  if (item.kind === 'choice') return P.button('Send answer', 'answer', { primary: true, disabled: !draft.choice }) + P.button('I can’t answer', 'decline') + talk;
+  if (item.kind === 'approval' && draft.changes) return P.button('Send and request changes', 'changes-send', { primary: true, disabled: !(draft.reply ?? '').trim() }) + P.button('Cancel', 'changes-cancel')
+    + '<span class="bar-note">Your note is posted in the conversation and the request is closed without approving.</span>';
+  if (item.kind === 'approval') return P.button('Approve this action', 'approve', { primary: true, key: 'A' }) + P.button('Reject', 'reject', { key: 'R' }) + P.button('Request changes', 'changes', { key: 'C' });
+  if (item.kind === 'group') return P.button(`Approve all ${left(item)}`, 'approve', { primary: true, key: 'A' });
+  if (item.kind === 'choice') return P.button('Send answer', 'answer', { primary: true, disabled: !draft.choice }) + P.button('I can’t answer', 'decline');
   if (item.kind === 'browser') return draft.using ? P.button('Done, give back', 'giveback', { primary: true }) + P.button('I can’t do it', 'decline')
-    : P.button('Take over the browser', 'takeover', { primary: true }) + talk;
+    : P.button('Take over the browser', 'takeover', { primary: true });
   if (item.kind === 'connection') return P.button('Reconnect Zoho Books', 'reconnect', { primary: true }) + '<span class="bar-note">Opens Settings → Connections</span>';
-  if (item.kind === 'failed') return P.button('Mark reviewed', 'reviewed', { primary: true }) + P.button('Make this a task', 'totask') + P.button('Discuss in chat', 'talk') + talk;
+  if (item.kind === 'failed') return P.button('Mark reviewed', 'reviewed', { primary: true }) + P.button('Make this a task', 'totask');
   if (item.kind === 'unconfirmed') return P.button('Save answer', 'settle', { primary: true, disabled: !draft.happened }) + '<span class="bar-note">Saving lets Gmail writes run again. History shows who answered.</span>';
-  return P.button('Mark done', 'taskdone', { primary: true }) + P.button('Cancel task', 'taskcancel') + talk;
+  return P.button('Mark done', 'taskdone', { primary: true }) + P.button('Cancel task', 'taskcancel');
 }
 
 function render(root) {
@@ -65,7 +66,7 @@ function render(root) {
       }).join('')
       : P.s.search.trim() ? P.empty(`Nothing matches “${P.esc(P.s.search)}”`) : P.empty('Nothing needs you right now', 'Approvals, questions and things to fix appear here.'))
     + (done.length ? `<button type="button" class="group fold" data-act="toggle-done" aria-expanded="${P.s.showDone}">Decided today · ${done.length} <span>${P.s.showDone ? 'Hide' : 'Show'}</span></button>${P.s.showDone ? done.map(row).join('') : ''}` : '');
-  const pane = item ? P.pane({ ...P.settled(item), title: titleOf(item) }, { body: body(item, P.s.draft), bar: bar(item, P.s.draft), back: 'Needs you' })
+  const pane = item ? P.pane({ ...P.settled(item), title: titleOf(item) }, { body: body(item, P.s.draft), talk: P.peek(item, P.s.draft), bar: bar(item, P.s.draft), back: 'Needs you' })
     : `<div class="pane-scroll">${open().length ? P.empty('Choose something on the left', 'Or press J to open the first one.') : P.empty('You are all caught up', `${done.length} decided today. New requests appear in the list by themselves.`)}</div>`;
   root.innerHTML = `<div class="split${P.s.paneOpen && item ? ' open' : ''}"><div class="list" id="queue">${queue}</div><section class="pane" aria-label="Details">${pane}</section></div>`;
 }
@@ -82,6 +83,7 @@ function finish(item, label, said) {
   if (!next) P.s.paneOpen = false;
   P.toast(said, { label: 'See it in History', run: () => P.go('history', { sel: `h-${item.id}` }) });
 }
+P.decideApproval = (item, name) => finish(item, { approve: 'Approved', reject: 'Rejected' }[name], item.said[name]);
 const move = step => {
   const list = shown(); if (!list.length) return;
   const at = list.findIndex(item => item.id === P.s.sel);
@@ -94,11 +96,13 @@ function act(name, target) {
   if (name === 'toggle-done') { P.s.showDone = !P.s.showDone; return P.draw(); }
   if (name === 'away') return P.go('history');
   if (!item) return;
-  if (name === 'talk') return P.elsewhere(`the conversation in ${item.where.startsWith('#') ? item.where : 'Chat'}, at this message`);
+  if (P.talkAct(name, item, draft, 'Needs you')) return;
   if (name === 'history') return P.go('history', { sel: `h-${item.id}` });
   if (item.done) return;
-  if (item.kind === 'approval' && ['approve', 'reject', 'changes'].includes(name))
-    finish(item, { approve: 'Approved', reject: 'Rejected', changes: 'Changes requested' }[name], item.said[name]);
+  if (item.kind === 'approval' && name === 'changes') { draft.changes = true; P.draw(); return document.getElementById('reply-text')?.focus(); }
+  else if (name === 'changes-cancel') draft.changes = false;
+  else if (name === 'changes-send') { P.say(item, draft.reply); finish(item, 'Changes requested', `Changes requested. Your note is in ${item.talk.place}; ${item.agent} will propose again.`); }
+  else if (item.kind === 'approval' && ['approve', 'reject'].includes(name)) P.decideApproval(item, name);
   else if (item.kind === 'group' && name === 'approve') {
     const count = left(item); item.subs.forEach(sub => { sub.done ??= 'Approved'; });
     finish(item, `${count} approved`, `${count} approved, each on its own. ${item.agent} is sending the refunds.`);
@@ -133,11 +137,13 @@ P.views.needs = {
     else return;
     P.draw();
   },
-  input(target) { if (target.id === 'answer-note') P.s.draft.note = target.value; },
+  input(target) { if (!P.talkInput(target, P.s.draft) && target.id === 'answer-note') P.s.draft.note = target.value; },
   key(key) {
     if (key === 'j' || key === 'ArrowDown') return move(1), true;
     if (key === 'k' || key === 'ArrowUp') return move(-1), true;
-    const item = current(); if (!item || item.done) return false;
+    const item = current(); if (!item) return false;
+    if (key === 'o' && item.talk) return act('open-chat'), true;
+    if (item.done) return false;
     const name = { a: 'approve', r: 'reject', c: 'changes' }[key];
     if (name && (item.kind === 'approval' || (item.kind === 'group' && name === 'approve'))) return act(name), true;
     return false;

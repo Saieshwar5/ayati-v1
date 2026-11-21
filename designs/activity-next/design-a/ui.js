@@ -8,7 +8,7 @@ P.matches = (...text) => { const q = P.s.search.trim().toLowerCase(); return !q 
 P.empty = (title, text = '') => `<div class="empty"><strong>${title}</strong>${text ? `<span>${text}</span>` : ''}</div>`;
 
 /** The reading pane: the same shape for an approval, a question, a request or a task. */
-P.pane = (d, { body = '', bar = '', back = 'Back' } = {}) => `
+P.pane = (d, { body = '', talk = '', bar = '', back = 'Back' } = {}) => `
   <div class="pane-scroll"><article class="pane-read">
     <button type="button" class="back" data-act="back">‹ ${back}</button>
     <div class="pane-top">${P.chip(d.chip)}${d.urgent ? P.chip(['wait', d.urgent]) : ''}</div>
@@ -20,6 +20,7 @@ P.pane = (d, { body = '', bar = '', back = 'Back' } = {}) => `
     ${body}
     ${(d.notes ?? []).map(([tone, text]) => `<p class="note ${tone}">${text}</p>`).join('')}
     ${d.help ? `<p class="help">${d.help}</p>` : ''}
+    ${talk}
     ${d.steps ? `<h3>Steps so far</h3><ol class="steps">${d.steps.map(([state, text, how]) =>
       `<li class="${state}"><i class="dot ${state}"></i><span>${text}${how ? `<small>${how}</small>` : ''}</span></li>`).join('')}</ol>` : ''}
   </article></div>

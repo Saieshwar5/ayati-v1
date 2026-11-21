@@ -7,8 +7,8 @@ P.colours = { Iris: '#8a4b3c', Atlas: '#51697a', Nova: '#b8860b', Ledger: '#2f7a
 
 // Everything that waits on a person, already in urgency order inside each group.
 P.makeItems = () => [
-  { id: 'refunds', group: 'decide', kind: 'group', op: 'Refund order', agent: 'Atlas', where: '#orders', age: '5 h', urgent: 'Admin can decide now', unread: true,
-    chip: ['wait', 'Waiting for approval'], facts: 'three customers asked in #orders · oldest 5 hours ago',
+  { id: 'refunds', group: 'decide', kind: 'group', op: 'Refund order', agent: 'Atlas', where: '#returns', outside: '#returns', age: '5 h', urgent: 'Admin can decide now', unread: true,
+    chip: ['wait', 'Waiting for approval'], facts: 'three customers asked in #returns · oldest 5 hours ago',
     lead: 'From Atlas. Each is decided separately; nothing runs until you decide it.',
     notes: [['wait', 'Refunds always ask. Ravi Kumar has not answered for 4 hours, so you can decide as an admin.']],
     subs: [
@@ -21,24 +21,38 @@ P.makeItems = () => [
     notes: [['wait', 'Discounts above 10% need a manager. Waiting for you or Ravi Kumar. If nobody decides by 2:40 pm, an admin can.']],
     help: 'Approval applies once to these exact fields. The first decision counts.',
     steps: [['ok', 'Read Kavya’s request'], ['ok', 'Checked stock: 52 chairs available'], ['ok', 'Prepared the quote'], ['wait', 'Waiting for your approval'], ['next', 'Send the quote to the customer']],
-    said: { approve: 'Approved. Nova is sending the quote.', reject: 'Rejected. Nova told Kavya in #sales.', changes: 'Changes requested. Ask Nova for a revised quote in #sales.' } },
+    said: { approve: 'Approved. Nova is sending the quote.', reject: 'Rejected. Nova told Kavya in #sales.', changes: 'Changes requested. Ask Nova for a revised quote in #sales.' },
+    talk: { place: '#sales', see: 'Kavya Nair and Nova', msgs: [
+      { who: 'Kavya Nair', time: '10:31 am', text: 'Sharma Traders want 40 teak dining chairs for their new showroom. They are asking for a bulk price.' },
+      { who: 'Kavya Nair', time: '10:36 am', text: '@Nova send them a quote with 12% off. They ordered 25 chairs in March.' },
+      { who: 'Nova', agent: true, target: true, time: '10:37 am', text: 'The quote is ready: 40 chairs, 12% off, ₹4,18,000. A discount above 10% needs a manager, so I have asked for approval before I send it.' }] } },
   { id: 'address', group: 'decide', kind: 'approval', title: 'Update order #1057 delivery address', agent: 'Atlas', where: '#orders', age: '25 min', unread: true,
     chip: ['wait', 'Waiting for your approval'], facts: 'asked by Kavya Nair in #orders · today 10:29 am',
     card: { label: 'What Atlas wants to do', head: 'Zoho Books · Update order', fields: [['Order', '#1057 · Kapoor Interiors'], ['Old address', '14 MG Road, Pune'], ['New address', '8 Baner Road, Pune']] },
     notes: [['wait', 'Changing an order asks for approval. Waiting for you. If nobody decides by 1:54 pm, an admin can.']],
     help: 'Approval applies once to these exact fields. The first decision counts.',
     steps: [['ok', 'Read Kavya’s request'], ['ok', 'Read order #1057'], ['wait', 'Waiting for your approval'], ['next', 'Update the order']],
-    said: { approve: 'Approved. Atlas is updating the order.', reject: 'Rejected. Atlas told Kavya in #orders.', changes: 'Changes requested. Ask Atlas for a revised update in #orders.' } },
+    said: { approve: 'Approved. Atlas is updating the order.', reject: 'Rejected. Atlas told Kavya in #orders.', changes: 'Changes requested. Ask Atlas for a revised update in #orders.' },
+    talk: { place: '#orders', see: 'Kavya Nair and Atlas', msgs: [
+      { who: 'Kavya Nair', time: '10:27 am', text: 'Kapoor Interiors moved their site office. Order #1057 should go to the new place.' },
+      { who: 'Kavya Nair', time: '10:29 am', text: '@Atlas change the delivery address on #1057 to 8 Baner Road, Pune.' },
+      { who: 'Atlas', agent: true, target: true, time: '10:29 am', text: 'I can change it. Changing an order needs an approval first, so I have asked for one.' }] } },
   { id: 'courier', group: 'answer', kind: 'choice', title: 'Which courier for the Bengaluru order?', agent: 'Atlas', where: '#orders', age: '1 h', unread: true,
     chip: ['wait', 'Waiting for your answer'], facts: 'for Ravi Kumar’s request “Ship the Bengaluru order” · #orders',
     quote: 'Two couriers can take the Bengaluru order. Which one should I book?',
     options: [['bluedart', 'BlueDart', '₹840 · arrives Tuesday'], ['delhivery', 'Delhivery', '₹610 · arrives Thursday']],
     help: 'An answer supplies facts. Booking the courier still follows Atlas’s own rules.',
-    steps: [['ok', 'Read Ravi’s request'], ['ok', 'Checked two couriers'], ['wait', 'Waiting for your answer'], ['next', 'Book the courier']] },
+    steps: [['ok', 'Read Ravi’s request'], ['ok', 'Checked two couriers'], ['wait', 'Waiting for your answer'], ['next', 'Book the courier']],
+    talk: { place: '#orders', see: 'Ravi Kumar and Atlas', msgs: [
+      { who: 'Ravi Kumar', time: '9:52 am', text: '@Atlas ship the Bengaluru order today. Pick whichever courier makes sense.' },
+      { who: 'Atlas', agent: true, target: true, quote: true, time: '9:54 am', text: 'Two couriers can take the Bengaluru order. BlueDart is ₹840 and arrives Tuesday. Delhivery is ₹610 and arrives Thursday. Which one should I book?' }] } },
   { id: 'portal', group: 'answer', kind: 'browser', title: 'Sign in to the supplier portal', agent: 'Ledger', where: '#accounts', age: '40 min', unread: true,
     chip: ['wait', 'Waiting in its browser'], facts: 'for your request “Download the October invoice” · #accounts',
     quote: 'The supplier portal asks for a password and a code sent to your phone. Please sign in, then give the browser back to me.',
-    help: 'Waiting costs nothing. You have 15 minutes from your last action in the browser.' },
+    help: 'Waiting costs nothing. You have 15 minutes from your last action in the browser.',
+    talk: { place: '#accounts', see: 'Ledger', mine: true, msgs: [
+      { who: 'You', mine: true, time: '10:12 am', text: '@Ledger download the October invoice from the supplier portal and file it.' },
+      { who: 'Ledger', agent: true, target: true, quote: true, time: '10:14 am', text: 'The supplier portal asks for a password and a code sent to your phone. Please sign in, then give the browser back to me.' }] } },
   { id: 'zoho', group: 'fix', kind: 'connection', title: 'Zoho Books needs reconnecting', agent: 'Nova', agents: ['Nova', 'Ledger'], where: 'stops Nova and Ledger', age: '3 h', unread: true,
     chip: ['bad', 'Connection stopped'], facts: 'sign-in expired today 7:50 am',
     card: { label: 'What it is blocking', head: '2 agents cannot read or write in Zoho Books', fields: [['Nova', '2 requests could not complete'], ['Ledger', 'Bank reconciliation at 12:54 pm will fail'], ['Atlas', 'Not affected, it uses another account']] },
@@ -47,16 +61,22 @@ P.makeItems = () => [
     chip: ['bad', 'Could not complete'], facts: 'asked by Kavya Nair in #sales · yesterday 4:05 pm · 41 s',
     quote: 'I could not finish the quote: the current price list is not in the Library, so I have no prices for teak tables.',
     notes: [['bad', '<b>How to fix it.</b> Add the current price list to the Library folder Nova can read. Only Kavya Nair can retry, because she asked.']],
-    steps: [['ok', 'Read the message'], ['ok', 'Zoho Books: read customer Iyer and Sons', 'Allowed automatically'], ['ok', 'Searched the Library for the price list', 'Allowed automatically'], ['bad', 'Stopped and replied']] },
+    steps: [['ok', 'Read the message'], ['ok', 'Zoho Books: read customer Iyer and Sons', 'Allowed automatically'], ['ok', 'Searched the Library for the price list', 'Allowed automatically'], ['bad', 'Stopped and replied']],
+    talk: { place: '#sales', see: 'Kavya Nair and Nova', msgs: [
+      { who: 'Kavya Nair', time: 'yesterday 4:05 pm', text: '@Nova draft a quote for Iyer and Sons: 12 teak chairs and 2 tables, usual terms.' },
+      { who: 'Nova', agent: true, target: true, quote: true, time: 'yesterday 4:06 pm', text: 'I could not finish the quote: the current price list is not in the Library, so I have no prices for teak tables.' }] } },
   { id: 'gupta', group: 'fix', kind: 'unconfirmed', title: 'Did the payment reminder to Gupta Furniture go out?', agent: 'Ledger', where: '#accounts', age: 'yesterday', unread: true,
-    chip: ['wait', 'Outcome unconfirmed'], facts: 'schedule “Payment reminders” · yesterday 6:54 pm',
+    room: true, chip: ['wait', 'Outcome unconfirmed'], facts: 'schedule “Payment reminders” · yesterday 6:54 pm',
     card: { label: 'What Ledger sent', head: 'Gmail · Send email', fields: [['To', 'accounts@guptafurniture.example'], ['Subject', 'Reminder: invoice INV-2291 is 14 days overdue'], ['Checked', 'Looked for it: Gmail didn’t answer']] },
     notes: [['wait', 'Gmail didn’t confirm this action. Cuckoo has not tried it again. Gmail writes are paused until someone answers, so it is never done twice.']] },
   { id: 'late', group: 'fix', kind: 'task', task: 't-gupta', title: 'Late: chase Gupta Furniture for the October invoice', agent: 'Ledger', where: '#accounts', age: '3 h late', unread: true,
     chip: ['bad', 'Late'], facts: 'task for you · due today 7:54 am · next check today 2:00 pm',
     quote: 'I emailed Gupta Furniture twice and have no reply. I can call their accounts desk if you give me the number.',
     notes: [['bad', 'A late task stays here until it is done or cancelled.']],
-    steps: [['ok', 'Emailed Gupta Furniture', 'Wed 4:10 pm'], ['ok', 'Emailed again', 'Fri 10:02 am'], ['wait', 'No reply yet']] },
+    steps: [['ok', 'Emailed Gupta Furniture', 'Wed 4:10 pm'], ['ok', 'Emailed again', 'Fri 10:02 am'], ['wait', 'No reply yet']],
+    talk: { place: '#accounts', see: 'Ledger', mine: true, msgs: [
+      { who: 'You', mine: true, time: 'Wed 4:02 pm', text: '@Ledger chase Gupta Furniture for the October invoice. I need it by Saturday morning.' },
+      { who: 'Ledger', agent: true, target: true, quote: true, time: 'Fri 10:03 am', text: 'I emailed Gupta Furniture twice and have no reply. I can call their accounts desk if you give me the number.' }] } },
 ];
 P.arrivals = [
   { id: 'paylink', group: 'decide', kind: 'approval', title: 'Send a payment link to Kapoor Interiors', agent: 'Atlas', where: '#orders', age: 'just now', unread: true, fresh: true,
@@ -65,12 +85,18 @@ P.arrivals = [
     notes: [['wait', 'Payment links above ₹50,000 ask for approval. Waiting for you. If nobody decides by 2:54 pm, an admin can.']],
     help: 'Approval applies once to these exact fields. The first decision counts.',
     steps: [['ok', 'Read Ravi’s request'], ['ok', 'Read order #1057'], ['wait', 'Waiting for your approval'], ['next', 'Send the link by email']],
-    said: { approve: 'Approved. Atlas is sending the payment link.', reject: 'Rejected. Atlas told Ravi in #orders.', changes: 'Changes requested. Ask Atlas for a revised link in #orders.' } },
+    said: { approve: 'Approved. Atlas is sending the payment link.', reject: 'Rejected. Atlas told Ravi in #orders.', changes: 'Changes requested. Ask Atlas for a revised link in #orders.' },
+    talk: { place: '#orders', see: 'Ravi Kumar and Atlas', msgs: [
+      { who: 'Ravi Kumar', time: 'just now', text: '@Atlas send Kapoor Interiors a payment link for order #1057.' },
+      { who: 'Atlas', agent: true, target: true, time: 'just now', text: 'The link is ready for ₹86,400. Links above ₹50,000 need an approval, so I have asked for one.' }] } },
   { id: 'tone', group: 'answer', kind: 'choice', title: 'Formal or friendly tone for the Diwali posts?', agent: 'Pixel', where: '#marketing', age: 'just now', unread: true, fresh: true,
     chip: ['wait', 'Waiting for your answer'], facts: 'for your task “Prepare Diwali offer posts” · #marketing',
     quote: 'Last year’s posts were formal. This year’s catalogue copy is friendlier. Which tone should the Diwali posts use?',
     options: [['formal', 'Formal', 'like last year'], ['friendly', 'Friendly', 'like the new catalogue']],
-    help: 'An answer supplies facts. Posting still follows Pixel’s own rules.' },
+    help: 'An answer supplies facts. Posting still follows Pixel’s own rules.',
+    talk: { place: '#marketing', see: 'Pixel', mine: true, msgs: [
+      { who: 'You', mine: true, time: 'Thu 3:20 pm', text: '@Pixel prepare the Diwali offer posts for next week.' },
+      { who: 'Pixel', agent: true, target: true, quote: true, time: 'just now', text: 'Last year’s posts were formal. This year’s catalogue copy is friendlier. Which tone should the Diwali posts use?' }] } },
 ];
 
 P.makeAgents = () => [

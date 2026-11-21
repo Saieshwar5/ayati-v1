@@ -18,8 +18,8 @@
     <nav class="rail" aria-label="Workspace">
       <span class="logo"><svg><use href="#i-logo"/></svg></span>
       <button type="button" data-go="Home" aria-label="Home"><svg><use href="#i-home"/></svg></button>
-      <button type="button" data-go="Chat" aria-label="Chat"><svg><use href="#i-chat"/></svg></button>
-      <span class="on" aria-label="Activity, current page"><svg><use href="#i-act"/></svg><b id="rail-count"></b></span>
+      <button type="button" id="rail-chat" data-go="Chat" aria-label="Chat"><svg><use href="#i-chat"/></svg></button>
+      <button type="button" id="rail-activity" class="on" data-go="Activity" aria-label="Activity"><svg><use href="#i-act"/></svg><b id="rail-count"></b></button>
       <button type="button" data-go="Agents" aria-label="Agents"><svg><use href="#i-bot"/></svg></button>
       <button type="button" data-go="Library" aria-label="Library"><svg><use href="#i-lib"/></svg></button>
       <span class="grow"></span>
@@ -34,6 +34,7 @@
         <label class="search"><span class="sr">Search</span><input id="search" type="search" autocomplete="off"><kbd>/</kbd></label>
       </header>
       <div id="view" class="view" role="tabpanel" aria-label="Activity"></div>
+      <div id="chatview" class="chat" hidden></div>
       <div id="toast" class="toast" role="status" hidden></div>
     </main>
   </div>
@@ -61,6 +62,19 @@
         <li>Go to Planned and pause “Bank reconciliation”, then Undo.</li>
         <li>Clear everything in Needs you to see the empty state. “Start over” brings it back.</li>
       </ol></section>
+    <section><h3>Talking about an item</h3>
+      <p>There are three ways, from lightest to heaviest. Most of the time the first two are enough and you never leave the page.</p>
+      <ol>
+        <li><b>Read it here.</b> Each item shows the last messages of its conversation under “Conversation”. Press “Show earlier” for more.</li>
+        <li><b>Reply here.</b> Type under those messages and press Reply. It posts in the same conversation, as you, and the line under the box says who will see it. If the request is your own and still running, the box says “Add to this request” and the agent reads it at its next step.</li>
+        <li><b>Open in Chat</b> (key <kbd>O</kbd>). This leaves Activity and opens the Chat page on that conversation, scrolled to the message, which is marked “You came from this request”. The header has “‹ Needs you”, which brings you back to the same item. An approval can also be decided on its card in Chat; it then leaves the list here.</li>
+      </ol>
+      <ul>
+        <li><b>Request changes</b> (key <kbd>C</kbd>) turns the reply box into “What should change?”. Your note and the decision go together.</li>
+        <li><b>Ask the agent privately</b> opens your own direct chat with the agent, with the first words written for you. Nothing is sent until you press Send.</li>
+        <li><b>When there is no link:</b> if you are not in the conversation, or the work ran on a schedule in its own room, there is nothing to open. The item says so and offers the private chat.</li>
+      </ul>
+      <p>Try it on “Approve a 12% discount”: reply, then press <kbd>O</kbd>, approve on the card in Chat, and press “‹ Needs you”.</p></section>
     <section><h3>The layout</h3>
       <p>Every tab that has a list uses the same two parts: the list on the left, the thing you picked on the right. Needs you, Work and History all behave this way, so you learn it once. Nothing opens in a dialog and nothing dims the list.</p></section>
     <section><h3>The list</h3>
@@ -112,9 +126,11 @@
 
 <script src="data.js"></script>
 <script src="ui.js"></script>
+<script src="talk.js"></script>
 <script src="needs.js"></script>
 <script src="work.js"></script>
 <script src="planned.js"></script>
 <script src="history.js"></script>
 <script src="insights.js"></script>
+<script src="chat.js"></script>
 <script src="app.js"></script>

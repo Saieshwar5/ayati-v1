@@ -58,6 +58,25 @@ What it shows beyond the first mockup:
   Insights holds Review and the charts.
 - My agents / All agents appears only on the tabs it changes (Work, Planned).
 
+Talking about an item (`talk.js`, and `chat.js` for a simplified Chat page):
+
+- **Today** "Open conversation" is a full page load of Chat at that message
+  (`?view=chat&conversation=…&message=…&thread=…`), with no way back to the item;
+  "Discuss in chat" opens the direct chat with the agent with a draft started; "Add to
+  this request" is the only thing said without leaving, and only for the asker's
+  running request.
+- **In Design A** each item shows the last messages of its conversation and a reply box
+  that posts in that conversation as the person (it says who will see it). "Request
+  changes" uses the same box, so the note and the decision go together. "Open in Chat"
+  still loads Chat at the message, now with "‹ Needs you" in the header (the pattern
+  "‹ For you" already uses) and the item kept in the address, so the same item is open
+  on return. An approval decided on its card in Chat leaves the list. "Ask <agent>
+  privately" is today's Discuss in chat. Someone who is not in the conversation, or a
+  run in a schedule's own work room, gets no link and is told why.
+- This needs: a read of the messages around a request for people who may see it, the
+  existing send route used from Activity, `from=activity` handled like `from=for-you`,
+  and the open item in Activity's address.
+
 Two things in it are new behaviour, not just layout, and need a decision: search is one
 box that searches the current tab, and decided items stay listed under "Decided today".
 

@@ -5,8 +5,8 @@ const tabs = [['needs', 'Needs you'], ['work', 'Work'], ['planned', 'Planned'], 
 const view = document.getElementById('view'), search = document.getElementById('search'), guide = document.getElementById('guide');
 
 P.reset = () => {
-  P.s = { tab: 'needs', search: '', scope: 'mine', paneOpen: false, showDone: false, draft: {}, allPaused: null,
-    items: P.makeItems(), arrivals: P.arrivals.map(item => ({ ...item })), agents: P.makeAgents(), tasks: P.makeTasks(), planned: P.makePlanned(), history: P.makeHistory(),
+  P.s = { tab: 'needs', search: '', scope: 'mine', paneOpen: false, showDone: false, draft: {}, allPaused: null, chat: null, direct: {},
+    items: P.makeItems(), arrivals: structuredClone(P.arrivals), agents: P.makeAgents(), tasks: P.makeTasks(), planned: P.makePlanned(), history: P.makeHistory(),
     work: { mode: 'agents', filter: 'all', agent: 'Nova', task: null }, plan: 'all',
     hist: { period: '7', agent: '', type: '', status: 'all', sel: null, open: [], more: false }, insights: { suggest: true, weekly: ['Nova'] } };
   P.selectItem(P.phone() ? null : P.s.items[0].id);
@@ -57,6 +57,7 @@ search.addEventListener('input', () => { P.s.search = search.value; P.draw(); })
 document.addEventListener('keydown', event => {
   if (event.metaKey || event.ctrlKey || event.altKey || document.querySelector('dialog[open]')) return;
   const typing = event.target.closest('input, textarea, select');
+  if (P.s.chat) { if (event.key === 'Escape' && !event.target.closest('textarea')) P.closeChat(); return; }
   if (event.key === 'Escape') {
     if (typing === search && search.value) { search.value = P.s.search = ''; P.draw(); }
     else if (typing) typing.blur();
@@ -74,7 +75,7 @@ document.getElementById('demo').addEventListener('click', event => {
   const act = event.target.closest('[data-demo]')?.dataset.demo;
   if (act === 'guide') guide.showModal();
   else if (act === 'arrive') P.arrive();
-  else if (act === 'reset') { P.reset(); P.draw(); P.toast('Started over with the sample data.'); }
+  else if (act === 'reset') { P.reset(); P.drawChat(); P.draw(); P.toast('Started over with the sample data.'); }
 });
 document.getElementById('banner').addEventListener('click', event => { if (event.target.closest('button')) P.resumeAll(); });
 document.querySelectorAll('dialog').forEach(dialog => dialog.addEventListener('click', event => {
@@ -84,7 +85,10 @@ document.getElementById('pause-form').addEventListener('submit', event => {
   event.preventDefault(); const note = document.getElementById('pause-note');
   document.getElementById('pause-all').close(); P.pauseAll(note.value.trim()); note.value = '';
 });
-document.querySelector('.rail').addEventListener('click', event => { const link = event.target.closest('[data-go]'); if (link) P.elsewhere(link.dataset.go); });
+document.querySelector('.rail').addEventListener('click', event => {
+  const link = event.target.closest('[data-go]'); if (!link) return;
+  if (link.id === 'rail-activity') { if (P.s.chat) P.closeChat(); } else if (link.id !== 'rail-chat' || !P.s.chat) P.elsewhere(link.dataset.go);
+});
 
 P.reset(); P.draw();
 })();
