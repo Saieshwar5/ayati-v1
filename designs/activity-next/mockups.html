@@ -1,0 +1,794 @@
+<title>Activity Redesign</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: the review reads on Cuckoo's grey canvas; every mockup sits in the product's
+   white rounded frame, so "grey outside, white inside" carries through the whole page. */
+:root {
+  --bg: #f3f4f5; --paper: #ffffff; --ink: #22252a; --ink-2: #5f6670;
+  --line: #e5e7ea; --line-2: #d1d6dd; --line-3: #aeb8c5; --soft: #f7f8f9; --sel: #eef0f2;
+  --accent: #22252a; --on-accent: #ffffff; --danger: #a42f35; --warn: #945b10; --warn-bg: #fff3e2;
+  --ok: #26745c; --work: #6257cf; --online: #1f9d55; --shade: rgb(23 33 43 / 10%);
+  --text-font: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --head-font: "Space Grotesk", Inter, system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111318; --paper: #1c1f26; --ink: #f0f1f5; --ink-2: #abb1bf;
+  --line: #303540; --line-2: #414956; --line-3: #697487; --soft: #252a34; --sel: #303540;
+  --accent: #f0f1f5; --on-accent: #20222a; --danger: #ffadaf; --warn: #efbc77; --warn-bg: #423222;
+  --ok: #85c9a7; --work: #afa5ff; --online: #4cc38a; --shade: rgb(0 0 0 / 32%); color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111318; --paper: #1c1f26; --ink: #f0f1f5; --ink-2: #abb1bf;
+  --line: #303540; --line-2: #414956; --line-3: #697487; --soft: #252a34; --sel: #303540;
+  --accent: #f0f1f5; --on-accent: #20222a; --danger: #ffadaf; --warn: #efbc77; --warn-bg: #423222;
+  --ok: #85c9a7; --work: #afa5ff; --online: #4cc38a; --shade: rgb(0 0 0 / 32%); color-scheme: dark }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--text-font); }
+.page { max-width: 1280px; margin: 0 auto; padding-block: 40px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 56px; }
+section { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+h1, h2, h3 { font-family: var(--head-font); font-weight: 600; margin: 0; text-wrap: balance; line-height: 1.2; }
+h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.01em; }
+h2 { font-size: 26px; }
+h3 { font-size: 19px; }
+p { margin: 0; max-width: 68ch; }
+.lead { font-size: 18px; color: var(--ink); }
+.muted { color: var(--ink-2); }
+.eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); }
+a { color: inherit; }
+code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--sel); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+:focus-visible { outline: 2px solid var(--work); outline-offset: 2px; }
+
+.scroll-x { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font: inherit; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px 10px 0; border-bottom: 1px solid var(--line); }
+thead th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); border-bottom-color: var(--line-2); white-space: nowrap; }
+tbody th { font-weight: 600; white-space: nowrap; }
+
+.tone { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.tone.good { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+.tone.mid { background: var(--warn-bg); color: var(--warn); }
+.tone.bad { background: color-mix(in srgb, var(--danger) 13%, transparent); color: var(--danger); }
+
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; }
+.cols > div { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+ul.plain, ol.plain { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+ul.plain li, ol.plain li { max-width: 68ch; }
+
+/* Current design: screenshot with numbered markers keyed to the list beside it. */
+.shot-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.shot-tabs button { font: 600 14px var(--text-font); color: var(--ink-2); background: transparent; border: 1px solid var(--line-2); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.shot-tabs button[aria-selected="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.shot { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(260px, 1fr); gap: 28px; align-items: start; }
+.shot figure { margin: 0; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 24px var(--shade); background: var(--paper); }
+.shot img { display: block; width: 100%; height: auto; }
+.pin { position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%; display: grid; place-items: center;
+  background: #a42f35; color: #fff; font: 700 13px var(--text-font); box-shadow: 0 0 0 3px rgb(255 255 255 / 85%), 0 2px 6px rgb(0 0 0 / 30%); }
+.shot ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 14px; counter-reset: pin; }
+.shot ol li { counter-increment: pin; display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 12px; font-size: 15px; }
+.shot ol li::before { content: counter(pin); width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: #a42f35; color: #fff; font: 700 13px var(--text-font); }
+.shot ol li b { display: block; }
+@media (max-width: 860px) { .shot { grid-template-columns: 1fr; } .pin { width: 20px; height: 20px; margin: -10px 0 0 -10px; font-size: 11px; } }
+
+/* Design blocks */
+.design { gap: 22px; padding-top: 8px; }
+.design-head { display: flex; gap: 16px; align-items: flex-start; }
+.letter { flex: none; width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: var(--work); color: var(--paper); font: 600 24px var(--head-font); }
+.design-head > div { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.hint { font-size: 13px; color: var(--ink-2); }
+.stage-wrap { overflow-x: auto; border-radius: 14px; }
+
+/* ---- Mockups: Cuckoo's own shell and tokens ---- */
+.mk { width: 1240px; display: flex; background: var(--bg); padding: 12px 12px 12px 0; font: 13.5px/1.4 var(--text-font); color: var(--ink); border: 1px solid var(--line); border-radius: 14px; }
+.mk * { min-width: 0; }
+.mk button { font: inherit; color: inherit; cursor: pointer; }
+.mk-rail { width: 64px; flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 12px; }
+.mk-rail i { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: var(--ink-2); position: relative; }
+.mk-rail i.on { background: var(--accent); color: var(--on-accent); }
+.mk-rail i.logo { color: var(--ink); margin-bottom: 8px; }
+.mk-rail svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.mk-rail b { position: absolute; top: -3px; right: -3px; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 9px; background: var(--paper); color: var(--ink); font-size: 10px; display: grid; place-items: center; box-shadow: 0 0 0 1px var(--line-2); }
+.mk-frame { flex: 1; background: var(--paper); border-radius: 18px; box-shadow: 0 8px 24px var(--shade); overflow: hidden; display: flex; flex-direction: column; }
+.mk-head { display: flex; align-items: center; gap: 22px; padding: 16px 26px 12px; border-bottom: 1px solid var(--line); }
+.mk-title { font: 600 21px var(--text-font); margin: 0; }
+.mk-tabs { display: flex; gap: 2px; }
+.mk-tab { display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 8px; color: var(--ink-2); font-size: 14px; white-space: nowrap; }
+.mk-tab.on { background: var(--sel); color: var(--ink); font-weight: 600; }
+.mk-count { min-width: 19px; padding: 0 6px; border-radius: 999px; background: var(--danger); color: var(--paper); font-size: 11px; font-weight: 700; text-align: center; line-height: 17px; }
+.mk-tools { margin-left: auto; display: flex; align-items: center; gap: 14px; color: var(--ink-2); font-size: 13px; white-space: nowrap; }
+.mk-pick { padding: 5px 10px; border: 1px solid var(--line-2); border-radius: 8px; color: var(--ink); }
+.m-face { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--f, #51697a); color: #fff; font-size: 10px; font-weight: 700; }
+.m-face.lg { width: 34px; height: 34px; font-size: 13px; }
+.m-chip { flex: none; padding: 2px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; background: var(--soft); color: var(--ink-2); }
+.m-chip.done { background: color-mix(in srgb, var(--ok) 13%, transparent); color: var(--ok); }
+.m-chip.work { background: color-mix(in srgb, var(--work) 13%, transparent); color: var(--work); }
+.m-chip.wait { background: var(--warn-bg); color: var(--warn); }
+.m-chip.bad { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.m-btn { flex: none; display: inline-flex; align-items: center; min-height: 32px; padding: 5px 12px; border: 1px solid var(--line-3); border-radius: 8px; background: var(--paper); font-weight: 600; font-size: 13px; white-space: nowrap; }
+.m-btn.pri { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.m-btn.sm { min-height: 28px; padding: 3px 10px; font-size: 12px; }
+.m-h { display: block; margin: 18px 0 6px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.m-meta { color: var(--ink-2); font-size: 12.5px; }
+.m-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--line-3); }
+.m-dot.work { background: var(--work); } .m-dot.wait { background: var(--warn); } .m-dot.bad { background: var(--danger); } .m-dot.ok { background: var(--online); }
+.m-dot.off { background: transparent; box-shadow: inset 0 0 0 1.5px var(--line-3); }
+.mk kbd { font: 600 11px var(--text-font); padding: 1px 6px; border: 1px solid var(--line-2); border-bottom-width: 2px; border-radius: 5px; background: var(--soft); color: var(--ink); }
+
+/* A: one queue + reading pane */
+.a-body { display: grid; grid-template-columns: 430px 1fr; height: 640px; }
+.a-queue { border-right: 1px solid var(--line); overflow: auto; padding: 0 12px 16px; }
+.a-away { display: flex; gap: 8px; align-items: center; margin: 12px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--soft); font-size: 12.5px; color: var(--ink-2); }
+.a-away u { margin-left: auto; color: var(--ink); font-weight: 600; text-decoration: none; white-space: nowrap; }
+.a-queue .m-h { padding: 0 12px; }
+.a-row { width: 100%; display: grid; grid-template-columns: 26px 1fr auto; gap: 10px; align-items: start; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; text-align: left; }
+.a-row:hover { background: var(--soft); }
+.a-row[aria-current="true"] { background: var(--sel); }
+.a-mark { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font-weight: 700; font-size: 13px; background: var(--warn-bg); color: var(--warn); }
+.a-mark.q { background: var(--soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line-2); }
+.a-mark.f { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); }
+.a-row strong { display: block; font-weight: 500; font-size: 14px; }
+.a-row .m-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 3px; }
+.a-age { font-size: 12px; color: var(--ink-2); white-space: nowrap; padding-top: 2px; }
+.a-pane { display: flex; flex-direction: column; overflow: hidden; }
+.a-read { flex: 1; overflow: auto; padding: 20px 30px; display: flex; flex-direction: column; gap: 12px; }
+.a-top { display: flex; align-items: center; gap: 10px; }
+.a-read h4 { margin: 0; font: 600 20px/1.25 var(--text-font); }
+.a-facts { display: flex; gap: 7px; align-items: center; color: var(--ink-2); font-size: 13px; flex-wrap: wrap; }
+.a-card { border: 1px solid var(--line-2); border-radius: 10px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+.a-card small { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.a-card dl { margin: 0; display: grid; grid-template-columns: 110px 1fr; gap: 5px 12px; }
+.a-card dt { color: var(--ink-2); } .a-card dd { margin: 0; }
+.a-why { padding: 10px 14px; border-radius: 8px; background: var(--warn-bg); font-size: 13px; max-width: none; }
+.a-why.bad { background: color-mix(in srgb, var(--danger) 9%, transparent); }
+.a-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.a-steps li { display: flex; gap: 10px; align-items: center; }
+.a-steps li.next { color: var(--ink-2); }
+.a-sub { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.a-sub span { flex: 1; }
+.a-answer { min-height: 76px; padding: 10px 12px; border: 1px solid var(--line-3); border-radius: 10px; color: var(--ink-2); }
+.a-bar { display: flex; align-items: center; gap: 10px; padding: 12px 30px; border-top: 1px solid var(--line); background: var(--paper); }
+.a-keys { margin-left: auto; display: flex; gap: 12px; color: var(--ink-2); font-size: 12px; white-space: nowrap; }
+.a-said { color: var(--ok); font-weight: 600; font-size: 13px; }
+.a-empty { margin: auto; text-align: center; color: var(--ink-2); }
+
+/* B: team board */
+.b-body { display: grid; grid-template-columns: 1fr 380px; height: 640px; }
+.b-main { overflow: auto; padding: 14px 26px 20px; }
+.b-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.b-pill { display: inline-flex; gap: 7px; align-items: center; padding: 5px 11px; border: 1px solid var(--line-2); border-radius: 999px; font-size: 13px; background: transparent; }
+.b-pill[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.b-grid { display: grid; grid-template-columns: 168px 1fr 78px 104px 70px; gap: 0 14px; align-items: center; }
+.b-cols { margin-top: 14px; padding: 0 10px 6px; border-bottom: 1px solid var(--line-2); font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.b-row { width: 100%; padding: 11px 10px; border: 0; border-bottom: 1px solid var(--line); background: transparent; text-align: left; }
+.b-row:hover { background: var(--soft); }
+.b-row[aria-current="true"] { background: var(--sel); border-radius: 8px; border-bottom-color: transparent; }
+.b-who { display: flex; gap: 10px; align-items: center; }
+.b-who strong { display: block; font-weight: 600; font-size: 14px; }
+.b-now { display: flex; gap: 8px; align-items: center; }
+.b-spark { display: flex; align-items: flex-end; gap: 2px; height: 22px; }
+.b-spark i { width: 5px; border-radius: 2px 2px 0 0; background: #2a78d6; }
+.b-spark i.x { background: var(--danger); }
+.b-lane { border-left: 1px solid var(--line); overflow: auto; padding: 18px 22px; }
+.b-lane header { display: flex; gap: 12px; align-items: center; }
+.b-lane header div { flex: 1; }
+.b-lane header strong { display: block; font-size: 16px; }
+.b-item { display: flex; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.b-item > span:first-of-type { flex: 1; }
+.b-item time { flex: none; width: 62px; color: var(--ink-2); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.b-month { margin-top: 16px; padding: 10px 12px; border-radius: 8px; background: var(--soft); font-size: 12.5px; color: var(--ink-2); }
+
+/* C: day timeline */
+.c-bar { display: flex; align-items: center; gap: 8px; padding: 12px 26px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.c-day { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; margin-right: 12px; }
+.c-day i { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; border: 1px solid var(--line-2); font-style: normal; color: var(--ink-2); }
+.c-body { display: grid; grid-template-columns: 1fr 310px; height: 660px; }
+.c-line { overflow: auto; padding: 4px 26px 24px; }
+.c-sec { display: flex; align-items: center; gap: 10px; margin: 18px 0 4px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.c-sec::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.c-sec.now { color: var(--work); } .c-sec.now::after { background: var(--work); height: 2px; }
+.c-row { display: grid; grid-template-columns: 62px 16px 1fr auto auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.c-row time { color: var(--ink-2); font-size: 12.5px; font-variant-numeric: tabular-nums; text-align: right; }
+.c-row .what { display: flex; gap: 9px; align-items: center; }
+.c-row strong { font-weight: 500; font-size: 14px; }
+.c-row.plan strong { color: var(--ink-2); }
+.c-fold { display: flex; gap: 10px; align-items: center; padding: 10px 12px; margin-top: 6px; border-radius: 8px; background: var(--soft); color: var(--ink-2); font-size: 13px; }
+.c-fold u { margin-left: auto; color: var(--ink); font-weight: 600; text-decoration: none; }
+.c-prog { display: inline-block; width: 60px; height: 5px; border-radius: 3px; background: var(--sel); overflow: hidden; vertical-align: middle; }
+.c-prog i { display: block; height: 100%; width: 66%; background: var(--work); }
+.c-side { border-left: 1px solid var(--line); overflow: auto; padding: 4px 20px 20px; }
+.c-need { display: flex; gap: 9px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.c-need > span:last-child { flex: 1; }
+.c-need .a-mark { flex: none; }
+.c-agent { display: flex; gap: 9px; align-items: center; padding: 6px 0; }
+.c-agent span:nth-child(3) { flex: 1; }
+.c-hours { display: flex; align-items: flex-end; gap: 3px; height: 44px; margin-top: 8px; }
+.c-hours i { flex: 1; border-radius: 2px 2px 0 0; background: #2a78d6; }
+.c-hours i.x { background: var(--danger); } .c-hours i.later { background: var(--sel); }
+.mk [hidden] { display: none !important; }
+
+/* Phone frames */
+.phones { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.phone { width: 300px; max-width: 100%; height: 560px; border-radius: 26px; border: 1px solid var(--line-2); background: var(--paper); box-shadow: 0 8px 24px var(--shade); overflow: hidden; display: flex; flex-direction: column; font: 13.5px/1.4 var(--text-font); }
+.phone-top { padding: 16px 16px 8px; display: flex; align-items: center; justify-content: space-between; font-weight: 600; font-size: 18px; }
+.phone-tabs { display: flex; gap: 2px; padding: 0 10px 8px; overflow: hidden; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.phone-list { flex: 1; overflow: hidden; padding: 0 6px; }
+.phone-list .m-h { padding: 0 10px; margin-top: 14px; }
+.phone-read { flex: 1; overflow: hidden; padding: 4px 16px; display: flex; flex-direction: column; gap: 10px; }
+.phone .a-bar { padding: 10px 16px; }
+.phone .a-bar .m-btn { flex: 1; justify-content: center; min-height: 40px; }
+.phone-note { flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+.choice { border: 1px solid var(--line-2); background: var(--paper); border-radius: 14px; padding: 22px 24px; display: flex; flex-direction: column; gap: 12px; }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-logo" viewBox="0 0 24 24"><path d="M19 5a8 8 0 1 0 2 9"/><circle cx="16.5" cy="7.5" r="2.4"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14v10H10l-5 4z"/></symbol>
+  <symbol id="i-act" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></symbol>
+  <symbol id="i-bot" viewBox="0 0 24 24"><rect x="5" y="8" width="14" height="10" rx="2"/><path d="M12 8V5M9 13h.01M15 13h.01"/></symbol>
+  <symbol id="i-lib" viewBox="0 0 24 24"><path d="M6 4v16M10 4v16M14 5l4 15"/></symbol>
+</svg>
+
+<div class="page">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <span class="eyebrow">Cuckoo · Activity page · design review, 21 Nov 2026</span>
+  <h1>The Activity page: how it works today, and three better designs</h1>
+  <p class="lead">Activity is where a person supervises their AI agents: decide what agents ask for, see what they are doing, and check what they did. The wording and the safety rules on the page are strong. The layout is not. The page was approved with three views and now has six, and the structure never caught up.</p>
+  <p class="muted">Based on the code in <code>web/src/react/activity/</code>, the spec in <code>runtime/activity.md</code>, the approved mockups in <code>designs/activity/</code>, and the real page rendered in a browser with made-up sample data. No user testing was done, and the approval and question dialogs were not reviewed because they need a live server.</p>
+</header>
+
+<section>
+  <h2>What the Activity page is for</h2>
+  <p>Home shows dashboards, Chat is where people and agents talk, Agents is where agents are set up. Activity is the control room. It only reads existing records, so opening it never starts any work. It does six different jobs, one per tab, plus a details drawer that opens from any row.</p>
+  <div class="scroll-x"><table>
+    <thead><tr><th>Tab</th><th>The question it answers</th><th>What is on it</th><th>How often you need it</th></tr></thead>
+    <tbody>
+      <tr><th>Needs me</th><td>What is waiting for my decision?</td><td>Approvals, questions, browser hand-overs, failed or unconfirmed work</td><td>Many times a day</td></tr>
+      <tr><th>Now</th><td>What are my agents doing? Is anything broken?</td><td>“While you were away”, Needs fixing, a card per agent, requests running now with Stop</td><td>A few times a day</td></tr>
+      <tr><th>Upcoming</th><td>What will run by itself, and when?</td><td>Schedules, triggers, follow-ups and due tasks, with Pause</td><td>Daily to weekly</td></tr>
+      <tr><th>Tasks</th><td>What have agents promised and not finished?</td><td>Open tasks grouped by state: needs fixing, late, waiting, working</td><td>Daily</td></tr>
+      <tr><th>History</th><td>What exactly happened?</td><td>Six filters, five totals, two charts, a timeline by day, CSV export</td><td>When something looks wrong</td></tr>
+      <tr><th>Review</th><td>Can I trust this agent with more?</td><td>30-day numbers per agent, rule suggestions, goals, weekly reviews</td><td>Weekly to monthly</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">The design approved on 30 Oct had three tabs (Needs me, Now, History). Upcoming, Tasks, Review, the My agents / All agents switch, Needs fixing and Pause all agents were added later, each one in the simplest free spot.</p>
+</section>
+
+<section>
+  <h2>The current design, screen by screen</h2>
+  <p>These are screenshots of the page as it is built today, at 1440 × 900 (the long ones show the whole scroll). The company, people and numbers are made up. Each red number matches a note on the right.</p>
+  <div class="shot-tabs" role="tablist" aria-label="Current screens">
+    <button type="button" role="tab" id="st-needs" aria-controls="sp-needs" aria-selected="true">Needs me</button>
+    <button type="button" role="tab" id="st-now" aria-controls="sp-now" aria-selected="false">Now</button>
+    <button type="button" role="tab" id="st-history" aria-controls="sp-history" aria-selected="false">History</button>
+    <button type="button" role="tab" id="st-review" aria-controls="sp-review" aria-selected="false">Review</button>
+    <button type="button" role="tab" id="st-phone" aria-controls="sp-phone" aria-selected="false">On a phone</button>
+  </div>
+
+  <div class="shot" role="tabpanel" id="sp-needs" aria-labelledby="st-needs">
+    <figure><img src="current/needs.webp" alt="Current Needs me tab: a list of approvals, questions and work to review, each with a button on the right" width="1440" height="900">
+      <span class="pin" style="left:47%;top:13.3%">1</span><span class="pin" style="left:15.9%;top:9.3%">2</span><span class="pin" style="left:87.5%;top:31%">3</span><span class="pin" style="left:37%;top:32.5%">4</span><span class="pin" style="left:20.5%;top:43.3%">5</span></figure>
+    <ol>
+      <li><span><b>Six tabs with equal weight.</b> A list you clear many times a day sits beside a report you read once a month. Nothing tells a new person where to look first.</span></li>
+      <li><span><b>The red count is only this list.</b> A broken connection that stops two agents is on another tab (Now → Needs fixing) and is not counted.</span></li>
+      <li><span><b>Every item opens a dialog.</b> To clear nine items you open and close nine dialogs, and the list is dimmed while you read. The approved mockup kept the list and the details side by side.</span></li>
+      <li><span><b>Urgency is hidden in grey 12px text.</b> “An admin can decide now” and “admin backup in 3 h” look the same as the channel name.</span></li>
+      <li><span><b>Group headings touch the row above.</b> A CSS rule removes their top margin, so groups run together. The same happens on Tasks, Upcoming and Review.</span></li>
+    </ol>
+  </div>
+
+  <div class="shot" role="tabpanel" id="sp-now" aria-labelledby="st-now" hidden>
+    <figure><img src="current/now.webp" alt="Current Now tab: an away summary, a warning line, a Needs fixing list, six agent cards and a Running now list" width="1440" height="1330">
+      <span class="pin" style="left:86%;top:13%">1</span><span class="pin" style="left:27%;top:24%">2</span><span class="pin" style="left:20%;top:26.7%">3</span><span class="pin" style="left:23%;top:47.2%">4</span><span class="pin" style="left:70%;top:51%">5</span><span class="pin" style="left:19.5%;top:72%">6</span></figure>
+    <ol>
+      <li><span><b>The most dangerous action is the first button.</b> “Pause all agents” stops every agent for the whole workspace, and it has a permanent red-outlined spot at the top.</span></li>
+      <li><span><b>A side note shouts.</b> “3 events not handled today” is the largest coloured text on the page, larger than the actual problems below it.</span></li>
+      <li><span><b>A second “needs a person” list.</b> Needs fixing is separate from Needs me, and its third row only sends you back to Needs me.</span></li>
+      <li><span><b>The Working label is broken.</b> An old global <code>.working</code> rule adds 14px of padding under it, so the purple box hangs below the word. It shows on every Working label in Activity.</span></li>
+      <li><span><b>Cards point elsewhere.</b> “1 thing needs fixing · see above” makes you scroll up and find it yourself. Cards and Running now also repeat the same work.</span></li>
+      <li><span><b>“Now” starts below the fold.</b> With only six agents, Running now begins 956px down a 900px window. The tab is named after the part you cannot see.</span></li>
+    </ol>
+  </div>
+
+  <div class="shot" role="tabpanel" id="sp-history" aria-labelledby="st-history" hidden>
+    <figure><img src="current/history.webp" alt="Current History tab: six dropdown filters, five total tiles, two charts, then a timeline" width="1440" height="1372">
+      <span class="pin" style="left:85%;top:4.5%">1</span><span class="pin" style="left:81.5%;top:8.7%">2</span><span class="pin" style="left:40%;top:12%">3</span><span class="pin" style="left:53%;top:20.3%">4</span><span class="pin" style="left:8%;top:45.2%">5</span><span class="pin" style="left:40.5%;top:62.5%">6</span></figure>
+    <ol>
+      <li><span><b>One search box, three behaviours.</b> It filters the loaded list on some tabs, asks the server on History, and does nothing on Review.</span></li>
+      <li><span><b>A filter is the darkest control.</b> My agents / All agents is filled like a primary button, and it disappears on Needs me.</span></li>
+      <li><span><b>Six dropdowns, each with a label.</b> They take a full row even when nothing is filtered.</span></li>
+      <li><span><b>Totals and charts come first, and the tiles do nothing.</b> “Needs review 6” is the one number you want to click, and it is not a link.</span></li>
+      <li><span><b>The log starts 620px down.</b> People open History to find one request. On a 900px window they see three rows of it.</span></li>
+      <li><span><b>Repeated words.</b> “Schedule · Schedule · Shared inbox” and “Trigger · trigger in marketing”: the row prints the type twice.</span></li>
+    </ol>
+  </div>
+
+  <div class="shot" role="tabpanel" id="sp-review" aria-labelledby="st-review" hidden>
+    <figure><img src="current/review.webp" alt="Current Review tab: a suggestion, a table of numbers per agent, goals with a form, and a weekly review" width="1440" height="1307">
+      <span class="pin" style="left:46%;top:9.2%">1</span><span class="pin" style="left:45%;top:20.5%">2</span><span class="pin" style="left:16%;top:50.8%">3</span><span class="pin" style="left:42%;top:77.4%">4</span><span class="pin" style="left:61%;top:86%">5</span></figure>
+    <ol>
+      <li><span><b>“Review” means five things.</b> A tab, a button on approvals, “Review together”, “Mark reviewed” and the “Needs review” group. The spec calls this tab Progress.</span></li>
+      <li><span><b>A wall of numbers.</b> Eight columns per agent and nothing says which values are good or bad. Nova fails 7 of 71 tasks and looks the same as Scout with none.</span></li>
+      <li><span><b>Headings touch the text above</b>, the same margin bug as on Needs me.</span></li>
+      <li><span><b>The goal form is unstyled.</b> Native inputs in a different size, with no visible labels.</span></li>
+      <li><span><b>Type sizes are out of order.</b> The weekly review text is larger than every heading on the page.</span></li>
+    </ol>
+  </div>
+
+  <div class="shot" role="tabpanel" id="sp-phone" aria-labelledby="st-phone" hidden>
+    <figure><img src="current/phone.webp" alt="Current Activity page at phone width: Needs me, Now and History" width="1218" height="844">
+      <span class="pin" style="left:29.5%;top:23%">1</span><span class="pin" style="left:17.4%;top:40%">2</span><span class="pin" style="left:50.4%;top:34.5%">3</span><span class="pin" style="left:70.6%;top:44%">4</span></figure>
+    <ol>
+      <li><span><b>Tabs wrap into three rows.</b> With the search box above them, the first item starts about a third of the way down the screen.</span></li>
+      <li><span><b>Titles are squeezed to 90px.</b> The button keeps its width, so “3 × Refund order” breaks into three lines beside it.</span></li>
+      <li><span><b>Controls before content.</b> On Now, the scope switch, Pause all agents and two banners fill the first screen before any agent appears.</span></li>
+      <li><span><b>Filters fill the whole screen.</b> On History the first request is two screens down.</span></li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <h2>Is it good UI/UX?</h2>
+  <p class="lead">Half of it is. What the page says and what it lets you do are well designed. How it is arranged and how it looks are not at the same level yet.</p>
+  <div class="scroll-x"><table>
+    <thead><tr><th>Area</th><th>Rating</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><th>Wording</th><td><span class="tone good">Strong</span></td><td>Plain sentences everywhere: “Could not complete”, “How to fix it”, “The app didn’t confirm it, so its writes are paused.” No error codes.</td></tr>
+      <tr><th>Safety of actions</th><td><span class="tone good">Strong</span></td><td>Reading never approves. Retry is refused when an action may already have happened. Pause all asks first and says what will stop.</td></tr>
+      <tr><th>States and access basics</th><td><span class="tone good">Good</span></td><td>Loading, empty and error states on every tab. Status is always text plus colour. Tabs work with arrow keys. Charts have a table view.</td></tr>
+      <tr><th>Structure</th><td><span class="tone bad">Weak</span></td><td>Six equal tabs. Things that need a person are split over three tabs. Rows are laid out four different ways.</td></tr>
+      <tr><th>Visual hierarchy</th><td><span class="tone bad">Weak</span></td><td>Filters and warnings are louder than the content. The main content of Now and History starts below the fold.</td></tr>
+      <tr><th>Speed of clearing work</th><td><span class="tone bad">Weak</span></td><td>One dialog per item, no keyboard path through the list, urgency in grey text.</td></tr>
+      <tr><th>Phone</th><td><span class="tone bad">Poor</span></td><td>About a third of the screen is controls. Titles wrap to three words a line.</td></tr>
+      <tr><th>Polish</th><td><span class="tone mid">Needs work</span></td><td>Five visible bugs, listed under “Fix first” at the end.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="cols">
+    <div><h3>The three problems that cost the most</h3>
+      <ol class="plain">
+        <li><b>Three places to look for “what needs me”.</b> Needs me, Now → Needs fixing, and Tasks → Needs fixing / Late. They link to each other, and only the first one is counted in the red badge.</li>
+        <li><b>A dialog for every item.</b> Deciding is the main job of the page and it is the slowest thing to do on it.</li>
+        <li><b>Summary before substance.</b> Banners, tiles, charts and filters sit on top of the lists people came for.</li>
+      </ol></div>
+    <div><h3>Keep these in any redesign</h3>
+      <ul class="plain">
+        <li>The plain wording and the fixed sentence patterns.</li>
+        <li>One explicit action per row, named for what it does.</li>
+        <li>The request details: every step, how it was allowed, and how to fix it.</li>
+        <li>Folding repeated panel updates and repeated approvals into one row.</li>
+        <li>Live updates, with the 10-second fallback.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section>
+  <h2>Three designs</h2>
+  <p>Each design is a different answer to one question: what should a person see first? A puts the decisions first, B puts the agents first, C puts time first. All three keep every feature the page has today and use Cuckoo’s own colours, type and shell. They are live mockups with the same made-up company, and they follow light and dark mode.</p>
+</section>
+
+<!-- ================= A ================= -->
+<section class="design" id="design-a">
+  <div class="design-head"><span class="letter">A</span><div>
+    <h2>One queue</h2>
+    <p>Everything that waits on a person is one list with one count. Read on the right, decide at the bottom, and the next item opens by itself. Like a mail inbox for agent work.</p></div></div>
+  <p class="hint">Try it: click any row on the left, then press Approve, Reject or the other buttons.</p>
+  <div class="stage-wrap"><div class="mk" id="mk-a">
+    <div class="mk-rail"><i class="logo"><svg><use href="#i-logo"/></svg></i><i><svg><use href="#i-home"/></svg></i><i><svg><use href="#i-chat"/></svg></i><i class="on"><svg><use href="#i-act"/></svg><b id="a-rail">11</b></i><i><svg><use href="#i-bot"/></svg></i><i><svg><use href="#i-lib"/></svg></i></div>
+    <div class="mk-frame">
+      <div class="mk-head"><h3 class="mk-title">Activity</h3>
+        <div class="mk-tabs"><span class="mk-tab on">Needs you <span class="mk-count" id="a-count">11</span></span><span class="mk-tab">Work</span><span class="mk-tab">Planned</span><span class="mk-tab">History</span></div>
+        <div class="mk-tools"><span>Insights</span><span class="mk-pick">My agents ▾</span><span>Search</span></div></div>
+      <div class="a-body">
+        <div class="a-queue" id="a-queue"></div>
+        <div class="a-pane" id="a-pane"></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="cols">
+    <div><h3>What it fixes</h3><ul class="plain">
+      <li>One list and one count for everything that waits on a person, in three groups: Decide, Answer, Fix.</li>
+      <li>No dialogs. The list stays visible, and after each decision the next item opens.</li>
+      <li>Urgency is a label you can see (“Admin can decide now”), and the list is sorted by it.</li>
+      <li>Four tabs in order of use. Review and the charts move to Insights, on the quiet side of the header.</li>
+      <li>History opens on the log. Totals become one line above it.</li>
+    </ul></div>
+    <div><h3>What it costs</h3><ul class="plain">
+      <li>The two panes need about 1,000px. Below that it becomes list, then details, like Chat on a phone.</li>
+      <li>The red count gets bigger because Fix items join it. The design system says the rail count is the Needs me count, so that definition is the owner’s decision.</li>
+      <li>Fix items only show for people who can fix the agent, so the list differs per person. That is already true of Needs fixing today.</li>
+    </ul></div>
+    <div><h3>What has to be built</h3><ul class="plain">
+      <li>One merged list from three reads that exist: attention, Now’s fixing groups, and tasks that are late or need fixing. One server list is better, so order and paging stay stable.</li>
+      <li>The approval, question and outcome dialogs’ content moved into the pane.</li>
+      <li>Keyboard: J and K to move, A to approve, R to reject.</li>
+      <li>No new write routes.</li>
+    </ul></div>
+  </div>
+  <h3>Design A on a phone</h3>
+  <div class="phones">
+    <div class="phone" aria-label="Design A on a phone: the list">
+      <div class="phone-top"><span>Activity</span><span class="m-meta">My agents ▾</span></div>
+      <div class="phone-tabs"><span class="mk-tab on">Needs you <span class="mk-count">11</span></span><span class="mk-tab">Work</span><span class="mk-tab">Planned</span><span class="mk-tab">Hist…</span></div>
+      <div class="phone-list">
+        <span class="m-h">Decide · 5</span>
+        <div class="a-row"><span class="a-mark">◇</span><span><strong>3 × Refund order</strong><span class="m-meta"><span class="m-chip wait">Admin can decide now</span>Atlas</span></span><span class="a-age">5 h</span></div>
+        <div class="a-row"><span class="a-mark">◇</span><span><strong>Approve a 12% discount for Sharma Traders</strong><span class="m-meta">Nova · #sales</span></span><span class="a-age">18 min</span></div>
+        <div class="a-row"><span class="a-mark">◇</span><span><strong>Update order #1057 delivery address</strong><span class="m-meta">Atlas · #orders</span></span><span class="a-age">25 min</span></div>
+        <span class="m-h">Answer · 2</span>
+        <div class="a-row"><span class="a-mark q">?</span><span><strong>Which courier for the Bengaluru order?</strong><span class="m-meta">Atlas · #orders</span></span><span class="a-age">1 h</span></div>
+        <div class="a-row"><span class="a-mark q">?</span><span><strong>Sign in to the supplier portal</strong><span class="m-meta">Ledger · take over its browser</span></span><span class="a-age">40 min</span></div>
+        <span class="m-h">Fix · 4</span>
+        <div class="a-row"><span class="a-mark f">!</span><span><strong>Zoho Books needs reconnecting</strong><span class="m-meta">Stops Nova and Ledger</span></span><span class="a-age">3 h</span></div>
+      </div>
+    </div>
+    <div class="phone" aria-label="Design A on a phone: one item">
+      <div class="phone-top"><span style="font-size:14px">‹ Needs you</span><span class="m-meta">Next ›</span></div>
+      <div class="phone-read">
+        <span><span class="m-chip wait">Waiting for your approval</span></span>
+        <strong style="font-size:17px;line-height:1.25">Approve a 12% discount for Sharma Traders</strong>
+        <span class="a-facts"><span class="m-face" style="--f:#b8860b">N</span>Nova · Kavya Nair in #sales</span>
+        <div class="a-card"><small>What Nova wants to do</small><strong>Zoho Books · Create quote</strong>
+          <dl><dt>Customer</dt><dd>Sharma Traders</dd><dt>Items</dt><dd>40 × Teak dining chair</dd><dt>Discount</dt><dd>12%</dd><dt>Total</dt><dd>₹4,18,000</dd></dl></div>
+        <p class="a-why">Discounts above 10% need a manager. If nobody decides by 2:40 pm, an admin can.</p>
+      </div>
+      <div class="a-bar"><span class="m-btn pri">Approve</span><span class="m-btn">Reject</span></div>
+    </div>
+    <div class="phone-note">
+      <p>The tab row scrolls sideways in one line, the way the For you filters already do in Chat. Search and the scope switch fold into the header.</p>
+      <p>Rows have no buttons, so the title gets the full width. Tapping a row opens the item full screen with the decision fixed at the bottom, in reach of a thumb.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================= B ================= -->
+<section class="design" id="design-b">
+  <div class="design-head"><span class="letter">B</span><div>
+    <h2>Team board</h2>
+    <p>One row per agent, like a staff list: what each is doing, whether it needs you, and when it runs next. Pick an agent and everything about it is on the right.</p></div></div>
+  <p class="hint">Try it: click an agent row, or a filter above the list.</p>
+  <div class="stage-wrap"><div class="mk" id="mk-b">
+    <div class="mk-rail"><i class="logo"><svg><use href="#i-logo"/></svg></i><i><svg><use href="#i-home"/></svg></i><i><svg><use href="#i-chat"/></svg></i><i class="on"><svg><use href="#i-act"/></svg><b>11</b></i><i><svg><use href="#i-bot"/></svg></i><i><svg><use href="#i-lib"/></svg></i></div>
+    <div class="mk-frame">
+      <div class="mk-head"><h3 class="mk-title">Activity</h3>
+        <div class="mk-tabs"><span class="mk-tab on">Team</span><span class="mk-tab">Needs you <span class="mk-count">11</span></span><span class="mk-tab">History</span><span class="mk-tab">Insights</span></div>
+        <div class="mk-tools"><span class="mk-pick">My agents ▾</span><span>Search</span><span>⋯</span></div></div>
+      <div class="b-body">
+        <div class="b-main">
+          <div class="b-pills" id="b-pills">
+            <button type="button" class="b-pill" data-f="all" aria-pressed="true">All 6</button>
+            <button type="button" class="b-pill" data-f="fix" aria-pressed="false"><span class="m-dot bad"></span>Needs fixing 2</button>
+            <button type="button" class="b-pill" data-f="wait" aria-pressed="false"><span class="m-dot wait"></span>Waiting on you 1</button>
+            <button type="button" class="b-pill" data-f="work" aria-pressed="false"><span class="m-dot work"></span>Working 1</button>
+            <button type="button" class="b-pill" data-f="idle" aria-pressed="false"><span class="m-dot ok"></span>Ready 1</button>
+            <button type="button" class="b-pill" data-f="off" aria-pressed="false"><span class="m-dot off"></span>Paused 1</button>
+          </div>
+          <div class="b-grid b-cols"><span>Agent</span><span>Right now</span><span>Needs you</span><span>Next run</span><span>Today</span></div>
+          <div id="b-rows"></div>
+          <p class="m-meta" style="margin-top:14px;max-width:none">Sorted by what needs you first. While you were away (since yesterday 5:54 pm): 34 requests, 31 done, 2 failed.</p>
+        </div>
+        <div class="b-lane" id="b-lane"></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="cols">
+    <div><h3>What it fixes</h3><ul class="plain">
+      <li>“Is everyone OK?” is answered on one screen. Ten agents fit in the space that six cards and the Running now list take today.</li>
+      <li>Flat rows instead of cards, which is what the design system asks for in agent lists.</li>
+      <li>For one agent, four tabs become one panel: needs you, doing now, coming up, earlier today, and its 30-day line.</li>
+      <li>A count per agent replaces “1 thing needs fixing · see above”.</li>
+      <li>Pause all agents moves into the ⋯ menu, with the same confirmation.</li>
+    </ul></div>
+    <div><h3>What it costs</h3><ul class="plain">
+      <li>Questions across agents (“everything planned this week”) need the other tabs or an “All agents” row.</li>
+      <li>Someone who manages no agents sees a short list. For them the page should open on Needs you.</li>
+      <li>Past about 30 agents the list needs the filters above and the urgency sort to stay useful. Both are in the mockup.</li>
+    </ul></div>
+    <div><h3>What has to be built</h3><ul class="plain">
+      <li>The list comes from the Now read that exists today (agents, running, fixing).</li>
+      <li>The right panel reads Upcoming and History filtered to one agent, and drops late answers when you pick another agent.</li>
+      <li>“Needs you” per agent should be a server count. Counting on the client is wrong once the list has more than one page.</li>
+    </ul></div>
+  </div>
+</section>
+
+<!-- ================= C ================= -->
+<section class="design" id="design-c">
+  <div class="design-head"><span class="letter">C</span><div>
+    <h2>Day timeline</h2>
+    <p>Now, Upcoming and History become one column in time order with a line at this moment: what happened above it, what is running on it, what is planned below it.</p></div></div>
+  <p class="hint">Try it: the filters above the timeline hide and show rows.</p>
+  <div class="stage-wrap"><div class="mk" id="mk-c">
+    <div class="mk-rail"><i class="logo"><svg><use href="#i-logo"/></svg></i><i><svg><use href="#i-home"/></svg></i><i><svg><use href="#i-chat"/></svg></i><i class="on"><svg><use href="#i-act"/></svg><b>11</b></i><i><svg><use href="#i-bot"/></svg></i><i><svg><use href="#i-lib"/></svg></i></div>
+    <div class="mk-frame">
+      <div class="mk-head"><h3 class="mk-title">Activity</h3>
+        <div class="mk-tabs"><span class="mk-tab on">Timeline</span><span class="mk-tab">Needs you <span class="mk-count">11</span></span><span class="mk-tab">Tasks</span><span class="mk-tab">Insights</span></div>
+        <div class="mk-tools"><span class="mk-pick">My agents ▾</span><span>Search</span><span>⋯</span></div></div>
+      <div class="c-bar">
+        <span class="c-day"><i>‹</i>Today, Sat 21 Nov<i>›</i></span>
+        <span id="c-pills" class="b-pills">
+          <button type="button" class="b-pill" data-f="all" aria-pressed="true">Everything</button>
+          <button type="button" class="b-pill" data-f="you" aria-pressed="false"><span class="m-dot wait"></span>Waiting on you 2</button>
+          <button type="button" class="b-pill" data-f="bad" aria-pressed="false"><span class="m-dot bad"></span>Went wrong 2</button>
+          <button type="button" class="b-pill" data-f="run" aria-pressed="false"><span class="m-dot work"></span>Running 2</button>
+          <button type="button" class="b-pill" data-f="plan" aria-pressed="false"><span class="m-dot off"></span>Planned 6</button>
+        </span>
+        <span class="mk-pick" style="margin-left:auto">Any agent ▾</span>
+      </div>
+      <div class="c-body">
+        <div class="c-line" id="c-line">
+          <div class="c-sec" data-k="past bad">Earlier today</div>
+          <div class="c-fold" data-k="past"><span>42 requests finished without problems · 12 panel updates · 5 schedule runs</span><u>Show all</u></div>
+          <div class="c-row" data-k="past bad"><time>2:54 am</time><span class="m-dot bad"></span><span class="what"><span class="m-face" style="--f:#2f7a78">L</span><span><strong>Payment reminder to Gupta Furniture</strong><br><span class="m-meta">Ledger · schedule · Gmail didn’t confirm the email went out</span></span></span><span class="m-chip wait">Unconfirmed</span><span class="m-btn sm">Check</span></div>
+          <div class="c-row" data-k="past bad"><time>8:54 am</time><span class="m-dot bad"></span><span class="what"><span class="m-face" style="--f:#b8860b">N</span><span><strong>“Draft a quote for Iyer and Sons”</strong><br><span class="m-meta">Nova · Kavya Nair in #sales · price list missing</span></span></span><span class="m-chip bad">Could not complete</span><span class="m-btn sm">How to fix it</span></div>
+          <div class="c-sec now" data-k="run you">Now · 10:54 am</div>
+          <div class="c-row" data-k="you"><time>1 h</time><span class="m-dot wait"></span><span class="what"><span class="m-face" style="--f:#51697a">A</span><span><strong>Ship the Bengaluru order</strong><br><span class="m-meta">Atlas · Ravi Kumar in #orders · asks which courier to use</span></span></span><span class="m-chip wait">Waiting for your answer</span><span class="m-btn sm pri">Answer</span></div>
+          <div class="c-row" data-k="you"><time>18 min</time><span class="m-dot wait"></span><span class="what"><span class="m-face" style="--f:#b8860b">N</span><span><strong>Quote for Sharma Traders</strong><br><span class="m-meta">Nova · Kavya Nair in #sales · 12% discount needs a manager</span></span></span><span class="m-chip wait">Waiting for your approval</span><span class="m-btn sm pri">Review</span></div>
+          <div class="c-row" data-k="run"><time>11 min</time><span class="m-dot work"></span><span class="what"><span class="m-face" style="--f:#8a4b3c">I</span><span><strong>Reply to 6 customer emails</strong><br><span class="m-meta">Iris · schedule · 4 of 6 replied <span class="c-prog"><i></i></span></span></span></span><span class="m-chip work">Working</span><span class="m-btn sm">Stop</span></div>
+          <div class="c-row" data-k="run"><time>2 min</time><span class="m-dot work"></span><span class="what"><span class="m-face" style="--f:#51697a">A</span><span><strong>Update the Kapoor order delivery address</strong><br><span class="m-meta">Atlas · Ravi Kumar · direct chat · updating order #1042</span></span></span><span class="m-chip work">Working</span><span class="m-btn sm">Stop</span></div>
+          <div class="c-sec" data-k="plan">Later today</div>
+          <div class="c-row plan" data-k="plan"><time>11:24 am</time><span class="m-dot off"></span><span class="what"><span class="m-face" style="--f:#8a4b3c">I</span><span><strong>Reply to the shared inbox</strong><br><span class="m-meta">Iris · every hour · set up by Ravi Kumar</span></span></span><span></span><span class="m-btn sm">Pause</span></div>
+          <div class="c-row plan" data-k="plan"><time>12:54 pm</time><span class="m-dot off"></span><span class="what"><span class="m-face" style="--f:#2f7a78">L</span><span><strong>Bank reconciliation</strong><br><span class="m-meta">Ledger · every day · set up by you</span></span></span><span></span><span class="m-btn sm">Pause</span></div>
+          <div class="c-row plan" data-k="plan"><time>3:54 pm</time><span class="m-dot off"></span><span class="what"><span class="m-face" style="--f:#b8860b">N</span><span><strong>Check if Sharma Traders replied</strong><br><span class="m-meta">Nova · follow-up on a task</span></span></span><span></span><span class="m-btn sm">Cancel follow-up</span></div>
+          <div class="c-row plan" data-k="plan"><time>4:54 pm</time><span class="m-dot off"></span><span class="what"><span class="m-face" style="--f:#d4502a">P</span><span><strong>Post new arrivals</strong><br><span class="m-meta">Pixel · every day · set up by Meera Iyer</span></span></span><span></span><span class="m-btn sm">Pause</span></div>
+          <div class="c-sec" data-k="plan">Tomorrow</div>
+          <div class="c-fold" data-k="plan"><span>2 planned: Morning stock check (Scout, 12:54 am) · Reply to the shared inbox (Iris, hourly)</span><u>Show</u></div>
+        </div>
+        <div class="c-side">
+          <span class="m-h">Needs you · 11</span>
+          <div class="c-need"><span class="a-mark">◇</span><span><strong style="font-weight:500">3 × Refund order</strong><br><span class="m-meta">Atlas · admin can decide now</span></span></div>
+          <div class="c-need"><span class="a-mark f">!</span><span><strong style="font-weight:500">Zoho Books needs reconnecting</strong><br><span class="m-meta">Stops Nova and Ledger</span></span></div>
+          <div class="c-need"><span class="a-mark">◇</span><span><strong style="font-weight:500">Update order #1057 delivery address</strong><br><span class="m-meta">Atlas · 25 min</span></span></div>
+          <p class="m-meta" style="margin-top:8px"><b style="color:var(--ink)">Open all 11 →</b></p>
+          <span class="m-h">Agents</span>
+          <div class="c-agent"><span class="m-dot bad"></span><span class="m-face" style="--f:#b8860b">N</span><span>Nova</span><span class="m-meta">Needs fixing</span></div>
+          <div class="c-agent"><span class="m-dot bad"></span><span class="m-face" style="--f:#2f7a78">L</span><span>Ledger</span><span class="m-meta">Needs fixing</span></div>
+          <div class="c-agent"><span class="m-dot work"></span><span class="m-face" style="--f:#51697a">A</span><span>Atlas</span><span class="m-meta">Working</span></div>
+          <div class="c-agent"><span class="m-dot work"></span><span class="m-face" style="--f:#8a4b3c">I</span><span>Iris</span><span class="m-meta">Working</span></div>
+          <div class="c-agent"><span class="m-dot ok"></span><span class="m-face" style="--f:#d4502a">P</span><span>Pixel</span><span class="m-meta">Ready · 4:54 pm</span></div>
+          <div class="c-agent"><span class="m-dot off"></span><span class="m-face" style="--f:#5b5bd6">S</span><span>Scout</span><span class="m-meta">Paused</span></div>
+          <span class="m-h">Today by hour</span>
+          <div class="c-hours" role="img" aria-label="Requests per hour today: busiest at 9 am with 11; two hours had a failure; hours after 10 am are still to come">
+            <i style="height:14%"></i><i style="height:10%"></i><i class="x" style="height:22%"></i><i style="height:8%"></i><i style="height:12%"></i><i style="height:30%"></i><i style="height:48%"></i><i style="height:70%"></i><i class="x" style="height:82%"></i><i style="height:100%"></i><i style="height:64%"></i><i class="later" style="height:20%"></i><i class="later" style="height:20%"></i><i class="later" style="height:20%"></i><i class="later" style="height:20%"></i><i class="later" style="height:20%"></i></div>
+          <p class="m-meta" style="margin-top:6px">50 requests so far · 2 went wrong (red)</p>
+        </div>
+      </div>
+    </div>
+  </div></div>
+  <div class="cols">
+    <div><h3>What it fixes</h3><ul class="plain">
+      <li>Three tabs become one page that reads top to bottom: before, now, next.</li>
+      <li>Work that finished without problems folds into one line. What went wrong always stays visible.</li>
+      <li>Planned work shows next to what is running, so you can see a clash before it happens.</li>
+      <li>One row layout everywhere: time, state, agent, what, status, action.</li>
+    </ul></div>
+    <div><h3>What it costs</h3><ul class="plain">
+      <li>A busy workspace is a risk. The load test in the spec has 81,000 requests in 90 days, about 900 a day. The folding rules must be good or the page is noise.</li>
+      <li>Looking across weeks (charts, filters by person or channel, export) still needs a search view under Insights.</li>
+      <li>It is the furthest from the approved design, so it has the most to build and re-test.</li>
+    </ul></div>
+    <div><h3>What has to be built</h3><ul class="plain">
+      <li>Three reads that exist (Now, Upcoming, History for one day) merged by time.</li>
+      <li>A day summary from the server for the folded counts. Paging 25 rows at a time cannot produce them.</li>
+      <li>Tasks stays its own tab. A task has no single time to place it on.</li>
+    </ul></div>
+  </div>
+</section>
+
+<section>
+  <h2>Side by side</h2>
+  <div class="scroll-x"><table>
+    <thead><tr><th></th><th>Today</th><th>A · One queue</th><th>B · Team board</th><th>C · Day timeline</th></tr></thead>
+    <tbody>
+      <tr><th>First thing you see</th><td>A list with buttons</td><td>The most urgent item, opened</td><td>Every agent’s state</td><td>What is running now</td></tr>
+      <tr><th>Top-level tabs</th><td>6</td><td>4, plus Insights</td><td>4</td><td>4</td></tr>
+      <tr><th>“What needs me” lives in</th><td>3 tabs</td><td>1 list</td><td>1 list, plus a count per agent</td><td>1 list, plus a side panel</td></tr>
+      <tr><th>Deciding an item</th><td>Open a dialog, decide, close</td><td>Decide in place, next one opens</td><td>Same as today, from the agent’s panel</td><td>Same as today, from the row</td></tr>
+      <tr><th>Best for</th><td></td><td>People who approve and answer a lot</td><td>People who own several agents</td><td>Small teams who want the whole day in one view</td></tr>
+      <tr><th>Weak spot</th><td></td><td>Needs a wide window</td><td>Cross-agent questions</td><td>Very busy workspaces</td></tr>
+      <tr><th>Distance from the approved design</th><td></td><td><span class="tone good">Closest</span></td><td><span class="tone mid">Medium</span></td><td><span class="tone bad">Furthest</span></td></tr>
+      <tr><th>Size of the work</th><td></td><td><span class="tone mid">Medium</span></td><td><span class="tone mid">Medium</span></td><td><span class="tone bad">Large</span></td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Recommendation</h2>
+  <div class="choice">
+    <h3>Build A, and use B’s agent list as A’s Work tab.</h3>
+    <p>A removes the two biggest costs on the page: three places to look, and a dialog for every decision. It is also the closest to what was approved on 30 Oct, because that mockup already had the list and the details side by side. B’s agent rows are the best replacement for today’s cards, so they fit as the Work tab inside A. C has one idea worth keeping, the “now” line, which can go on the Planned tab later. As a whole page, C is the riskiest for a busy workspace.</p>
+  </div>
+  <div class="cols">
+    <div><h3>Fix first, whichever design you choose</h3>
+      <ol class="plain">
+        <li>The Working label: <code>web/src/style.css:25</code> has a global <code>.working</code> rule that leaks into <code>.activity-status.working</code>.</li>
+        <li>Group headings: <code>activity.css:20</code> removes the top margin from every heading that is first in its section, which is all of them.</li>
+        <li>Repeated words in History rows: the row prints the type and then a place that starts with the type again (<code>history.tsx</code> Row and <code>model.ts</code> place).</li>
+        <li>Phone rows: let the title take the full width and put the button under it. Let the tab row scroll sideways.</li>
+        <li>Review: style the goal form with the shared fields, and bring the weekly review text down to body size.</li>
+      </ol></div>
+    <div><h3>Then, in this order</h3>
+      <ol class="plain">
+        <li>Needs you as a split view, still with today’s items. This alone removes the dialogs.</li>
+        <li>Add the Fix items to the same list, once the owner decides what the red count means.</li>
+        <li>The Work tab with agent rows and their side panel.</li>
+        <li>History with the log first. Move totals, charts and Review into Insights.</li>
+        <li>The phone layout for all four tabs.</li>
+      </ol></div>
+  </div>
+  <p class="muted">Two decisions belong to the product owner before building: whether Fix items count in the rail’s red number, and the new tab names (Needs you, Work, Planned, History, Insights).</p>
+</section>
+
+</div>
+
+<script>
+// Fit each 1240px mockup to the column; below half size it scrolls sideways instead.
+const fit = () => document.querySelectorAll('.stage-wrap').forEach(wrap => {
+  wrap.firstElementChild.style.zoom = Math.max(0.5, Math.min(1, wrap.clientWidth / 1240));
+});
+fit(); addEventListener('resize', fit);
+
+// Current-design screenshots: one tab panel at a time.
+const shotTabs = [...document.querySelectorAll('.shot-tabs button')];
+shotTabs.forEach(tab => tab.addEventListener('click', () => shotTabs.forEach(other => {
+  const on = other === tab;
+  other.setAttribute('aria-selected', on);
+  document.getElementById(other.getAttribute('aria-controls')).hidden = !on;
+})));
+
+const face = (name, large) => {
+  const colours = { Iris: '#8a4b3c', Atlas: '#51697a', Nova: '#b8860b', Ledger: '#2f7a78', Pixel: '#d4502a', Scout: '#5b5bd6' };
+  return `<span class="m-face${large ? ' lg' : ''}" style="--f:${colours[name]}">${name[0]}</span>`;
+};
+
+// ---- Design A: one queue, one reading pane ----
+const queue = [
+  { group: 'Decide', mark: '◇', title: '3 × Refund order', agent: 'Atlas', where: '#orders', age: '5 h', urgent: 'Admin can decide now', chip: ['wait', 'Waiting for approval'],
+    facts: 'three customers asked in #orders · oldest 5 h ago', why: 'Refunds always ask. Their approver has not answered in 4 hours, so you can decide as an admin.',
+    subs: ['Order #1049 · ₹2,400 · chair arrived damaged', 'Order #1052 · ₹6,150 · wrong colour sent', 'Order #1061 · ₹1,980 · cancelled before dispatch'],
+    actions: [['Approve all 3', 'Approved 3 refunds. Atlas is sending them.'], ['Open conversation']] },
+  { group: 'Decide', mark: '◇', title: 'Approve a 12% discount for Sharma Traders', agent: 'Nova', where: '#sales', age: '18 min', chip: ['wait', 'Waiting for your approval'],
+    facts: 'asked by Kavya Nair in #sales · today 10:22 am', card: ['What Nova wants to do', 'Zoho Books · Create quote', [['Customer', 'Sharma Traders'], ['Items', '40 × Teak dining chair'], ['Discount', '12%'], ['Total', '₹4,18,000']]],
+    why: 'Discounts above 10% need a manager. You manage Nova. If nobody decides by 2:40 pm, an admin can.',
+    steps: [['ok', 'Read Kavya’s request'], ['ok', 'Checked stock: 52 chairs available'], ['ok', 'Prepared the quote'], ['wait', 'Waiting for your approval'], ['next', 'Send the quote to the customer']],
+    actions: [['Approve', 'Approved. Nova is sending the quote.'], ['Reject', 'Rejected. Nova told Kavya.'], ['Open conversation']] },
+  { group: 'Decide', mark: '◇', title: 'Update order #1057 delivery address', agent: 'Atlas', where: '#orders', age: '25 min', chip: ['wait', 'Waiting for your approval'],
+    facts: 'asked by Kavya Nair in #orders · today 10:29 am', card: ['What Atlas wants to do', 'Zoho Books · Update order', [['Order', '#1057 · Kapoor Interiors'], ['Old address', '14 MG Road, Pune'], ['New address', '8 Baner Road, Pune']]],
+    why: 'Changing an order asks for approval. An admin can step in after 1:54 pm.',
+    steps: [['ok', 'Read Kavya’s request'], ['ok', 'Read order #1057'], ['wait', 'Waiting for your approval']],
+    actions: [['Approve', 'Approved. Atlas is updating the order.'], ['Reject', 'Rejected. Atlas told Kavya.'], ['Open conversation']] },
+  { group: 'Answer', mark: '?', kind: 'q', title: 'Which courier for the Bengaluru order?', agent: 'Atlas', where: '#orders', age: '1 h', chip: ['wait', 'Waiting for your answer'],
+    facts: 'for Ravi Kumar’s request “Ship the Bengaluru order” · #orders', quote: 'BlueDart can deliver by Tuesday for ₹840. Delhivery is ₹610 and arrives Thursday. Which one should I book?',
+    answer: true, actions: [['Send answer', 'Sent. Atlas is booking the courier.'], ['Open conversation']] },
+  { group: 'Answer', mark: '?', kind: 'q', title: 'Sign in to the supplier portal', agent: 'Ledger', where: '#accounts', age: '40 min', chip: ['wait', 'Waiting in its browser'],
+    facts: 'for Meera Iyer’s request “Download the October invoice” · #accounts', quote: 'The supplier portal asks for a password and a code sent to your phone. Please sign in, then hand the browser back to me.',
+    actions: [['Take over the browser', 'The browser is yours. Ledger waits until you hand it back.'], ['Open conversation']] },
+  { group: 'Fix', mark: '!', kind: 'f', title: 'Zoho Books needs reconnecting', agent: 'Nova', where: 'stops Nova and Ledger', age: '3 h', chip: ['bad', 'Connection stopped'],
+    facts: 'sign-in expired today 7:50 am', card: ['What it is blocking', '2 agents cannot read or write in Zoho Books', [['Nova', '2 requests could not complete'], ['Ledger', 'Bank reconciliation at 12:54 pm will fail'], ['Atlas', 'Not affected, uses another account']]],
+    why: 'Reconnecting signs in to Zoho Books again. Nothing is retried automatically. Failed requests stay in this list.', bad: true,
+    actions: [['Reconnect in Settings', 'Opened Settings → Connections.']] },
+  { group: 'Fix', mark: '!', kind: 'f', title: 'Draft a quote for Iyer and Sons could not complete', agent: 'Nova', where: '#sales', age: 'yesterday', chip: ['bad', 'Could not complete'],
+    facts: 'asked by Kavya Nair in #sales · yesterday 4:05 pm · 41 s', quote: 'I could not finish the quote: the current price list is not in the Library, so I have no prices for teak tables.',
+    why: 'How to fix it: add the current price list to the Library folder Nova can read, then retry.', bad: true,
+    steps: [['ok', 'Read the message'], ['ok', 'Zoho Books: read customer Iyer and Sons'], ['ok', 'Searched the Library for the price list'], ['bad', 'Stopped and replied']],
+    actions: [['Mark reviewed', 'Marked reviewed. Nothing was retried.'], ['Discuss in chat'], ['Open conversation']] },
+  { group: 'Fix', mark: '!', kind: 'f', title: 'Payment reminder to Gupta Furniture: outcome unconfirmed', agent: 'Ledger', where: '#accounts', age: 'yesterday', chip: ['wait', 'Unconfirmed'],
+    facts: 'schedule “Payment reminders” · yesterday', quote: 'Gmail did not confirm that the reminder was sent. Ledger’s emails are paused until someone checks.',
+    why: 'Check the Sent folder of accounts@teakwood.example. Then say whether it went out, so Ledger does not send it twice.', bad: true,
+    actions: [['It was sent', 'Recorded as sent. Ledger’s emails are on again.'], ['It was not sent', 'Recorded as not sent. Ledger’s emails are on again.']] },
+  { group: 'Fix', mark: '!', kind: 'f', title: 'Task is late: chase Gupta Furniture for the October invoice', agent: 'Ledger', where: '#accounts', age: '3 h late', chip: ['bad', 'Late'],
+    facts: 'for Meera Iyer · due today 7:54 am', quote: 'I emailed Gupta Furniture twice and have no reply. I can call their accounts desk if you give me the number.',
+    why: 'A late task stays here until it is done, moved or closed.', bad: true,
+    actions: [['Open task', 'Opened the task.'], ['Move the due time', 'Due time moved to tomorrow 10:00 am.']] },
+];
+const weight = { 'Decide': item => item.subs ? item.subs.length : 1 };
+const aQueue = document.getElementById('a-queue'), aPane = document.getElementById('a-pane');
+let aOpen = queue[1], aSaid = '';
+const aTotal = () => queue.reduce((sum, item) => sum + (weight[item.group]?.(item) ?? 1), 0);
+function drawA() {
+  const groups = ['Decide', 'Answer', 'Fix'].map(name => [name, queue.filter(item => item.group === name)]).filter(([, list]) => list.length);
+  aQueue.innerHTML = `<div class="a-away"><span>Since yesterday 5:54 pm · 34 requests · 2 failed</span><u>See them</u></div>`
+    + groups.map(([name, list]) => `<span class="m-h">${name} · ${list.reduce((sum, item) => sum + (weight[name]?.(item) ?? 1), 0)}</span>` + list.map(item =>
+      `<button type="button" class="a-row" data-i="${queue.indexOf(item)}" aria-current="${item === aOpen}"><span class="a-mark ${item.kind ?? ''}">${item.mark}</span>
+        <span><strong>${item.title}</strong><span class="m-meta">${item.urgent ? `<span class="m-chip wait">${item.urgent}</span>` : ''}${face(item.agent)}${item.agent} · ${item.where}</span></span>
+        <span class="a-age">${item.age}</span></button>`).join('')).join('')
+    || '';
+  document.getElementById('a-count').textContent = document.getElementById('a-rail').textContent = aTotal();
+  const item = aOpen;
+  if (!item) { aPane.innerHTML = `<div class="a-empty"><strong style="color:var(--ink);font-size:16px">Nothing needs you right now</strong><br>${aSaid}</div>`; return; }
+  aPane.innerHTML = `<div class="a-read">
+      <div class="a-top"><span class="m-chip ${item.chip[0]}">${item.chip[1]}</span></div>
+      <h4>${item.title}</h4>
+      <div class="a-facts">${face(item.agent)}${item.agent} · ${item.facts}</div>
+      ${item.quote ? `<div class="a-card"><small>${item.agent} says</small><span>${item.quote}</span></div>` : ''}
+      ${item.card ? `<div class="a-card"><small>${item.card[0]}</small><strong>${item.card[1]}</strong><dl>${item.card[2].map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>` : ''}
+      ${item.subs ? `<div>${item.subs.map(sub => `<div class="a-sub"><span>${sub}</span><span class="m-btn sm">Approve</span><span class="m-btn sm">Reject</span></div>`).join('')}</div>` : ''}
+      ${item.answer ? `<div class="a-answer">Type your answer…</div>` : ''}
+      <p class="a-why${item.bad ? ' bad' : ''}">${item.why}</p>
+      ${item.steps ? `<span class="m-h" style="margin:6px 0 0">Steps so far</span><ol class="a-steps">${item.steps.map(([state, text]) =>
+        `<li class="${state}"><span class="m-dot ${state === 'next' ? 'off' : state}"></span>${text}</li>`).join('')}</ol>` : ''}
+    </div>
+    <div class="a-bar">${item.actions.map(([label, said], index) => `<button type="button" class="m-btn${index === 0 ? ' pri' : ''}" ${said ? `data-said="${said}"` : ''}>${label}</button>`).join('')}
+      ${aSaid ? `<span class="a-said" role="status">${aSaid}</span>` : `<span class="a-keys"><span><kbd>J</kbd> <kbd>K</kbd> move</span><span><kbd>A</kbd> approve</span><span><kbd>R</kbd> reject</span></span>`}</div>`;
+}
+aQueue.addEventListener('click', event => {
+  const row = event.target.closest('.a-row'); if (!row) return;
+  aOpen = queue[Number(row.dataset.i)]; aSaid = ''; drawA();
+});
+aPane.addEventListener('click', event => {
+  const said = event.target.closest('[data-said]')?.dataset.said; if (!said) return;
+  const at = queue.indexOf(aOpen); queue.splice(at, 1);
+  aOpen = queue[Math.min(at, queue.length - 1)]; aSaid = said; drawA();
+});
+drawA();
+
+// ---- Design B: team board ----
+const team = [
+  { name: 'Nova', role: 'Sales follow-up', state: 'fix', label: 'Needs fixing', tone: 'bad', now: 'Quote for Sharma Traders · waiting for your approval', needs: 3, next: '3:54 pm', bars: [3, 5, 4, -6, 5, 7, -4, 6],
+    need: [['Approve a 12% discount for Sharma Traders', '18 min', 'Review', true], ['Zoho Books needs reconnecting', 'stops 2 requests', 'Reconnect'], ['Draft a quote for Iyer and Sons could not complete', 'yesterday', 'How to fix it']],
+    doing: [['Quote for Sharma Traders', 'Kavya Nair · #sales · waiting for approval · 18 min']],
+    coming: [['3:54 pm', 'Check if Sharma Traders replied', 'Follow-up'], ['Mon 10:54', 'Monday sales summary', 'Every week']],
+    earlier: '9 requests today · 7 done · 2 could not complete', month: '60 of 71 tasks done · needed a person 24 times · goal: 31 of 50 quotes this month' },
+  { name: 'Ledger', role: 'Accounts helper', state: 'fix', label: 'Needs fixing', tone: 'bad', now: 'Waiting in its browser for a sign-in', needs: 3, next: '12:54 pm', bars: [2, 3, 2, 4, -3, 2, 3, 2],
+    need: [['Sign in to the supplier portal', '40 min', 'Take over', true], ['Payment reminder to Gupta Furniture: unconfirmed', 'yesterday', 'Check'], ['Task is late: chase Gupta Furniture', '3 h late', 'Open task']],
+    doing: [['Download the October invoice', 'Meera Iyer · #accounts · waiting in its browser · 40 min']],
+    coming: [['12:54 pm', 'Bank reconciliation', 'Every day · will fail until Zoho Books is reconnected'], ['—', 'Month-end report', 'Paused']],
+    earlier: '6 requests today · 5 done · 1 unconfirmed', month: '51 of 54 tasks done · needed a person 9 times' },
+  { name: 'Atlas', role: 'Orders assistant', state: 'wait', label: 'Waiting on you', tone: 'wait', now: 'Updating the Kapoor order in Zoho Books', needs: 5, next: 'On new orders', bars: [4, 6, 5, 7, 6, 8, 5, 6],
+    need: [['3 × Refund order', 'admin can decide now', 'Review together', true], ['Update order #1057 delivery address', '25 min', 'Review'], ['Which courier for the Bengaluru order?', '1 h', 'Answer']],
+    doing: [['Update the Kapoor order delivery address', 'Ravi Kumar · direct chat · working · 2 min'], ['Ship the Bengaluru order', 'Ravi Kumar · #orders · waiting for an answer · 1 h']],
+    coming: [['Always on', 'New order in Zoho Books', 'Trigger']],
+    earlier: '14 requests today · 12 done · 2 waiting', month: '88 of 96 tasks done · needed a person 31 times · suggestion: let it update orders without asking' },
+  { name: 'Iris', role: 'Customer support', state: 'work', label: 'Working', tone: 'work', now: 'Replying to customer emails · 4 of 6', needs: 0, next: '11:24 am', bars: [6, 8, 7, 9, 8, 10, 9, 6],
+    need: [], doing: [['Reply to 6 customer emails', 'Schedule · shared inbox · working · 11 min']],
+    coming: [['11:24 am', 'Reply to the shared inbox', 'Every hour']],
+    earlier: '63 requests today · 63 done', month: '204 of 212 tasks done · needed a person 11 times · goal at risk: first reply within 2 hours is 81% of 95%' },
+  { name: 'Pixel', role: 'Marketing posts', state: 'idle', label: 'Ready', tone: 'done', now: 'Nothing running', needs: 0, next: '4:54 pm', bars: [1, 0, 2, 1, 0, 1, 2, 1],
+    need: [], doing: [], coming: [['4:54 pm', 'Post new arrivals', 'Every day'], ['Mon 10:54', 'Prepare Diwali offer posts', 'Task due']],
+    earlier: '3 requests today · 3 done', month: '31 of 33 tasks done · needed a person 4 times' },
+  { name: 'Scout', role: 'Stock checker', state: 'off', label: 'Paused', tone: '', now: 'Paused by Ravi Kumar on 28 Oct', needs: 0, next: 'Skipped while paused', bars: [0, 0, 0, 0, 0, 0, 0, 0],
+    need: [], doing: [], coming: [['Skipped', 'Morning stock check', 'Every day · runs again after Resume']],
+    earlier: 'No requests today', month: '12 of 12 tasks done before the pause' },
+];
+const bRows = document.getElementById('b-rows'), bLane = document.getElementById('b-lane');
+let bOpen = team[0], bFilter = 'all';
+const dotOf = { fix: 'bad', wait: 'wait', work: 'work', idle: 'ok', off: 'off' };
+function drawB() {
+  const shown = team.filter(agent => bFilter === 'all' || agent.state === bFilter);
+  if (!shown.includes(bOpen)) bOpen = shown[0];
+  bRows.innerHTML = shown.map(agent => `<button type="button" class="b-row b-grid" data-n="${agent.name}" aria-current="${agent === bOpen}">
+    <span class="b-who">${face(agent.name, true)}<span><strong>${agent.name}</strong><span class="m-meta">${agent.role}</span></span></span>
+    <span class="b-now"><span class="m-dot ${dotOf[agent.state]}"></span><span>${agent.now}</span></span>
+    <span>${agent.needs ? `<span class="mk-count">${agent.needs}</span>` : '<span class="m-meta">—</span>'}</span>
+    <span class="m-meta">${agent.next}</span>
+    <span class="b-spark" role="img" aria-label="Requests over the last 8 hours">${agent.bars.map(bar => `<i class="${bar < 0 ? 'x' : ''}" style="height:${Math.max(8, Math.abs(bar) * 10)}%"></i>`).join('')}</span></button>`).join('');
+  const a = bOpen;
+  const list = (title, rows) => rows.length ? `<span class="m-h">${title}</span>${rows.join('')}` : '';
+  bLane.innerHTML = `<header>${face(a.name, true)}<div><strong>${a.name}</strong><span class="m-meta">${a.role}</span></div><span class="m-chip ${a.tone}">${a.label}</span></header>
+    <div style="display:flex;gap:8px;margin-top:12px"><span class="m-btn sm">${a.state === 'off' ? 'Resume' : 'Pause'}</span><span class="m-btn sm">Set up ${a.name} →</span><span class="m-btn sm">Message</span></div>
+    ${list(`Needs you · ${a.needs}`, a.need.map(([title, meta, action, first]) => `<div class="b-item"><span><span style="font-weight:500">${title}</span><br><span class="m-meta">${meta}</span></span><span class="m-btn sm${first ? ' pri' : ''}">${action}</span></div>`))}
+    ${list('Doing now', a.doing.map(([title, meta]) => `<div class="b-item"><span><span style="font-weight:500">${title}</span><br><span class="m-meta">${meta}</span></span></div>`))}
+    ${list('Coming up', a.coming.map(([time, title, meta]) => `<div class="b-item"><time>${time}</time><span><span style="font-weight:500">${title}</span><br><span class="m-meta">${meta}</span></span></div>`))}
+    <span class="m-h">Earlier today</span><div class="b-item"><span class="m-meta">${a.earlier}</span><span class="m-btn sm">All history</span></div>
+    <div class="b-month"><b style="color:var(--ink)">Last 30 days.</b> ${a.month}</div>`;
+}
+bRows.addEventListener('click', event => {
+  const row = event.target.closest('.b-row'); if (!row) return;
+  bOpen = team.find(agent => agent.name === row.dataset.n); drawB();
+});
+const pills = (root, pick) => root.addEventListener('click', event => {
+  const pill = event.target.closest('.b-pill'); if (!pill) return;
+  root.querySelectorAll('.b-pill').forEach(other => other.setAttribute('aria-pressed', other === pill));
+  pick(pill.dataset.f);
+});
+pills(document.getElementById('b-pills'), filter => { bFilter = filter; drawB(); });
+drawB();
+
+// ---- Design C: filter the timeline ----
+pills(document.getElementById('c-pills'), filter => document.querySelectorAll('#c-line [data-k]').forEach(row => {
+  row.hidden = filter !== 'all' && !row.dataset.k.split(' ').includes(filter);
+}));
+</script>
