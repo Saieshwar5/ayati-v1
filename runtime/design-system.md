@@ -50,6 +50,10 @@ items. Dark mode uses the corresponding existing tokens, not literal white.
 `--muted` is `#5F6670` in light mode (2026-11-14, shared with the mobile app). The
 earlier `#697079` fell to 4.38:1 on `--selection`; the new value keeps meta text
 and small labels at 5:1 or more on every light surface.
+Message bubbles and reply boxes (2026-11-21) sit on `--raised` with `--bubble-shadow`, not a
+grey fill: white with a soft shadow in light mode, the lighter raised fill with a faint shadow
+in dark mode. Blocks inside them (a forwarded message, code) use `--bubble-inset`, which
+differs from the bubble in both themes.
 
 - Establish hierarchy with spacing, type, alignment and thin dividers first.
 - Apply the approved OpenPencil D / Selective treatment: keep ordinary row,
@@ -59,7 +63,7 @@ and small labels at 5:1 or more on every light surface.
   The Chat directory boundary uses `--border-structure` (#D6DAE0). Each has a
   corresponding dark-theme value. Keep resting borders 1 px; do not thicken
   every container or add boxes around Agents or Users rows. Ordinary agent prose
-  uses the softly filled response box described under Chat.
+  uses the raised response box described under Chat.
 - Preserve filled primary actions, borderless icon buttons, soft search fields
   and selected-row fills. Reserve stronger focus emphasis for interaction:
   ordinary controls keep the shared 2 px focus outline; the composer uses its
@@ -353,13 +357,24 @@ and Archived thread title. Archive review belongs near the top of Details and
 shows visible unfinished work. Restore opens future intake only. See
 [Chat organization](chat-organization.md).
 
-Agent prose uses the selected OpenPencil corner-arrow design: a soft themed fill,
-quiet border and 16 px corners. Long replies have a bounded deterministic excerpt,
+Agent prose uses the selected OpenPencil corner-arrow design in a raised box: the
+`--raised` fill with `--bubble-shadow` and 16 px corners, no border or grey fill
+(2026-11-21). Long replies have a bounded deterministic excerpt,
 a fading lower edge and a bare corner-arrow icon with a 44 px target. No labelled
 expansion footer or character count. The icon opens the saved body inline and
 reverses to collapse; expanded replies also have a top corner collapse control.
 Short replies use their natural height. On phones, place the box below its author
 row to use the available width. Keep conversation scrolling and preserve drafts.
+
+People's messages (2026-11-21) use the same raised bubble on both sides: yours on the
+right, another person's under their name on the left, with the small corner on the
+sender's side. Side, face and name tell them apart, not colour. A message taller than
+192 px shows its first lines with a fading lower edge and the same corner arrow, which
+sits on the faded edge and adds no height. Opening shows the whole text in place; the
+arrow then follows the bottom of the reading area so a long message can be closed from
+anywhere in it, and closing returns to the message. Reaching hidden text with the
+keyboard or find-in-page opens the message. Short messages are unchanged, and the
+12,000-character sending limit stays.
 
 Remove Check progress launchers from Chat; request activity remains in Agents Work.
 Keep ordinary reply status, Stop, questions and approval controls. Expanded saved

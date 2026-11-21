@@ -216,8 +216,11 @@ audio graph and animation frame, observers and pending requests are released on 
 upload limits remain 10 MiB/eight files; private uploads retain their existing 25 MiB/eight-file
 boundary. Speech recognition is described in [voice transcription](voice-transcription.md).
 
-Messages retain own-right/other-left alignment, quieter incoming surfaces and compact
-consecutive sender groups. Own messages omit repeated names/avatars, with time and
+Messages retain own-right/other-left alignment and compact consecutive sender groups.
+Since 2026-11-21 both sides use the same raised bubble (white with a soft shadow in light
+mode) instead of a grey fill for your own messages and none for others, and a long
+message from a person starts closed with a corner arrow to open it
+([design system](design-system.md#chat)). Own messages omit repeated names/avatars, with time and
 accessible delivery indicators on the final line. Thread actions remain keyboard/touch
 accessible as compact reply buttons. The single-row composer floats inside the work
 area with an inset and soft shadow, growing only for drafts, files or recording controls. Sent/delivered/seen states remain distinct. Screens are
