@@ -11,6 +11,8 @@
 //!   (`runs.rs`), which answers on its own. The member can write in the chat
 //!   themselves at any time, stop the thread, resume it or delete it.
 //! - One running thread per member and chat. A stopped thread sends nothing.
+//! - A running thread has a mode (`modes`, schema 141): `auto` as above, or
+//!   `ask`, where the assistant writes each reply and the member sends it.
 //! - Deleting a thread removes the assistant's notes about it; the messages
 //!   already sent stay in the chat, as the member's own.
 use super::super::*;
@@ -18,6 +20,8 @@ use crate::identity::chat::model::{Job, NewChat, NewMessage};
 use serde::Deserialize;
 use serde_json::json;
 
+#[path = "assistant_reply_modes.rs"]
+pub(crate) mod modes;
 #[path = "assistant_thread_runs.rs"]
 pub(crate) mod runs;
 #[path = "assistant_thread_takeover.rs"]
@@ -192,7 +196,11 @@ impl PgStore {
         let threads = json_rows(
             &tx,
             "SELECT jsonb_build_object('id',t.id,'kind',t.kind,'counterpart',t.counterpart,'title',t.title,'opening',t.opening,
-               'instruction',t.instruction,'anchor',t.anchor,'created_ms',t.created_ms,'chat',t.chat,'state',t.state,'detail',t.detail,'sent',t.sent,'origin',t.origin,'updated_ms',t.updated_ms,
+               'instruction',t.instruction,'anchor',t.anchor,'created_ms',t.created_ms,'chat',t.chat,'state',t.state,'mode',t.mode,'detail',t.detail,'sent',t.sent,'origin',t.origin,'updated_ms',t.updated_ms,
+               'draft',(SELECT jsonb_build_object('reply',d.id,'state',d.state,'text',CASE WHEN d.state='complete' THEN d.content ELSE '' END)
+                 FROM relay_chat_messages d WHERE d.workspace=t.workspace AND d.id=t.draft AND t.state='running' AND t.mode='ask'
+                   AND NOT EXISTS(SELECT 1 FROM relay_chat_messages o WHERE o.workspace=t.workspace AND o.chat=t.chat AND o.kind='user'
+                     AND o.author=t.owner AND o.thread IS NULL AND o.sequence>t.handled)),
                'name',CASE WHEN t.kind='agent' THEN (SELECT a.name FROM relay_shared_agents a WHERE a.workspace=t.workspace AND a.id=t.counterpart)
                  ELSE (SELECT COALESCE(NULLIF(btrim(u.display_name),''),'A workspace member') FROM relay_users u WHERE u.id=t.counterpart) END,
                'working',EXISTS(SELECT 1 FROM relay_chat_jobs j WHERE j.workspace=t.workspace AND j.reply=t.job AND j.state<>'finished'),
@@ -279,7 +287,7 @@ impl PgStore {
             )
             .await?
             .is_none(),
-            "You already have a running thread with {name}. Stop it before starting another."
+            "Your assistant is already on in your chat with {name}. Turn it off there before starting this."
         );
         let mut jobs = vec![];
         if first {
@@ -360,13 +368,8 @@ impl PgStore {
         }
         execute(
             &tx,
-            "UPDATE relay_work_threads SET state=$3,detail=$4,updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",
-            vec![
-                w.into(),
-                id.into(),
-                state.into(),
-                if state == "stopped" { "You stopped it." } else { "" }.into(),
-            ],
+            "UPDATE relay_work_threads SET state=$3,detail='',draft=NULL,updated_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",
+            vec![w.into(), id.into(), state.into()],
         )
         .await?;
         audit_with_summary(

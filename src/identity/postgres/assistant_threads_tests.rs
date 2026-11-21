@@ -1,6 +1,7 @@
 //! Assistant threads (schema 128): suggested by the assistant, started by the
 //! member, sent as the member, answered on their own while running, private
 //! about who wrote what, and stopped, resumed and deleted by the member.
+//! What it does in a chat by position is in `assistant_reply_modes_tests.rs`.
 use super::super::super::{tests::*, *};
 use super::{LIMIT, NewThread};
 use crate::identity::{
@@ -26,7 +27,7 @@ async fn shared_agent(db: &PgStore, owner: &User, w: &str, name: &str) -> String
     db.save_agent_profile(owner, w, &input).await.unwrap();
     input.id
 }
-async fn one(db: &PgStore, sql: &str, args: Vec<sea_orm::Value>) -> Value {
+pub(super) async fn one(db: &PgStore, sql: &str, args: Vec<sea_orm::Value>) -> Value {
     query(&db.db, &format!("SELECT to_jsonb(({sql})) AS v"), args)
         .await
         .unwrap()
@@ -34,7 +35,7 @@ async fn one(db: &PgStore, sql: &str, args: Vec<sea_orm::Value>) -> Value {
         .try_get("", "v")
         .unwrap()
 }
-async fn stored(db: &PgStore, id: &str) -> Value {
+pub(super) async fn stored(db: &PgStore, id: &str) -> Value {
     one(
         db,
         "SELECT m FROM relay_chat_messages m WHERE id=$1",
@@ -42,7 +43,7 @@ async fn stored(db: &PgStore, id: &str) -> Value {
     )
     .await
 }
-async fn thread(db: &PgStore, id: &str) -> Value {
+pub(super) async fn thread(db: &PgStore, id: &str) -> Value {
     one(
         db,
         "SELECT t FROM relay_work_threads t WHERE id=$1",
@@ -51,7 +52,7 @@ async fn thread(db: &PgStore, id: &str) -> Value {
     .await
 }
 /// The queued job in `chat`, claimed as a worker would.
-async fn queued(db: &PgStore, chat: &str) -> Job {
+pub(super) async fn queued(db: &PgStore, chat: &str) -> Job {
     let payload = one(
         db,
         "SELECT j.payload FROM relay_chat_jobs j WHERE j.payload->>'chat'=$1 AND j.state='queued'",
@@ -60,7 +61,7 @@ async fn queued(db: &PgStore, chat: &str) -> Job {
     .await;
     super::super::super::handoff_tests::claim(db, &serde_json::from_value(payload).unwrap()).await
 }
-async fn room(db: &PgStore, agent: &str) -> String {
+pub(super) async fn room(db: &PgStore, agent: &str) -> String {
     one(
         db,
         "SELECT chat FROM relay_chat_agents WHERE agent=$1",
@@ -80,7 +81,7 @@ fn new_thread(kind: &str, to: &str) -> NewThread {
         opening: "Hi, I'd like leave from 22 to 26 December.".into(),
     }
 }
-async fn reply(db: &PgStore, job: &Job, thread: &str, key: &str, text: &str) -> Value {
+pub(super) async fn reply(db: &PgStore, job: &Job, thread: &str, key: &str, text: &str) -> Value {
     db.thread_reply(
         job,
         &serde_json::from_value(json!({"thread":thread,"key":key,"text":text})).unwrap(),
@@ -212,10 +213,16 @@ async fn a_suggested_thread_runs_on_its_own_once_started_until_it_is_stopped() {
         )
         .await
         .unwrap();
-    assert_eq!(done["state"], "stopped");
+    // Finished: it stops sending by itself, and its person sends from here.
+    assert_eq!(done["state"], "finished");
+    let finished = thread(&db, &id).await;
     assert_eq!(
-        thread(&db, &id).await["detail"],
-        "Finished: Leave approved."
+        [&finished["state"], &finished["mode"], &finished["detail"]],
+        [
+            &json!("running"),
+            &json!("ask"),
+            &json!("Finished: Leave approved.")
+        ]
     );
     db.chat_finish(&last, "Your leave is approved.", "complete")
         .await
@@ -300,7 +307,7 @@ async fn only_the_member_sees_who_wrote_a_message_and_only_they_run_the_thread()
         .thread_create(&ravi, &w, &new_thread("user", &priya.id))
         .await
         .unwrap_err();
-    assert!(second.to_string().contains("already have a running thread"));
+    assert!(second.to_string().contains("already on in your chat"));
     assert!(
         db.thread_set(&priya, &w, &input.id, "stopped")
             .await
@@ -341,7 +348,7 @@ async fn only_the_member_sees_who_wrote_a_message_and_only_they_run_the_thread()
         "invalid"
     );
 
-    // At the limit the thread stops instead of sending.
+    // At the limit it stops sending by itself: its person sends from here.
     execute(
         &db.db,
         "UPDATE relay_work_threads SET sent=$2 WHERE id=$1",
@@ -353,135 +360,10 @@ async fn only_the_member_sees_who_wrote_a_message_and_only_they_run_the_thread()
         reply(&db, &run, &input.id, "more", "One more").await["state"],
         "invalid"
     );
-    let stopped = thread(&db, &input.id).await;
-    assert_eq!(stopped["state"], "stopped");
-    assert!(stopped["detail"].as_str().unwrap().contains("30 messages"));
-}
-
-/// Schema 136: a chat handed over from a message runs at once with nothing
-/// sent first, and the assistant is handed that message with the instruction.
-#[tokio::test]
-#[ignore = "requires local PostgreSQL"]
-async fn a_chat_handed_over_from_a_message_starts_with_the_assistants_own_reply() {
-    use super::takeover::TakeOver;
-    use crate::identity::chat::model::NewChat;
-    let mut db = fixture().await;
-    db.pooled = true;
-    let ravi = user(&db, "ravi").await;
-    let priya = user(&db, "priya").await;
-    let w = workspace(&db, &ravi).await;
-    join(&db, &ravi, &w, &priya, "Member").await;
-    let mine = db
-        .ensure_assistant(&ravi, &w, "fixture", "openai")
-        .await
-        .unwrap();
-    let own_room = room(&db, &mine).await;
-    let direct = NewChat {
-        id: uuid::Uuid::new_v4().to_string(),
-        name: "Direct message".into(),
-        kind: "direct".into(),
-        description: String::new(),
-        users: vec![priya.id.clone()],
-        agents: vec![],
-    };
-    let chat = db.chat_create(&ravi, &w, &direct).await.unwrap();
-    let asked = message("Any update on the funding?", None);
-    db.chat_send(&priya, &w, &chat, &asked).await.unwrap();
-    let own = message("Let me check.", None);
-    db.chat_send(&ravi, &w, &chat, &own).await.unwrap();
-    let over = |from: &str, instruction: &str| TakeOver {
-        id: uuid::Uuid::new_v4().to_string(),
-        chat: chat.clone(),
-        message: from.into(),
-        instruction: instruction.into(),
-    };
-
-    // Only from the other side's message, with something to do, in a direct chat you are in.
-    let refused = [
-        over(&own.id, "Tell her we are close."),
-        over(&asked.id, "  "),
-        over("missing", "Tell her we are close."),
-    ];
-    for input in &refused {
-        assert!(db.thread_take_over(&ravi, &w, input).await.is_err());
-    }
-    let hers = user(&db, "meera").await;
-    join(&db, &ravi, &w, &hers, "Member").await;
-    db.ensure_assistant(&hers, &w, "fixture", "openai")
-        .await
-        .unwrap();
-    assert!(
-        db.thread_take_over(&hers, &w, &over(&asked.id, "Answer her."))
-            .await
-            .is_err(),
-        "not in a chat you can't read"
-    );
-
-    let before: i64 = serde_json::from_value(
-        one(
-            &db,
-            "SELECT count(*) FROM relay_chat_messages WHERE chat=$1",
-            vec![chat.clone().into()],
-        )
-        .await,
-    )
-    .unwrap();
-    let input = over(
-        &asked.id,
-        "Tell her we are about to close the funding. Share dates only when confirmed.",
-    );
-    assert_eq!(db.thread_take_over(&ravi, &w, &input).await.unwrap(), chat);
-    // A retry starts nothing new, and nothing was sent as Ravi.
-    assert_eq!(db.thread_take_over(&ravi, &w, &input).await.unwrap(), chat);
-    let saved = thread(&db, &input.id).await;
+    let limited = thread(&db, &input.id).await;
     assert_eq!(
-        [&saved["state"], &saved["anchor"], &saved["sent"]],
-        [&json!("running"), &json!(asked.id), &json!(0)]
+        [&limited["state"], &limited["mode"]],
+        [&json!("running"), &json!("ask")]
     );
-    let after = one(
-        &db,
-        "SELECT count(*) FROM relay_chat_messages WHERE chat=$1",
-        vec![chat.clone().into()],
-    )
-    .await;
-    assert_eq!(after, json!(before));
-    let again = db
-        .thread_take_over(&ravi, &w, &over(&asked.id, "Once more."))
-        .await
-        .unwrap_err();
-    assert!(again.to_string().contains("already replying"));
-
-    // The assistant is handed the chosen message and what Ravi asked, and answers as him.
-    assert_eq!(db.dispatch_threads().await.unwrap(), 1);
-    let run = queued(&db, &own_room).await;
-    let told = run.prompt.as_str();
-    assert!(told.contains("asked you to do there: Tell her we are about to close the funding."));
-    assert!(told.contains("Any update on the funding?"));
-    let sent = reply(
-        &db,
-        &run,
-        &input.id,
-        "first",
-        "We are very close to closing it.",
-    )
-    .await;
-    assert_eq!(sent["state"], "sent");
-    let posted = stored(&db, sent["message"].as_str().unwrap()).await;
-    assert_eq!(posted["author"], ravi.id.as_str());
-    assert_eq!(posted["assisted"]["by"], "assistant");
-    let listed = db.threads(&ravi, &w).await.unwrap();
-    assert_eq!(listed["threads"][0]["anchor"], asked.id.as_str());
-    assert_eq!(
-        listed["threads"][0]["instruction"],
-        input.instruction.as_str()
-    );
-
-    // Stop and resume keep it in the same chat without sending an opening message.
-    db.thread_set(&ravi, &w, &input.id, "stopped")
-        .await
-        .unwrap();
-    db.thread_set(&ravi, &w, &input.id, "running")
-        .await
-        .unwrap();
-    assert_eq!(thread(&db, &input.id).await["sent"], 1);
+    assert!(limited["detail"].as_str().unwrap().contains("30 messages"));
 }

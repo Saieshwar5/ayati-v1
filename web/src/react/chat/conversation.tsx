@@ -5,7 +5,7 @@ import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox, type Submission 
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
 import { ConnectionBanner } from './connection-banner';
 import { ChatComposer } from './attachments';
-import { requestAgents } from './mentions';
+import { decodeMentions, requestAgents } from './mentions';
 import { quotePreview, ReplyingTo } from './quoted-message';
 import type { Attachment, Message } from './model';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
@@ -18,8 +18,9 @@ import { Button } from '../ui';
 import { errorMessage } from '../requests';
 import { agentChatNote, agentRuleNote, chatRequest, conversationName, directPartner, filesOnlyContent, type Conversation, type Directory, type History } from './model';
 import { ShowProfile, useShowProfile } from './profile-card';
-import { AssistantRoom, ThreadPill, TookOverLine } from './assistant-threads';
-import { threadIn, useThreads } from './assistant-threads-model';
+import { AssistantRoom, TookOverLine } from './assistant-threads';
+import { ReplySwitch } from './assistant-reply-switch';
+import { positionOf, threadIn, useThreads } from './assistant-threads-model';
 import { useAssistantDraft } from './assistant-draft';
 import { AssistantIntro, ExampleRequests } from './assistant-start';
 import { AssistantSettingsLink } from './assistant-settings';
@@ -179,6 +180,8 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
     if (chat.archived) return false;
     const attachments = (voice ? [...files, voice] : files).map(f => f.id);
     if (pending.current || (!draft.trim() && !attachments.length)) return false;
+    // A message that mentions your own assistant asks it for a reply; it is never posted.
+    if (assist.asking) { assist.ask?.(replyTo); return false; }
     pending.current = true; setBusy(true); setError('');
     let agents: string[];
     try { agents = requestAgents(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
@@ -228,14 +231,23 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   const place = chat.kind === 'direct' ? 'Direct message' : chat.kind === 'group' ? 'Group' : `#${chat.name}`;
   const showProfile = useShowProfile();
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
-  // Your assistant in this chat: a draft in the message box, and a chat handed over to it (schema 136).
+  // Your assistant in this chat: replies written into the message box, and what it does here on its own (schema 141).
   const assistant = directory.agents.find(agent => agent.assistant && agent.yours);
   const assistantName = assistant?.name ?? 'Your assistant';
   const { threads, room } = useThreads();
   const handed = threadIn(threads, chat.id);
-  const assist = useAssistantDraft({ chat: chat.id, name: assistantName, value: draft, change: updateDraft, sent: draftSent, disabled: busy || Boolean(chat.archived) });
-  // Only a direct chat with one other side, and only from a message that side sent.
-  const canHandOver = Boolean(assistant && partner) && !partner?.who.assistant && !chat.archived && chat.users.length + chat.agents.length === 2 && handed?.state !== 'running';
+  const position = positionOf(handed);
+  const assist = useAssistantDraft({ chat: chat.id, name: assistantName, value: draft, change: updateDraft, sent: draftSent, disabled: busy || Boolean(chat.archived),
+    waiting: handed && position === 'ask' && handed.draft ? { thread: handed.id, ...handed.draft } : undefined });
+  // It works on its own only in a direct chat with one other side that is not an assistant.
+  const canSwitch = Boolean(assistant && partner) && !partner?.who.assistant && !chat.archived && chat.users.length + chat.agents.length === 2;
+  // Anywhere but its own chat it writes one reply when asked: to the latest message, or to one you choose.
+  const canAsk = Boolean(assistant) && chat.id !== room && !chat.archived;
+  const replyWith = (message: Message) => {
+    setReplyTo(message.id);
+    if (assistant && !decodeMentions(draft).mentions.some(item => item.kind === 'agent' && item.id === assistant.id)) updateDraft(`[@${assistantName.replace(/[\]\n]/g, ' ')}](mention:agent:${assistant.id}) ${draft}`);
+    requestAnimationFrame(() => composerField()?.focus());
+  };
   // Your own assistant's chat before its first message: who it is, examples to start from, the cursor ready.
   const emptyAssistant = partner?.kind === 'agent' && partner.who.assistant && partner.who.yours && history?.messages.length === 0 ? partner.who : undefined;
   const composerField = () => section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea');
@@ -250,11 +262,12 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   // A direct message's agent: what it is doing for you here, and whether it takes messages now.
   const working = partner?.kind === 'agent' ? workingForYou(allMessages, partner.who.id) : undefined;
   const agentFree = partner?.kind !== 'agent' || takesMessages(partner.who);
-  const handOver = (message: Message) => canHandOver && message.author === partner?.who.id && (message.kind === 'agent') === (partner?.kind === 'agent') ? assistantName : undefined;
+  // Not while the message box gives way to a paused agent's bar: there would be nowhere to write the reply.
+  const askAssistant = (message: Message) => canAsk && agentFree && message.author !== viewer ?{ name: assistantName, start: () => replyWith(message) } : undefined;
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} returnTo={returnTo} search={() => setSearching(true)} working={working}
       level={level} levelChanged={levelChanged} details={details}
-      extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : <ThreadPill chat={chat.id} assistantName={assistantName} />} />
+      extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : canSwitch && <ReplySwitch chat={chat.id} assistantName={assistantName} partnerName={title} />} />
     <ConnectionBanner status={connection} />
     <NewRepliesBar threads={threadsWithNew(allMessages, newReply)} open={setThread} />
     {chat.id === room && <AssistantRoom assistantName={assistantName} />}
@@ -270,7 +283,7 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {emptyAssistant && <AssistantIntro assistant={emptyAssistant} />}
       {history?.messages.length === 0 && !emptyAssistant && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}{message.id === handed?.anchor && <TookOverLine assistantName={assistantName} />}<ChatMessage handOver={handOver(message)} focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id, newReply)} place={place} openThread={() => setThread(message.id)}
+      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}{position === 'auto' && message.id === handed?.anchor && <TookOverLine assistantName={assistantName} />}<ChatMessage askAssistant={askAssistant(message)} focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id, newReply)} place={place} openThread={() => setThread(message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
       <PendingMessages chat={chat.id} agentName={agentName} />
       {away && <JumpToLatest count={newBelow} jump={jumpToLatest} />}
@@ -280,8 +293,9 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
     {emptyAssistant && !draft && !chat.archived && agentFree && <ExampleRequests use={startExample} />}
     {!agentFree && partner?.kind === 'agent' ? <PausedBar agent={partner.who} admin={directory.role === 'Admin'} /> : <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
-      placeholder="Message…" tools={assist.tool} notice={assist.notice}
+      placeholder="Message…" tools={assist.tool} notice={assist.notice} submitLabel={assist.asking ? `Ask ${assistantName}` : undefined}
       candidates={[
+        ...(canAsk && assistant ? [{ ...assistant, kind: 'agent' as const, yourAssistant: true }] : []),
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
       ]} />}

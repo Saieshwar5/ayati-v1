@@ -308,15 +308,23 @@ Stop where supported. Closing a tool does not hand back browser control or resum
 work. See [Unified Chat](unified-chat.md) for current channel/thread capabilities,
 access boundaries and remaining work; a visual component grants no authority.
 
-Your assistant in Chat (2026-11-19, [assistants](assistants.md)): one four-point
+Your assistant in Chat (2026-11-21, [assistants](assistants.md#one-position-per-chat-schema-141)): one four-point
 mark (`AssistantMark`) stands for everything it does for you. Its chat is the
-first conversation in the list, right under For you, with no heading or sub-rows. A chat it replies in carries
-the mark on its row (`--online` while running, `--muted` once stopped) and a
-pill in the header with Stop, or Resume and Delete; under 760 px the pill keeps
-the mark and its buttons and drops its words. Messages it wrote show the mark
-and its name beside the time. The mark on a message's toolbar hands the chat
-over from that message; the mark beside Attach in the message box asks for a
-draft, which is written into the box under a one-line bar. The sliders button
+first conversation in the list, right under For you, with no heading or sub-rows. In a direct chat
+with one person or one agent the mark sits in the header, borderless and muted
+while your assistant is off there; while it is on, a pill says what it does
+("Ayati asks you first" on the selection fill, "Ayati is replying" on a pale
+`--online` tint) and the chat's row carries the mark (`--muted` on Ask me first,
+`--online` while it replies for you). Either opens one menu of three radio
+choices in the bell menu's shape; Reply for me opens a short form and starts
+only from its primary button. Under 760 px the pill keeps the mark and drops
+its words. A message it wrote shows its name as a mention on a muted line at
+the top of your own bubble ("@Ayati sent this for you", "Written with
+@Ayati"); nothing is added beside the time. The mark on a message's toolbar
+asks for one reply to that message; the mark beside Attach, or a mention of
+your assistant in the message box, asks for a draft, which is written into the
+box under a one-line bar. While the box mentions your assistant the send
+button reads "Ask Ayati", because that message is not posted. The sliders button
 in its own chat's header opens its page in Agents, where everything about it is
 set up ([About you, rules, regular checks](assistants.md#set-up-on-its-agent-page-2026-11-19)). Do not restore a banner
 across the conversation, a row above the message box or rows under the

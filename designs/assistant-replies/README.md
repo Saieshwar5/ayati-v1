@@ -1,9 +1,36 @@
 # Assistant replies: one switch per chat (2026-11-21)
 
-**Status: proposal. Nothing is built.** The owner found assistant threads
-([`runtime/assistants.md`](../../runtime/assistants.md#threads-schema-128)) too
-complicated to use and asked for a simpler way to let a personal assistant handle
-messages from people and agents.
+**Status: the switch, Ask me first, the step down, the @name tag and asking by
+mention are built** (2026-11-21, schema 141); see
+[`runtime/assistants.md`](../../runtime/assistants.md#one-position-per-chat-schema-141)
+for what the app does and how it was checked. Steps 3 and 4 below are not built.
+
+The owner found assistant threads too complicated to use and asked for a simpler
+way to let a personal assistant handle messages from people and agents.
+
+| Step | What | State |
+| --- | --- | --- |
+| 1 | Ask me first: replies wait in the message box | Built and tested |
+| 2 | The header switch in place of take-over, Stop, Resume and Delete; the step down | Built and tested |
+| – | The @name tag, a mention that asks, Reply with @name on a message | Built and tested |
+| 3 | The assistant's questions in the same chat and in Needs you; the flag on a sensitive reply | Not built |
+| 4 | Starting positions for agents and for people | Not built |
+
+Where the app differs from the pictures, each on purpose:
+
+- **A problem turns it off; it does not step down.** Stepping down would hand
+  the same message over again and fail again. Settled and 30 sent messages
+  step down to Ask me first as drawn.
+- **Reply for me needs a second click**, Start replying, under the line that
+  says replies go out unread. The prototype started it from the radio.
+- **The tag is the top line inside your own bubble**, not above it, so it
+  moves with the message in every layout.
+- **The mark beside Attach still asks at once.** It did not become "insert the
+  mention": one click is less than two.
+- **A reply is never put over your words.** With something already typed, a
+  line offers Use it.
+- **A suggestion still sends its opening on Start.** Opening it as a waiting
+  reply needs a chat that may not exist yet.
 
 Open [`mockups.html`](mockups.html) in a browser. It holds a working example chat
 (canned replies, no model), the two workflows as diagrams, and pictures of the other

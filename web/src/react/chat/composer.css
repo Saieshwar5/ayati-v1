@@ -10,6 +10,7 @@
 .message-composer .ui-button { min-height:34px; padding:6px 8px; border-color:transparent; background:transparent; box-shadow:none; font-size:12px; }
 .message-composer .ui-button.primary { background:var(--text); color:var(--surface); }
 .composer-actions button[type=submit] { width:34px; border-radius:9px; }
+.composer-actions button[type=submit].composer-submit-words { width:auto; padding:6px 12px; font-weight:600; white-space:nowrap; }
 .message-composer svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.6; }
 .composer-attachments { grid-column:1 / -1; grid-row:1; display:flex; flex-wrap:wrap; gap:6px; }
 .composer-attachments:empty { display:none; }

@@ -65,6 +65,7 @@ fn draft_for(chat: &str, id: &str) -> DraftRequest {
         chat: chat.into(),
         thread: None,
         instruction: "say yes".into(),
+        message: None,
     }
 }
 async fn make_due(db: &PgStore, who: &User) {

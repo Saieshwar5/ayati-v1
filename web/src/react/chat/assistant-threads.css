@@ -1,29 +1,38 @@
-/* Your assistant in Chat (schemas 128, 129, 136): one mark for a chat it replies in, what it wrote and its drafts. */
+/* Your assistant in Chat (schemas 128, 129, 141): one mark for a chat it works in, what it wrote and its replies. */
 .assistant-mark { flex: none; }
-/* A chat your assistant is replying in, in the chat list. */
+/* A chat your assistant works in, in the chat list: green while it replies for you, grey while it asks you first. */
 .chat-thread-mark { display: inline-grid; flex: none; color: var(--online); }
-.chat-thread-mark.stopped { color: var(--muted); }
-/* The same fact in that chat's header, with Stop, or Resume and Delete. */
-.chat-thread-pill { position: relative; display: inline-flex; flex: none; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px; background: color-mix(in srgb, var(--online) 11%, var(--surface)); font-size: 12.5px; white-space: nowrap; }
-/* The header stretches its title block; this stays as wide as its words. */
-.workspace-chat .chat-pane-header > div.chat-thread-pill.chat-thread-pill { flex: none; min-width: auto; }
-.chat-thread-pill.stopped { background: var(--selection); color: var(--muted); }
-.chat-thread-pill summary { display: inline-flex; align-items: center; gap: 6px; padding: 2px 4px 2px 0; border-radius: 999px; list-style: none; cursor: pointer; }
-.chat-thread-pill summary::-webkit-details-marker { display: none; }
-.chat-thread-pill.running .assistant-mark { color: var(--online); }
-.chat-thread-pill .ui-button { min-height: 0; padding: 3px 11px; border-radius: 999px; background: var(--surface); font-size: 12px; }
-.chat-thread-about { position: absolute; top: calc(100% + 8px); right: 0; z-index: 6; display: grid; gap: 4px; width: min(320px, 80vw); padding: 12px; border: 1px solid var(--border-panel); border-radius: 12px; background: var(--surface); box-shadow: 0 8px 24px var(--shadow); color: var(--text); font-size: 13px; white-space: normal; }
-.chat-thread-pill .chat-thread-about p { margin: 0 0 6px; color: var(--text); font-size: 13px; overflow-wrap: anywhere; }
-.chat-thread-about small { color: var(--muted); font-size: 12px; }
-.chat-thread-pill > .chat-error { position: absolute; top: calc(100% + 8px); right: 0; margin: 0; }
-/* Where it took over, in the conversation. */
+.chat-thread-mark.ask { color: var(--muted); }
+/* The same fact in that chat's header, and the menu that changes it: a quiet mark while off, a pill while on. */
+.chat-replies { position: relative; display: inline-flex; flex: none; }
+.workspace-chat .chat-pane-header .chat-replies-button { color: var(--muted); }
+.workspace-chat .chat-pane-header .chat-replies-button:hover, .workspace-chat .chat-pane-header .chat-replies-button[aria-expanded=true] { color: var(--text); }
+.ui-button.chat-thread-pill { display: inline-flex; align-items: center; gap: 6px; min-height: 0; padding: 6px 12px 6px 10px; border: 0; border-radius: 999px; background: var(--selection); box-shadow: none; color: var(--text); font-size: 12.5px; font-weight: 400; white-space: nowrap; }
+.ui-button.chat-thread-pill.auto { background: color-mix(in srgb, var(--online) 11%, var(--surface)); }
+.chat-thread-pill.auto .assistant-mark { color: var(--online); }
+.chat-replies-menu { position: absolute; top: 42px; right: 0; z-index: 6; display: grid; gap: 6px; width: min(330px, calc(100vw - 32px)); padding: 6px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); box-shadow: 0 8px 24px var(--shadow-deep); color: var(--text); font-size: 13px; white-space: normal; }
+.chat-replies-menu [role=radiogroup] { display: grid; gap: 2px; }
+.chat-replies-menu [role=radio] { display: block; padding: 8px 10px; border: 0; border-radius: 9px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.chat-replies-menu [role=radio][aria-checked=true] { background: var(--soft); font-weight: 500; }
+.chat-replies-menu [role=radio]:hover:not(:disabled), .chat-replies-menu [role=radio]:focus-visible { background: var(--selection); }
+.chat-replies-menu small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; font-weight: 400; }
+.chat-replies-start { display: grid; gap: 8px; padding: 4px 10px 8px; }
+.chat-replies-start label { display: grid; gap: 6px; font-weight: 500; }
+.chat-replies-start label small { display: inline; margin: 0; }
+.chat-replies-start textarea { width: 100%; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); font: inherit; font-weight: 400; resize: vertical; }
+.chat-replies-start .ui-button { justify-self: end; }
+.chat-replies-note { margin: 0; padding: 6px 10px 4px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.chat-replies-menu > .chat-error { margin: 0; padding: 0 10px 6px; }
+/* Where its replies for you begin, in the conversation. */
 .chat-took-over { display: flex; align-items: center; gap: 10px; margin: 6px 0 2px; color: var(--muted); font-size: 11.5px; }
 .chat-took-over::before, .chat-took-over::after { content: ""; flex: 1; border-top: 1px solid var(--border); }
 .chat-took-over span { display: inline-flex; align-items: center; gap: 5px; }
 .chat-took-over .assistant-mark { color: var(--online); }
-/* The private mark on your own message that your assistant wrote, beside its time. */
-.chat-assisted { display: inline-flex; align-items: center; gap: 4px; margin-right: 8px; color: var(--muted); font-size: 11.5px; }
-.chat-message-tool.chat-takeover-tool { color: var(--online); }
+/* The private line on top of your own message that your assistant wrote: its name as a mention. */
+.chat-message p.chat-assisted { margin: 0 0 4px; color: var(--muted); font-size: 11.5px; line-height: 1.4; white-space: normal; }
+.chat-message-own p.chat-assisted { text-align: right; }
+.chat-assisted .message-mention { background: color-mix(in srgb, var(--text) 9%, transparent); }
+.chat-message-tool.chat-assistant-tool { color: var(--online); }
 /* Your assistant's own chat: the chats it replies in, and what it suggests. */
 .chat-thread-banners { display: grid; gap: 6px; padding: 8px 16px 0; }
 .chat-thread-strip, .chat-thread-banner { padding: 9px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--soft); font-size: 13px; }
@@ -37,18 +46,6 @@
 .chat-thread-item { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 0 0; }
 .chat-thread-item > span { flex: 1; min-width: 180px; display: grid; gap: 2px; }
 .chat-thread-item small { overflow: hidden; color: var(--muted); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-/* The take-over and settings dialogs. */
-.ui-dialog:has(.chat-threads) { width: min(560px, calc(100vw - 32px)); }
-.chat-threads { display: grid; gap: 12px; }
-.chat-threads > label { display: grid; gap: 6px; font-size: 13px; font-weight: 500; }
-.chat-threads label small { font-weight: 400; }
-.chat-threads select, .chat-threads input, .chat-threads textarea { width: 100%; box-sizing: border-box; padding: 9px 11px; border: 1px solid var(--border-control); border-radius: 9px; color: var(--text); background: var(--surface); font: inherit; }
-.chat-threads textarea { min-height: 84px; resize: vertical; }
-.chat-threads > label.ui-check { display: flex; align-items: flex-start; gap: 10px; }
-.chat-threads > label.ui-check input { flex: none; width: auto; margin-top: 3px; }
-.chat-threads > label.ui-check span { display: grid; gap: 3px; }
-.chat-takeover-from { display: grid; gap: 2px; margin: 0; padding: 2px 0 2px 10px; border-left: 2px solid var(--border-control); color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
-.chat-takeover-from strong { color: var(--text); font-size: 12.5px; }
 /* Drafts: a button beside Attach, and a line on top of the message box. */
 .composer-media > .composer-tools { grid-column: 1; grid-row: 2; display: flex; align-items: center; }
 .message-composer .composer-draft { color: var(--muted); }
@@ -58,7 +55,8 @@
 .composer-notice span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .composer-notice .assistant-mark { color: var(--working); }
 .message-composer .composer-notice .ui-button { min-height: 0; padding: 3px 9px; color: var(--muted); }
+@media (pointer: coarse) { .ui-button.chat-thread-pill { min-height: 40px; } .chat-replies-menu [role=radio] { min-height: 44px; } }
 @media (max-width: 760px) {
-  .chat-thread-pill summary span { display: none; }
-  .chat-thread-pill { padding-left: 8px; }
+  .chat-thread-pill > span { display: none; }
+  .ui-button.chat-thread-pill { padding: 8px; }
 }

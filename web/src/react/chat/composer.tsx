@@ -8,13 +8,15 @@ import './composer.css';
 export type ComposerProps = {
   value: string; change: (value: string) => void; send: () => void;
   maxLength?: number; disabled?: boolean; sendDisabled?: boolean; placeholder?: string; label?: string;
+  /** Words on the send button when sending does something else, such as asking your assistant. */
+  submitLabel?: string;
   candidates?: Mention[]; media?: ReactNode; attachments?: ReactNode; trailing?: ReactNode;
   /** A voice recording in progress replaces the text field; the draft stays. Enter sends and
    * Escape calls `cancel` (when given) anywhere in the composer except on its buttons. */
   voice?: { row: ReactNode; cancel?: () => void };
 };
 /** Shared UI; each conversation adapter owns its authorized transport and durable draft. */
-export function Composer({ value, change, send, disabled = false, sendDisabled = false, maxLength = 12000, placeholder = 'Message…', label = 'Message', candidates = [], media, attachments, trailing, voice }: ComposerProps) {
+export function Composer({ value, change, send, disabled = false, sendDisabled = false, maxLength = 12000, placeholder = 'Message…', label = 'Message', submitLabel, candidates = [], media, attachments, trailing, voice }: ComposerProps) {
   const input = useRef<HTMLTextAreaElement>(null);
   const restoreFocus = useRef(false);
   const submit = () => { if (!disabled && !sendDisabled) { restoreFocus.current = true; send(); } };
@@ -28,7 +30,7 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
   const selected = Math.min(active, Math.max(0, choices.length-1));
   // A message asks up to `maxAgents` agents; each one mentioned is asked.
   const asked = new Set(mentions.filter(m => m.kind === 'agent').map(m => m.id));
-  const blocked = (item: Mention) => item.kind === 'agent' && !asked.has(item.id) && asked.size >= maxAgents;
+  const blocked = (item: Mention) => item.kind === 'agent' && !item.yourAssistant && !asked.has(item.id) && asked.size >= maxAgents;
   const agentNote = (item: Mention) => asked.has(item.id) ? 'Already asked' : blocked(item) ? `Up to ${maxAgents} agents per message` : asked.size ? 'Also asks this agent' : 'Asks this agent to work';
   const recording = Boolean(voice), wasRecording = useRef(false);
   useLayoutEffect(() => {
@@ -78,7 +80,7 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
     })}>
     {choices.length > 0 && <div className="mention-menu" id={menuId} role="listbox" aria-label="Mention suggestions">
       {choices.map((item,index) => <button type="button" role="option" id={`${menuId}-${index}`} aria-selected={index === selected} aria-disabled={blocked(item) || undefined} key={`${item.kind}:${item.id}`} onMouseDown={event => event.preventDefault()} onClick={() => choose(item)}>
-        <ParticipantFace kind={item.kind} who={item} presence /><ParticipantName kind={item.kind} name={item.name} /><small>{item.kind === 'agent' ? agentNote(item) : item.title || 'Person'}</small>
+        <ParticipantFace kind={item.kind} who={item} presence /><ParticipantName kind={item.kind} name={item.name} /><small>{item.yourAssistant ? 'Your assistant · only you see this' : item.kind === 'agent' ? agentNote(item) : item.title || 'Person'}</small>
         {item.kind === 'user' && <MentionStatus id={item.id} />}
       </button>)}
     </div>}
@@ -98,6 +100,6 @@ export function Composer({ value, change, send, disabled = false, sendDisabled =
       }} />
     {voice?.row}
     {attachments && <div className="composer-attachments">{attachments}</div>}
-    <div className="composer-toolbar"><div className="composer-media">{media}</div><div className="composer-actions"><EmojiPicker insert={insertEmoji} disabled={disabled} />{trailing}<Button primary type="submit" aria-label="Send message" disabled={disabled || sendDisabled}>↑</Button></div></div>
+    <div className="composer-toolbar"><div className="composer-media">{media}</div><div className="composer-actions"><EmojiPicker insert={insertEmoji} disabled={disabled} />{trailing}<Button primary type="submit" className={submitLabel ? 'composer-submit-words' : ''} aria-label={submitLabel ?? 'Send message'} disabled={disabled || sendDisabled}>{submitLabel ?? '↑'}</Button></div></div>
   </form>;
 }
