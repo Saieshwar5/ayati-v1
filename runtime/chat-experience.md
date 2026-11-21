@@ -317,3 +317,36 @@ without Resume, one resume for a double click, the `agents` change, working and
 waiting) and the PostgreSQL pause test (`activity_controls_tests.rs`: the directory
 says paused and resumed, and the change is announced).
 
+## Profiles and channel Details (2026-11-20)
+
+Before, a profile had two versions: from a direct message's header it showed the
+bell and Pin above the person and ended with "Direct messages have no member list,
+settings or archive."; from a message or People & agents it was titled "Profile" with
+Message and no bell. Channel Details held its whole settings form for managers
+(about 1,290 px in a 360 px column) and four explanatory sentences.
+
+Now one layout serves every profile (`profile-card.tsx`) and the panel's actions are
+one row of round tiles (`panel-actions.tsx`) in profiles and Details alike:
+
+| Action | Shown |
+|---|---|
+| Message | outside your direct message with them; never to yourself |
+| Notifications, Pin | inside your direct message with them |
+| Resume | a paused agent, to its owners and admins (first) |
+| Add to channel | an agent, when you manage a channel it is not in |
+| Settings | an agent, to its owners and admins (its Instructions page) |
+| Edit profile | your own profile (Settings → Profile) |
+
+Facts are icon rows: About or Handles, email with Copy, the agent's owners (each
+opens their profile), and shared channels as links. Channel Details keeps its
+facts, round actions (bell, Pin, Archive), members with one ＋ Add for people and
+agents (`channel-add.tsx`; assistants and "Only me" agents are not offered), a
+search box only past eight members, a "Channel settings ›" row to a step of its own
+(`PanelView.step`), and Leave. Settings use switches (real radio buttons); the only
+words left warn about making the history public and about a non-admin choosing
+"Only admins". No server change.
+
+Checked: `web/tests/chat-profile.test.mjs` (Resume once and Settings for an owner,
+none for a member, the owner row, Edit profile and Copy on your own profile, search
+past eight members) and the updated Details and People tests.
+

@@ -1,0 +1,22 @@
+/* The row of round actions in a profile or channel Details (panel-actions.tsx).
+   The bell (labelled NotifyMenu) and Pin take the same tile shape here. */
+.panel-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 6px; }
+.panel-actions .panel-action, .panel-actions .chat-details-action, .panel-actions .chat-notify-labelled .chat-notify-button {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; width: 72px; min-height: 0; padding: 4px 0;
+  border: 0; border-radius: 12px; background: none; box-shadow: none; color: var(--text); font: inherit; font-size: 11.5px;
+  line-height: 1.25; text-align: center; text-decoration: none; cursor: pointer;
+}
+.panel-actions .panel-action > svg, .panel-actions .chat-details-action > svg, .panel-actions .chat-notify-labelled .chat-notify-button > svg:first-child {
+  width: 20px; height: 20px; padding: 10px; border-radius: 12px; background: var(--soft); box-sizing: content-box;
+}
+.panel-actions .panel-action:hover > svg, .panel-actions .chat-details-action:hover > svg, .panel-actions .chat-notify-labelled .chat-notify-button:hover > svg:first-child,
+.panel-actions [aria-expanded=true] > svg:first-child, .panel-actions [aria-pressed=true] > svg { background: var(--selection); }
+.panel-actions .panel-action-primary > svg { background: var(--accent) !important; color: var(--on-accent); }
+.panel-actions .panel-action:disabled, .panel-actions .chat-details-action:disabled { opacity: .55; cursor: default; }
+.panel-actions .panel-action:focus-visible, .panel-actions .chat-details-action:focus-visible, .panel-actions .chat-notify-labelled .chat-notify-button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+/* The bell's own chevron would crowd the tile; its menu still opens below. */
+.panel-actions .chat-notify-labelled .chat-notify-button > svg:last-child:not(:first-child) { display: none; }
+.panel-actions .chat-notify-labelled { position: relative; }
+.panel-actions .chat-notify-labelled .chat-notify-menu { top: 64px; left: 50%; transform: translateX(-30%); }
+@media (pointer: coarse) { .panel-actions .panel-action, .panel-actions .chat-details-action, .panel-actions .chat-notify-labelled .chat-notify-button { min-height: 44px; } }
+@media (forced-colors: active) { .panel-actions [aria-pressed=true] > svg, .panel-actions [aria-expanded=true] > svg:first-child { outline: 2px solid Highlight; } }

@@ -57,10 +57,12 @@ test('a profile card opens from the directory and Message starts one direct conv
     // The profile opens in the side panel beside the conversation; the directory dialog closes.
     assert.equal(document.querySelectorAll('dialog').length,0);
     const card=document.querySelector('aside.chat-side-panel');
-    assert.equal(card.getAttribute('aria-label'),'Profile');
+    assert.equal(card.getAttribute('aria-label'),'Ravi Kumar profile');
     assert.match(card.textContent,/Dispatch and suppliers\./,'about text shown');
     assert.equal(card.contains(document.activeElement),true,'focus moves into the panel');
-    assert.match(card.textContent,/Channels together# orders/);
+    assert.match(card.textContent,/Channels together: # orders/);
+    // A shared channel is a link that opens it.
+    assert.equal([...card.querySelectorAll('.profile-card-chips a')].map(a=>a.getAttribute('href')).join(),`/w/${w}/?view=chat&conversation=orders`);
     const message=[...card.querySelectorAll('button')].find(b=>b.textContent==='Message');
     await click(message);
     assert.equal(writes.length,1);
@@ -78,14 +80,15 @@ test('an agent card shows who manages it and adds it to a channel the viewer man
     await click(button('People & agents, 3 people, 2 agents'));
     await click(button('View profile of Atlas'));
     const card=document.querySelector('aside.chat-side-panel');
-    assert.equal(card.getAttribute('aria-label'),'Agent profile');
-    assert.match(card.textContent,/Priya Shah/);
-    assert.match(card.textContent,/is an AI agent/);
-    const select=card.querySelector('select');
-    assert.deepEqual([...select.options].map(o=>o.textContent),['Choose a channel…','#design'],'channels it already works in are not offered');
-    await change(select,'design');
-    await submit(card.querySelector('form.profile-card-add'));
+    assert.equal(card.getAttribute('aria-label'),'Atlas profile');
+    assert.match(card.textContent,/Owner: .*Priya Shah/);
+    assert.doesNotMatch(card.textContent,/is an AI agent/,'the AI tag says so; no sentence');
+    await click([...card.querySelectorAll('button')].find(b=>b.textContent==='Add to channel'));
+    const rows=[...card.querySelectorAll('.profile-card-add-row')];
+    assert.deepEqual(rows.map(r=>r.getAttribute('aria-label')),['Add Atlas to #design'],'channels it already works in are not offered');
+    await click(rows[0]);
     assert.deepEqual(writes,[{path:`/api/identity/workspaces/${w}/chats/design/agents`,body:{agents:['atlas']}}]);
+    assert.equal(rows[0].getAttribute('aria-label'),'Atlas added to #design');
   },{url,fetch:async(path,options={})=>{
     if(options.method==='POST'){writes.push({path,body:JSON.parse(options.body)});return response({ok:true});}
     return response(path.endsWith('/session')?session:path.endsWith('/chat-directory')?directory:path.endsWith('/chats')?{chats:[orders,second],preferences:{available:true,revision:0,pins:[]}}:path.endsWith('/unread')?{unread:[]}:{});

@@ -10,29 +10,37 @@
 .chat-side-panel-mark { display: inline-flex; flex: none; margin-right: 8px; color: var(--muted); font-weight: 400; }
 .chat-side-panel-body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 2px 20px 24px; }
 
-/* Quiet actions under the name: notifications, Pin, Archive. */
-.chat-details-actions { display: flex; flex-wrap: wrap; gap: 8px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-.chat-details-actions .chat-details-action, .chat-notify-labelled .chat-notify-button { min-height: 32px; padding: 5px 10px; gap: 6px; border-color: transparent; background: var(--soft); font-size: 12.5px; }
-.chat-details-actions .chat-details-action:hover { background: var(--selection); }
-.chat-details-actions .chat-details-action[aria-pressed=true], .chat-details-actions .chat-details-action[aria-expanded=true], .chat-notify-labelled .chat-notify-button[aria-expanded=true] { background: var(--selection); }
-.chat-notify-labelled .chat-notify-menu { top: 38px; right: auto; left: 0; width: min(280px, calc(100vw - 48px)); }
+/* Actions (notifications, Pin, Archive) are round tiles: panel-actions.css. */
+.chat-notify-labelled .chat-notify-menu { width: min(280px, calc(100vw - 48px)); }
+.chat-side-panel-body > .panel-actions { padding: 4px 0 16px; border-bottom: 1px solid var(--border); }
 
 /* Sections: About, People and agents, Channel settings. */
 .chat-details-section { padding: 16px 0; border-bottom: 1px solid var(--border); }
 .chat-details-section:last-child { border-bottom: 0; }
 .chat-details-section h3 { margin: 0 0 10px; font-size: 13.5px; font-weight: 600; }
-.chat-details-section-header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.chat-details-section-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .chat-details-section-header h3 { margin: 0; }
-.chat-details-section-header small { color: var(--muted); font-size: 11.5px; white-space: nowrap; }
-.chat-details-description { margin: 0 0 10px; font-size: 13.5px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-line; }
+.chat-details-section-header h3 small { margin-left: 6px; color: var(--muted); font-size: 11.5px; font-weight: 400; white-space: nowrap; }
+/* About: the description, then one muted line of facts; no heading on screen. */
+.chat-details-about { padding-top: 6px; border-bottom: 0; }
+.chat-details-description { margin: 0 0 8px; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-line; }
 .chat-details-section > .chat-help { margin: 8px 0 0; font-size: 12px; }
 .chat-details-facts { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; color: var(--muted); font-size: 12.5px; }
 .chat-details-facts li { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
 .chat-details-facts li > :first-child { display: inline-flex; justify-content: center; flex: 0 0 14px; }
 .chat-details-search { width: 100%; padding: 9px 12px; border: 1px solid transparent; border-radius: 10px; background: var(--soft); color: var(--text); font: inherit; font-size: 13px; }
-.chat-details-add { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-.chat-details-add .ui-button { min-height: 32px; padding: 5px 12px; gap: 6px; font-size: 12.5px; }
-.chat-details-add .ui-button[aria-expanded=true] { background: var(--selection); }
+/* One Add for people and agents, beside the heading. */
+.chat-details-add-button.ui-button { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 3px 12px 3px 8px; border-radius: 999px; font-size: 12.5px; }
+.chat-details-add-button svg { width: 15px; height: 15px; }
+.chat-details-add-button[aria-expanded=true] { background: var(--selection); }
+.chat-details-section > .chat-details-search { margin-bottom: 4px; }
+/* Channel settings, one step away; Leave below. */
+.chat-details-link { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 0 2px; border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--text); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+.chat-details-link:hover { background: var(--soft); }
+.chat-details-link > svg { flex: none; color: var(--muted); }
+.chat-details-link > span { flex: 1; }
+.chat-details-link > small { color: var(--muted); font-size: 12px; }
+.chat-details-link:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
 
 /* Flat member rows with faces, the AI tag and a ⋯ menu. */
 .chat-details-members { display: grid; gap: 2px; margin: 8px 0 0; padding: 0; list-style: none; }
@@ -97,6 +105,13 @@ button.chat-details-who { cursor: pointer; border-radius: 8px; }
 .chat-details-choice legend { padding: 0; margin-bottom: 8px; font-size: 13px; font-weight: 500; }
 .chat-details-choice > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .chat-details-choice label { position: relative; display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 6px 14px; border: 1px solid var(--border-control); border-radius: 9px; font-size: 13px; cursor: pointer; }
+/* A switch: the choices share one soft track; the chosen one is a raised surface. */
+.chat-choice-switch > div { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 0; padding: 3px; border-radius: 10px; background: var(--soft); }
+.chat-choice-switch label { justify-content: center; min-height: 34px; padding: 6px 8px; border: 0; border-radius: 8px; color: var(--muted); font-size: 12.5px; }
+.chat-choice-switch label svg { width: 14px; height: 14px; }
+.chat-details-choice.chat-choice-switch label:has(input:checked) { background: var(--surface); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px var(--shadow-deep); }
+.chat-choice-switch:disabled label { cursor: default; }
+.chat-choice-switch .ui-help { display: flex; align-items: center; gap: 6px; margin: 0; }
 .chat-details-choice input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 .chat-details-choice label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .chat-details-choice label:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -104,15 +119,7 @@ button.chat-details-who { cursor: pointer; border-radius: 8px; }
 .chat-details-save small { color: var(--muted); font-size: 12px; }
 .chat-details-form .chat-error { padding: 0; margin: 0; }
 .chat-details-form .ui-field textarea { min-height: 76px; }
-/* Who can find it, as plain text for managers who are not admins. */
-.chat-details-fixed { display: grid; gap: 6px; font-size: 13px; }
-.chat-details-fixed > span { font-weight: 500; }
-.chat-details-fixed > p:not(.ui-help) { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--text); }
-.chat-details-note { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--border); font-size: 12px; }
 /* Profiles in the panel: the same scale as Details. Presence and status join the identity later. */
-.chat-side-panel .profile-card { gap: 14px; padding-top: 16px; }
-.chat-side-panel-body > .profile-card { padding-top: 4px; }
-.chat-side-panel .profile-card-identity p, .chat-side-panel .profile-card-line > div { font-size: 13.5px; line-height: 1.5; }
 
 /* Who is in the channel, in its header. */
 .chat-header-faces { display: inline-flex; align-items: center; flex: none; padding: 2px; border: 0; border-radius: 16px; background: none; cursor: pointer; }
