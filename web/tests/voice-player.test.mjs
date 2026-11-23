@@ -29,9 +29,19 @@ test('only one voice message plays at a time, and leaving stops it', async () =>
     await render(MessageFiles, { files: [voice('first', { duration_ms: 38_000 }), voice('second', { duration_ms: 12_000 })] });
     assert.equal(document.querySelectorAll('audio[controls]').length, 0, 'no raw browser controls');
     assert.equal(document.querySelectorAll('.chat-file button').length, 2, 'voice notes show no file-name row');
+    assert.equal(document.querySelector('.voice-speed'), null, 'no speed chip before listening');
     const [first, second] = document.querySelectorAll('.voice-play');
     await click(first);
     assert.deepEqual(players(), ['Pause voice message', 'Play voice message']);
+    // Once listening has begun the speed chip steps 1× → 1.5× → 2× → 1× and sets the player's speed.
+    const speed = () => document.querySelector('.voice-speed');
+    assert.equal(speed().textContent, '1×');
+    await click(speed());
+    assert.equal(speed().getAttribute('aria-label'), 'Playback speed 1.5×');
+    assert.equal(document.querySelector('audio').playbackRate, 1.5);
+    await click(speed()); await click(speed());
+    assert.equal(speed().textContent, '1×');
+    assert.equal(document.querySelector('audio').playbackRate, 1);
     await click(second);
     assert.deepEqual(players(), ['Play voice message', 'Pause voice message']);
     const audio = document.querySelectorAll('audio')[1];
@@ -54,6 +64,7 @@ test('the waveform slider seeks with the keyboard and says where it is', async (
     await update(() => key(dom, 'ArrowRight'));
     assert.equal(slider().getAttribute('aria-valuenow'), '5');
     assert.equal(slider().getAttribute('aria-valuetext'), '0:05 of 0:38');
+    assert.equal(document.querySelector('.voice-length').textContent, '0:05 / 0:38', 'the length counts once it has moved');
     assert.equal(document.querySelector('audio').currentTime, 5);
     await update(() => key(dom, 'ArrowUp'));
     await update(() => key(dom, 'ArrowLeft'));
@@ -135,6 +146,8 @@ test('uploaded audio files keep their name and download beside the player', asyn
     await render(MessageFiles, { files: [{ id: 'song', name: 'site-walkthrough.mp3', mime: 'audio/mpeg', size: 2048, checksum: 'song-sum' }] });
     assert.equal(document.querySelector('.voice-play').getAttribute('aria-label'), 'Play site-walkthrough.mp3');
     assert.ok(document.querySelector('[aria-label="Download site-walkthrough.mp3"]'));
+    assert.equal(document.querySelector('.chat-file-caption').textContent, 'site-walkthrough.mp32 KB', 'its name and size sit under the player');
+    assert.equal(document.querySelector('.chat-file-row'), null, 'no separate file row');
   }, { url });
 });
 

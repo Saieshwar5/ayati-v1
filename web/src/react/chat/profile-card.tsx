@@ -78,6 +78,7 @@ export function ProfileDetails({ target, directory, chats, message, conversation
     {adding && agent && <AddToChannel agent={agent} channels={channels} />}
     <ul className="profile-card-facts">
       {person?.about && <Fact icon="about" label="About">{person.about}</Fact>}
+      {person?.handles && <Fact icon="check" label="Handles">{person.handles}</Fact>}
       {agent?.handles && <Fact icon="about" label="Handles">{agent.handles}</Fact>}
       {person?.email && <Fact icon="mail" label="Email"><EmailLine email={person.email} /></Fact>}
       {agent?.manager && <Fact icon="person" label={agent.manager.includes(',') ? 'Owners' : 'Owner'}><Owners agent={agent} directory={directory} /></Fact>}
@@ -91,7 +92,7 @@ export function ProfileDetails({ target, directory, chats, message, conversation
 }
 
 /** One fact: an icon and its value; the label is for screen readers and on hover. */
-function Fact({ icon, label, children }: { icon: Parameters<typeof Icon>[0]['name']; label: string; children: ReactNode }) {
+export function Fact({ icon, label, children }: { icon: Parameters<typeof Icon>[0]['name']; label: string; children: ReactNode }) {
   return <li className="profile-card-fact" title={label}><Icon name={icon} /><span className="visually-hidden">{label}: </span><div>{children}</div></li>;
 }
 
@@ -135,16 +136,17 @@ function ResumeTile({ agent }: { agent: Participant }) {
   </>;
 }
 
-/** "Online" or "Last seen …", then the status with when it clears and who set it (screen 2, note 4). */
-function ProfilePresence({ id, name }: { id: string; name: string }) {
+/** "Online" or "Last seen …", then the status with when it clears and who set it (screen 2, note 4).
+ * `hideOnline` leaves the first line out: Settings → Profile previews your own choice at once. */
+export function ProfilePresence({ id, name, hideOnline = false }: { id: string; name: string; hideOnline?: boolean }) {
   const presence = usePresence(id);
   const status = activeStatus(presence);
-  const online = shownOnline(presence);
+  const online = !hideOnline && shownOnline(presence);
   const self = id === workspaceSession?.user?.id;
   const ends = status ? clearsLabel(status) : '';
   return <>
     {online ? <p className="profile-card-presence">Online</p>
-      : status?.kind !== 'away' && presence?.last_seen ? <p className="profile-card-presence">{lastSeenLabel(presence.last_seen)}</p> : null}
+      : !hideOnline && status?.kind !== 'away' && presence?.last_seen ? <p className="profile-card-presence">{lastSeenLabel(presence.last_seen)}</p> : null}
     {status && <div className="profile-card-status">
       <strong><span aria-hidden="true">{statusEmoji(status)}</span> {statusLabel(status)}</strong>
       <small>{[ends && ends[0].toUpperCase() + ends.slice(1), `set by ${self ? 'you' : name.split(' ')[0]}`].filter(Boolean).join(' · ')}</small>

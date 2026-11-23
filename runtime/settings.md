@@ -6,8 +6,34 @@ one sidebar with two groups.
 
 | Group | Members | Admins |
 | --- | --- | --- |
-| You | Profile, Preferences, Help | Profile, Preferences, Help |
-| Workspace | This workspace, Company rules (read-only), Usage (their own) | Workspace, People, Company rules, Usage, Billing, Audit log |
+| You | Profile, Preferences | Profile, Preferences |
+| Workspace | This workspace, Agent rules (read-only), Usage (their own) | General, People, Apps, Agent rules, Usage, Audit log |
+
+**Redesign of 2026-11-21** (`designs/settings-redesign/`). The page ids in links did
+not change; three pages were renamed and two removed:
+
+- **General** (`section=workspace`, was Workspace): name and time zone under one
+  Save, and Delete workspace. Time zones have readable names sorted west to east,
+  and a stored zone the browser lists under another name is still shown selected.
+  The colour picker and the Export data placeholder are gone; the stored colour is
+  sent back unchanged with every settings write.
+- **Apps** (`section=connections`, was Connections): one list. Each app has one
+  choice (Ask first until an admin decides, then Allowed or Off) and its
+  connections open under it; an app with a connection in trouble starts open.
+  Requests wait in "Needs your answer". MCP servers have their own short section.
+- **Agent rules** (`section=company-rules`, was Company rules): company rules for
+  everyone to read; for admins also the allowed models, the approval backup and
+  Pause all agents, which used to be on the Workspace page. Models and the backup
+  save as they change; removing a model asks first.
+- **Help** is "Help and feedback" in the account menu, as a dialog. Old Help links
+  open Profile. **Billing** is removed until it is built; its old link opens Usage.
+- **Profile** adds your status and "Show when I'm online" (moved from Preferences)
+  and a card that previews your profile as you type. "What you handle" now also
+  shows on a person's profile card.
+- **Saving:** typed text shows an "Unsaved changes" bar; switches and choices save
+  when they change.
+
+The sections below describe each page's behaviour and still apply, with those names.
 
 Connections (admins) lists every app and MCP server connected in the workspace with the agent it belongs to, and removes apps ([an agent's own connections](agent-connections.md)). Above it, **Allowed apps** is where admins answer app requests and allow or switch off apps ([allowed apps](allowed-apps.md)), and add more apps from the library ([added apps](added-apps.md)).
 
@@ -29,7 +55,7 @@ Connections (admins) lists every app and MCP server connected in the workspace w
     themselves here;
   - removal opens the hand-over dialog described below.
 - **Usage:** model use and charges by agent, model, person and day ([model usage](model-usage.md)); members see their own.
-- **Billing:** a "Coming later" placeholder.
+- **Billing:** removed on 2026-11-21 until it is built.
 - **Audit log:** formerly Activity. Rows read "time · who · what they did" as
   sentences with names, with filters All, People, Connections, Approvals and Admin
   views (admin views are highlighted), 50 at a time with **Show older**. In
@@ -42,7 +68,7 @@ Connections (admins) lists every app and MCP server connected in the workspace w
   the server per person (`relay_member_preferences`) and save as you go: desktop
   alerts on/off, the default bell level for channels without their own, and
   alerts when an agent you manage asks for approval. Direct messages always
-  notify. Email alerts are "Coming later". `GET/POST /preferences`; the defaults
+  notify. `GET/POST /preferences`; the defaults
   also come back with `/chat-notifications`.
 - **Workspace** (admins): name; colour; time zone (used by Home's clock, which
   shows device time until one is chosen); approval backup delay (1 hour to 7
@@ -79,7 +105,7 @@ Connections (admins) lists every app and MCP server connected in the workspace w
   alerts to direct messages and what is for you (@mentions and replies to your
   requests); approval alerts wait in Home's Notifications while Busy. Your photo on the
   rail shows the green dot others see.
-- **Show when I'm online** (Preferences, D245): one switch, on by default, saved on the
+- **Show when I'm online** (Profile since 2026-11-21, D245): one switch, on by default, saved on the
   server with your presence (`show_online` in `GET/POST /preferences`). Off, nobody sees
   a green dot or "last seen" for you, enforced by the server, while you still see
   theirs; your status still shows. A save that leaves it out keeps it as it is, so an
@@ -97,7 +123,7 @@ everyone. No workspace records are deleted.
 
 ## Pause all agents (schema 51)
 
-An admin's emergency switch, in **Activity → Work** (the ⋯ menu) and **Settings → Workspace**.
+An admin's emergency switch, in **Activity → Work** (the ⋯ menu) and **Settings → Agent rules**.
 
 - **Pausing** asks for an optional reason (everyone sees it), then in one
   transaction stops every unfinished request with the same stop as a person's

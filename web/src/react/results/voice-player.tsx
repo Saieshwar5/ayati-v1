@@ -10,17 +10,21 @@ export const isVoiceNote = (file: Attachment) => /^voice-message\.(webm|ogg|m4a)
 // Only one voice message plays at a time: starting one pauses the other.
 let playing: HTMLAudioElement | undefined;
 const SEEK_STEP = 5;
+/** Playback speeds, in the order the chip steps through them. */
+const RATES = [1, 1.5, 2];
 // Even, quiet bars hold the waveform's place until it is decoded.
 const placeholder: number[] = Array(PEAK_BARS).fill(0.2);
 
 /** The same player for sender and receiver: play/pause, a waveform that fills as it plays
- * (a plain bar when decoding fails), the length, and seeking by click or arrow keys. */
+ * (a plain bar when decoding fails), the length (counting once it plays), a speed chip,
+ * and seeking by click or arrow keys. */
 export function VoicePlayer({ file, src }: { file: Attachment; src: string }) {
   const audio = useRef<HTMLAudioElement>(null), root = useRef<HTMLDivElement>(null);
   const [paused, setPaused] = useState(true);
   const [position, setPosition] = useState(0);
   const [mediaLength, setMediaLength] = useState(0);
   const [unplayable, setUnplayable] = useState(false);
+  const [rate, setRate] = useState(1);
   const decoded = useVoicePeaks(`${file.id}:${file.checksum}`, src, root);
   const duration = file.duration_ms ? file.duration_ms / 1000 : decoded && 'duration' in decoded ? decoded.duration : mediaLength;
   const name = isVoiceNote(file) ? 'voice message' : file.name;
@@ -53,6 +57,12 @@ export function VoicePlayer({ file, src }: { file: Attachment; src: string }) {
     const box = event.currentTarget.getBoundingClientRect();
     if (box.width) seek(((event.clientX - box.left) / box.width) * duration);
   };
+  const faster = () => {
+    const next = RATES[(RATES.indexOf(rate) + 1) % RATES.length];
+    // Both, so the speed survives the element loading its source again.
+    if (audio.current) { audio.current.defaultPlaybackRate = next; audio.current.playbackRate = next; }
+    setRate(next);
+  };
   const length = (seconds: number) => Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
   return <><div ref={root} className={`voice-player${paused ? '' : ' is-playing'}`}>
     <audio ref={audio} preload="none" src={src}
@@ -74,6 +84,8 @@ export function VoicePlayer({ file, src }: { file: Attachment; src: string }) {
         ? <span className="voice-wave" aria-hidden="true">{bars.map((peak, index) => <i key={index} className={index < played * bars.length ? 'is-played' : undefined} style={{ height: `${Math.max(14, Math.round(peak * 100))}%` }} />)}</span>
         : <span className="voice-progress" aria-hidden="true"><span style={{ width: `${played * 100}%` }} /></span>}
     </div>
-    <span className="voice-length">{voiceClock(duration || position)}</span>
+    <span className="voice-length">{duration && position > 0 ? `${voiceClock(position)} / ${voiceClock(duration)}` : voiceClock(duration || position)}</span>
+    {/* Offered once listening has begun, so a message at rest stays a play button and its length. */}
+    {(!paused || position > 0) && <button type="button" className="voice-speed" aria-label={`Playback speed ${rate}×`} title="Playback speed" onClick={faster}>{rate}×</button>}
   </div>{unplayable && <small className="voice-error" role="alert">This voice message can’t be played here.</small>}</>;
 }

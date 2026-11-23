@@ -1,0 +1,78 @@
+/* The image viewer covers the window and is dark in both themes, so a picture is judged
+   against the same quiet background. Inside it the shared tokens take their dark values. */
+.image-viewer {
+  color-scheme: dark;
+  --surface: #1c1f26; --text: #f0f1f5; --muted: #abb1bf; --border: #303540;
+  --border-control: #697487; --soft: #252a34; --selection: #303540; --focus: #a1a1aa; --danger: #ffadaf;
+  --viewer-control: rgb(255 255 255 / 10%); --viewer-control-hover: rgb(255 255 255 / 18%);
+  position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; max-height: none;
+  margin: 0; padding: 0; border: 0; overflow: hidden;
+  background: rgb(9 11 15 / 88%); color: var(--text);
+}
+.image-viewer[open] { display: flex; flex-direction: column; }
+.image-viewer::backdrop { background: transparent; }
+
+.image-viewer-bar { display: flex; align-items: center; gap: 12px; flex: none; min-height: 64px; padding: 0 16px 0 20px; }
+.image-viewer-who { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+.image-viewer-who > div { min-width: 0; }
+.image-viewer-who .chat-avatar { width: 36px; height: 36px; font-size: 14px; }
+.image-viewer-who p { margin: 0; }
+.image-viewer-sender { display: flex; align-items: baseline; gap: 8px; font-size: 14px; line-height: 20px; white-space: nowrap; }
+.image-viewer-sender strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.image-viewer-sender time { color: var(--muted); font-size: 13px; }
+.image-viewer-file { display: flex; color: var(--muted); font-size: 12px; line-height: 18px; white-space: pre; }
+.image-viewer-file > :first-child { overflow: hidden; text-overflow: ellipsis; }
+.image-viewer-file-only { color: var(--text); font-size: 14px; line-height: 20px; }
+.image-viewer-file-only > :first-child { font-weight: 600; }
+
+.image-viewer-tools { display: flex; align-items: center; gap: 8px; flex: none; }
+.image-viewer-tools :is(button, a), .image-viewer-step {
+  display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0;
+  border: 0; border-radius: 10px; background: transparent; color: var(--text); cursor: pointer;
+}
+.image-viewer-tools :is(button, a):hover { background: var(--viewer-control-hover); }
+.image-viewer :is(button, a):focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
+.image-viewer [aria-disabled=true] { opacity: .4; cursor: default; }
+.image-viewer-zoom { display: flex; align-items: center; border-radius: 10px; background: var(--viewer-control); }
+.image-viewer-zoom .image-viewer-level { width: auto; min-width: 54px; padding: 0 6px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.image-viewer > .chat-error { flex: none; margin: 0 20px 8px; }
+.image-viewer-body { position: relative; flex: 1; min-height: 0; display: flex; }
+/* A fitted picture stays inside this padding, clear of the arrows and the foot line. The
+   padding is the same while zoomed, so the fitted size does not depend on the zoom; a zoomed
+   picture simply shows over it, up to the edges of the stage. */
+.image-viewer-stage {
+  flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  padding: 8px 84px 56px; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.image-viewer-stage img { flex: none; max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 6px; box-shadow: 0 20px 60px rgb(0 0 0 / 50%); cursor: zoom-in; }
+/* Once its size is known the picture is sized in pixels and may be larger than the stage. */
+.image-viewer-stage img[style] { max-width: none; max-height: none; }
+.image-viewer-stage.is-zoomed img { border-radius: 0; box-shadow: none; cursor: grab; }
+.image-viewer-stage.is-zoomed:active img { cursor: grabbing; }
+.image-viewer-note { max-width: 360px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; text-align: center; }
+
+.image-viewer-step { position: absolute; top: calc(50% - 46px); width: 44px; height: 44px; border-radius: 50%; background: var(--viewer-control); }
+.image-viewer-step:hover:not([aria-disabled=true]) { background: var(--viewer-control-hover); }
+.image-viewer-previous { left: 20px; }
+.image-viewer-next { right: 20px; }
+/* Over a zoomed picture the controls need their own backing to stay readable. */
+.is-zoomed ~ .image-viewer-step, .image-viewer-foot .image-viewer-hint { background: rgb(9 11 15 / 78%); }
+.image-viewer-foot { position: absolute; left: 0; right: 0; bottom: 14px; display: flex; justify-content: center; margin: 0; pointer-events: none; }
+.image-viewer-foot span { padding: 0 12px; border-radius: 14px; background: var(--viewer-control); font-size: 12px; font-weight: 500; line-height: 28px; font-variant-numeric: tabular-nums; }
+
+@media (max-width: 640px) {
+  .image-viewer-bar { min-height: 56px; padding: 0 6px 0 14px; gap: 8px; }
+  .image-viewer-stage { padding: 8px 0 56px; }
+  .image-viewer-stage img { border-radius: 0; }
+  /* On a phone the picture changes by swiping and zooms by pinching. */
+  .image-viewer-step, .image-viewer-zoom { display: none; }
+}
+@media (pointer: coarse) {
+  .image-viewer-tools :is(button, a) { width: 44px; height: 44px; }
+  .image-viewer-hint { display: none; }
+}
+@media (forced-colors: active) {
+  .image-viewer { background: Canvas; }
+  .image-viewer-tools :is(button, a), .image-viewer-step, .image-viewer-zoom, .image-viewer-foot span { border: 1px solid ButtonText; }
+}

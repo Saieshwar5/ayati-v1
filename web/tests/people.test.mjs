@@ -33,7 +33,6 @@ async function fixture(viewerRole, run, respond, extra = []) {
     return { ok: true, json: async () => ({}) };
   } });
 }
-const tab = name => [...document.querySelectorAll('[role=tab]')].find(node => node.textContent.startsWith(name));
 const menuItem = name => [...document.querySelectorAll('[role=menuitem]')].find(node => node.textContent === name);
 async function openMenu(click, button, person, item) {
   await click(button(`Actions for ${person.email}`));
@@ -69,9 +68,10 @@ test('Unconfirmed delivery refreshes invitations without losing the failed draft
     assert.match(document.querySelector('dialog [role=status]').textContent, /Cancel this invitation/);
     assert.equal(writes.length, 1);
     await click(button('Close'));
-    await click(tab('Invitations'));
-    assert.match(document.querySelector('[role=tabpanel]:not([hidden])').textContent, /Delivery unconfirmed/);
-    assert.ok(button('Cancel invitation'));
+    // Invitations sit on top of the one list (2026-11-21; they had their own tab).
+    assert.match(document.querySelector('.settings-invitation').textContent, /uncertain@example\.com.*Delivery unconfirmed/);
+    assert.ok(button('Cancel the invitation for uncertain@example.com'));
+    assert.equal(button('Copy a new invite link for uncertain@example.com'), undefined, 'no link while delivery is unconfirmed');
   }, (path, body) => {
     if (body && path.endsWith('/invitations')) {
       current.invitations.push({ id: 'uncertain', email: body.email, role: 'Member', status: 'delivery_unknown', expires: 0 });
@@ -95,9 +95,10 @@ test('A refused email still gives the admin the link to send, marked Link only',
     assert.match(dialog.querySelector('code').textContent, /\/invite\/secret$/);
     assert.equal(writes.length, 1);
     await click(button('Done'));
-    await click(tab('Invitations'));
-    const panel = document.querySelector('[role=tabpanel]:not([hidden])');
-    assert.match(panel.textContent, /Link only/);
+    const row = document.querySelector('.settings-invitation');
+    assert.match(row.textContent, /Link only · expires in 1 day · joins as a member/);
+    assert.equal(document.querySelector('.settings-invitation + .settings-person') !== null, true, 'people follow the invitations');
+    assert.match(document.querySelector('.desk-title p').textContent, /^2 people · 1 invitation waiting$/);
     assert.ok(button('Copy a new invite link for existing@example.com'));
   }, (path, body) => {
     if (body && path.endsWith('/invitations')) {
@@ -112,7 +113,8 @@ test('People shows roles and marks you; the menu offers the right role change', 
     const rows = [...document.querySelectorAll('.settings-person')];
     assert.match(rows[0].textContent, /owner@example.com \(you\)Admin/);
     assert.match(rows[1].textContent, /employee@example.comMember/);
-    assert.match(tab('People').textContent, /People · 2/);
+    assert.equal(document.querySelector('.desk-title p').textContent, '2 people');
+    assert.equal(document.querySelector('[role=tab]'), null, 'one list, no tabs');
     await click(button(`Actions for ${member.email}`));
     assert.ok(menuItem('Make admin')); assert.ok(menuItem('Remove from workspace…'));
     await click(button(`Actions for ${owner.email}`));
@@ -229,15 +231,20 @@ test('A failed removal keeps the dialog open with the reason and allows a retry'
   }, (path, body) => body && path.endsWith('/members/employee') && failing ? { ok: false, data: { error: 'Choose someone else to take over' } } : undefined);
 });
 
-test('React tabs support keyboard selection and preserve the active tab during search', async () => {
-  await fixture('Admin', async ({ dom, update, change }) => {
-    const tabs = [...document.querySelectorAll('[role=tab]')];
-    await update(() => tabs[0].dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })));
-    assert.equal(tabs[1].getAttribute('aria-selected'), 'true'); assert.equal(document.activeElement, tabs[1]);
+test('People show the photo, job title and online dot from the directory, and search covers them', async () => {
+  const photo = '0b3c9d2e-6f1a-4c55-9e1d-7a2b3c4d5e6f';
+  await fixture('Admin', async ({ change }) => {
+    const rows = () => [...document.querySelectorAll('.settings-person')];
+    assert.equal(rows()[1].querySelector('img').getAttribute('src'), `/api/identity/workspaces/${workspace}/members/employee/photo/${photo}`);
+    assert.match(rows()[1].querySelector('.ui-row-title small').textContent, /^Warehouse lead$/);
+    assert.equal(rows()[1].querySelector('.presence-dot') !== null, true);
+    assert.equal(rows()[0].querySelector('.presence-dot'), null, 'nobody is shown online without presence');
+    await change(document.querySelector('input[type=search]'), 'warehouse');
+    assert.deepEqual(rows().map(row => row.querySelector('strong').textContent), ['employee@example.com']);
     await change(document.querySelector('input[type=search]'), 'missing');
-    assert.equal(tabs[1].getAttribute('aria-selected'), 'true');
-    assert.equal(document.querySelector('[role=tabpanel]:not([hidden])').textContent, 'No invitations match your search.');
-  });
+    assert.equal(document.querySelector('.ui-empty').textContent, 'Nobody matches your search.');
+  }, path => path.endsWith('/chat-directory') ? { ok: true, data: { role: 'Admin', agents: [], users: [{ id: 'employee', name: 'Employee', title: 'Warehouse lead', photo }],
+    presence: [{ id: 'employee', online: true, last_seen: Math.floor(Date.now() / 1000), status: null, revision: 1 }] } } : undefined);
 });
 
 test('React busy dialogs prevent duplicate sends and Escape dismissal', async () => {

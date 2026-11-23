@@ -11,37 +11,83 @@ const saved = { name: 'Northstar', timezone: 'Asia/Kolkata', colour: 'teal', app
   default_model: 'gpt-5-mini', delete_at_ms: null, delete_requested_by: null };
 const field = label => [...document.querySelectorAll('label')].find(node => node.textContent.startsWith(label))?.querySelector('input,select,textarea');
 
-test('Workspace rules save once, keep the draft after a failure, and list allowed models', async () => {
+test('Models and the approval backup save as they change, and a refused change keeps what was typed', async () => {
   let fail = true; const writes = [];
-  const run = async ({ button, change, update }, writes) => {
-    assert.match(document.body.textContent, /gpt-5-mini.*default for new agents/);
-    await change(document.querySelector('[aria-label="Model identifier"]'), 'glm-5-flash');
-    await update(() => button('Add model').click());
-    await change(field('Approval backup'), '24');
-    await update(() => { const save = document.querySelector('.settings-rules button[type=submit]'); save.click(); save.click(); });
-    const sent = writes.filter(write => write.path.endsWith('/settings/workspace'));
-    assert.equal(sent.length, 1);
-    assert.match(document.body.textContent, /Save failed/);
-    assert.ok(document.body.textContent.includes('glm-5-flash'), 'the draft stays');
-    fail = false;
-    await update(() => document.querySelector('.settings-rules button[type=submit]').click());
-    const last = writes.filter(write => write.path.endsWith('/settings/workspace')).at(-1).body;
-    assert.equal(last.approval_backup_hours, 24);
-    assert.deepEqual(last.models.map(m => m.model), ['gpt-5-mini', 'glm-5-flash']);
-    assert.equal(last.default_model, 'gpt-5-mini');
-    assert.match(document.body.textContent, /Workspace settings saved/);
-  };
-  await reactFixture(async context => {
+  const sent = () => writes.filter(write => write.path.endsWith('/settings/workspace'));
+  await reactFixture(async ({ render, button, change, update, click }) => {
     const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
     const { SettingsPage } = await import('../src/react/settings/settings-page.tsx');
-    await context.render(SettingsPage, { href: `${base}&section=workspace` });
-    await run(context, writes);
+    await render(SettingsPage, { href: `${base}&section=company-rules` });
+    assert.equal(document.querySelector('.settings-detail h2').textContent, 'Agent rules');
+    assert.match(document.querySelector('.settings-models').textContent, /gpt-5-mini.*Default/);
+    const model = () => document.querySelector('[aria-label="Model identifier"]');
+    await change(model(), 'glm-5-flash');
+    await update(() => { const add = button('Add model'); add.click(); add.click(); });
+    assert.equal(sent().length, 1, 'one request for a double click');
+    assert.match(document.body.textContent, /Save failed/);
+    assert.equal(model().value, 'glm-5-flash', 'the typed model stays');
+    fail = false;
+    await click(button('Add model'));
+    assert.deepEqual(sent().at(-1).body.models.map(m => m.model), ['gpt-5-mini', 'glm-5-flash']);
+    assert.equal(sent().at(-1).body.default_model, 'gpt-5-mini');
+    assert.equal(model().value, '');
+    await change(document.querySelector('[aria-label="Approval backup"]'), '24');
+    assert.equal(sent().at(-1).body.approval_backup_hours, 24);
+    // Every write carries the whole settings, so nothing else is reset.
+    assert.deepEqual([sent().at(-1).body.timezone, sent().at(-1).body.colour], ['Asia/Kolkata', 'teal']);
+    await click([...document.querySelectorAll('input[name=default-model]')].at(-1));
+    assert.equal(sent().at(-1).body.default_model, 'glm-5-flash');
   }, { url: base, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response({ user: { id: 'me', email: 'me@test' }, workspaces: [{ id: w, name: 'Northstar', role: 'Admin' }] });
+    if (path.endsWith('/guard/rules')) return response({ rules: [], actions: [], can_manage: true });
     if (options.body) { writes.push({ path, body: JSON.parse(options.body) }); if (fail) return response({ error: 'Save failed' }, 400); return response({ ...saved, ...JSON.parse(options.body) }); }
     return response(saved);
   } });
 });
+
+test('General saves the name and time zone from one bar, and shows a stored zone the browser lists under another name', async () => {
+  const writes = [];
+  let failZone = true;
+  await reactFixture(async ({ render, button, change, click, submit }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { SettingsPage } = await import('../src/react/settings/settings-page.tsx');
+    await render(SettingsPage, { href: `${base}&section=workspace` });
+    assert.equal(document.querySelector('.settings-detail h2').textContent, 'General');
+    const zone = field('Time zone');
+    assert.equal(zone.value, 'Asia/Kolkata', 'the stored zone is selected even where the browser calls it Asia/Calcutta');
+    assert.match(zone.selectedOptions[0].textContent, /^\(GMT\+5:30\) Kolkata/);
+    assert.equal(document.querySelector('.settings-save-bar'), null, 'no bar until something changes');
+    assert.doesNotMatch(document.body.textContent, /Colour|Export data|Coming later/);
+    await change(field('Workspace name'), 'Northstar Home');
+    await change(zone, 'UTC');
+    const form = document.querySelector('form.settings-general');
+    await submit(form);
+    // The name saved; the time zone was refused and stays as a draft.
+    assert.deepEqual(writes.map(write => write.path.split('/').at(-1)), ['settings', 'workspace']);
+    assert.deepEqual(writes[0].body, { name: 'Northstar Home', previous_name: 'Northstar' });
+    assert.match(document.body.textContent, /Zone refused/);
+    assert.equal(zone.value, 'UTC');
+    assert.match(document.querySelector('.settings-heading p').textContent, /Northstar Home/);
+    failZone = false;
+    await submit(form);
+    assert.equal(writes.length, 3, 'only the time zone is sent again');
+    assert.deepEqual([writes[2].body.timezone, writes[2].body.colour, writes[2].body.approval_backup_hours], ['UTC', 'teal', 4]);
+    assert.equal(document.querySelector('.settings-save-bar'), null);
+    await change(field('Workspace name'), 'Something else');
+    await click(button('Discard'));
+    assert.equal(field('Workspace name').value, 'Northstar Home');
+  }, { url: base, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return response({ user: { id: 'me', email: 'me@test' }, workspaces: [{ id: w, name: 'Northstar', role: 'Admin' }] });
+    if (path.endsWith('/chat-directory')) return response({ role: 'Admin', users: [{ id: 'me', name: 'Me' }], agents: [] });
+    if (options.body) {
+      const body = JSON.parse(options.body); writes.push({ path, body });
+      if (path.endsWith('/settings')) return response({ name: body.name });
+      return failZone ? response({ error: 'Zone refused' }, 400) : response({ ...saved, ...body });
+    }
+    return response(saved);
+  } });
+});
+
 test('Deleting needs the exact name, shows the date, and can be undone', async () => {
   let state = { ...saved };
   const posts = [];
@@ -67,10 +113,9 @@ test('Deleting needs the exact name, shows the date, and can be undone', async (
   } });
 });
 
-test('Preferences save each change to the server and Help sends one report per click', async () => {
+test('Preferences save each change to the server, with no placeholder rows', async () => {
   const sent = [];
-  let reportFails = true;
-  await reactFixture(async ({ render, button, click, change, update }) => {
+  await reactFixture(async ({ render, click, change }) => {
     const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
     const { SettingsPage } = await import('../src/react/settings/settings-page.tsx');
     await render(SettingsPage, { href: `${base}&section=preferences` });
@@ -78,24 +123,14 @@ test('Preferences save each change to the server and Help sends one report per c
     await change(document.querySelector('select[aria-label="Channels"]'), 'all');
     const prefs = sent.filter(s => s.path.endsWith('/preferences'));
     assert.deepEqual(prefs.at(-1).body, { desktop_alerts: false, channel_level: 'all', approval_alerts: true });
-    assert.match(document.body.textContent, /Email alerts.*Coming later/);
-    await render(SettingsPage, { href: `${base}&section=help` });
-    await change(field('What happened?'), 'Atlas emailed the wrong customer');
-    await click(document.querySelector('.settings-check input'));
-    await update(() => { const node = button('Send report'); node.click(); node.click(); });
-    const reports = () => sent.filter(s => s.path.endsWith('/problem-reports'));
-    assert.equal(reports().length, 1);
-    assert.equal(reports()[0].body.technical, undefined, 'unticked: no technical details');
-    assert.match(document.body.textContent, /Report unavailable/);
-    reportFails = false; await click(button('Send report'));
-    // The retry reuses the same id, so the server stores one report.
-    assert.equal(reports()[1].body.id, reports()[0].body.id);
-    assert.match(document.body.textContent, /Report sent/);
+    const page = document.querySelector('.settings-detail');
+    assert.doesNotMatch(page.textContent, /Coming later|Email alerts/);
+    assert.deepEqual([...page.querySelectorAll('.settings-row strong')].map(node => node.textContent), ['Desktop alerts', 'Channels', 'Approvals for agents I manage']);
+    assert.equal(page.querySelector('.settings-notifications a').getAttribute('href'), `/w/${w}/?view=settings&section=profile`);
   }, { url: base, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response({ user: { id: 'me', email: 'me@test' }, workspaces: [{ id: w, name: 'Northstar', role: 'Member' }] });
     const body = options.body ? JSON.parse(options.body) : undefined;
     if (body) sent.push({ path, body });
-    if (path.endsWith('/problem-reports')) return reportFails ? response({ error: 'Report unavailable' }, 503) : response({ id: body.id, saved: true });
     if (path.endsWith('/preferences')) return response(body ?? { desktop_alerts: true, channel_level: 'mentions', approval_alerts: true });
     return response({});
   } });

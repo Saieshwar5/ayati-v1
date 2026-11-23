@@ -89,7 +89,7 @@ Schema 67, core-agent CA2.
   saves it **off and unreviewed** (`reviewed=false`, `proposed_by`, `proposal`). Up to 20
   wait at a time. It's in the Audit log. An agent can't turn a rule on, edit one or
   loosen one. Invalid drafts return `{"state":"invalid"}` with the reason.
-- Settings → Company rules shows **Proposed by agents** with the person's words, the
+- Settings → Agent rules shows **Proposed by agents** with the person's words, the
   code-made read-back and **Review** / **Dismiss**. Reviewing opens the editor; **Turn on**
   saves it (`reviewed=true`, enabled). Dismiss deletes a proposal nobody turned on
   (`POST …/guard/rules/{id}/dismiss`), audited with the person's words.
@@ -135,7 +135,7 @@ re-check requests already waiting.
 
 ## Who can do what
 
-- **Everyone** reads company rules: Settings → Company rules (`GET
+- **Everyone** reads company rules: Settings → Agent rules (`GET
   /api/identity/workspaces/{w}/guard/rules` returns rules with their summaries, the
   actions they can apply to with their fields, and `can_manage`).
 - **Admins** add, change and turn rules off (`POST` the same path with

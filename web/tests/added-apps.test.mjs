@@ -4,7 +4,7 @@ import { registerHooks } from 'node:module';
 import { reactFixture } from './react-fixture.mjs';
 registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 
-// Add more apps (schema 135): an admin searches the library, chooses an app's
+// Add apps (schema 135): an admin searches the library, chooses an app's
 // actions and adds it; an added app can be changed or removed.
 const w = '11111111-1111-4111-8111-111111111111';
 const base = `/api/identity/workspaces/${w}`;
@@ -48,8 +48,8 @@ test('an admin searches the library, reviews an app’s actions and adds it once
     const { AllowedApps } = await import('../src/react/settings/allowed-apps.tsx');
     let changed = 0;
     await render(AllowedApps, { changed: () => changed++ });
-    await click(named(document, 'Add more apps'));
-    const search = () => dialog('Add more apps');
+    await click(named(document, 'Add apps'));
+    const search = () => dialog('Add apps');
     await change(search().querySelector('input[type="search"]'), 'hub');
     assert.ok(!reads.some(path => path.includes('q=hub')), 'typing alone asks the library nothing');
     await submit(search().querySelector('form'));
@@ -102,10 +102,13 @@ test('an admin changes an added app’s actions with a warning, and removes it a
   await reactFixture(async ({ render, click }) => {
     const { AllowedApps } = await import('../src/react/settings/allowed-apps.tsx');
     await render(AllowedApps);
-    const hubspot = () => [...document.querySelectorAll('.settings-row')].find(node => node.textContent.includes('HubSpot'));
-    assert.match(hubspot().textContent, /Added from the library · 2 actions · Allowed · 2 connections/);
-    const gmail = [...document.querySelectorAll('.settings-row')].find(node => node.textContent.includes('Gmail'));
-    assert.equal(!!named(gmail, 'Remove Gmail'), false, 'a built-in app is switched off, never removed');
+    const hubspot = () => [...document.querySelectorAll('.settings-app')].find(node => node.textContent.includes('HubSpot'));
+    assert.match(hubspot().textContent, /2 connections · Added from the library · 2 actions/);
+    const gmail = [...document.querySelectorAll('.settings-app')].find(node => node.textContent.includes('Gmail'));
+    assert.equal(!!named(gmail, 'Details of Gmail'), false, 'a built-in app is switched off, never removed');
+    // An added app's own actions sit under it, behind its arrow.
+    assert.equal(!!named(hubspot(), 'Remove HubSpot'), false);
+    await click(named(hubspot(), 'Details of HubSpot'));
     await click(named(hubspot(), 'Change the actions of HubSpot'));
     const review = () => dialog('Change HubSpot');
     assert.match(review().textContent, /Saving ends 2 connections of HubSpot\. Their owners connect it again/);
@@ -133,10 +136,11 @@ test('an admin changes an added app’s actions with a warning, and removes it a
 test('without an app library on the server there is nothing to add, and added apps can still be removed', async () => {
   const added = { revision: 1, toolkit: 'hubspot', added: { at: 1763283720, by_name: null }, actions: [{ tool: 'HUBSPOT_PING', title: 'Check the account', effect: 'read' }] };
   const state = { library: false, apps: [allowed('hubspot', 'HubSpot', { added })] };
-  await reactFixture(async ({ render }) => {
+  await reactFixture(async ({ render, click }) => {
     const { AllowedApps } = await import('../src/react/settings/allowed-apps.tsx');
     await render(AllowedApps);
-    assert.equal(!!named(document, 'Add more apps'), false);
+    assert.equal(!!named(document, 'Add apps'), false);
+    await click(named(document, 'Details of HubSpot'));
     assert.equal(!!named(document, 'Change the actions of HubSpot'), false);
     assert.ok(named(document, 'Remove HubSpot'));
   }, { url, fetch: server(state, [], []) });

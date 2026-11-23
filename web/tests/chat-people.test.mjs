@@ -7,7 +7,7 @@ const w='11111111-1111-4111-8111-111111111111',url=`http://localhost/w/${w}/?vie
 const session={user:{id:'meera',email:'meera@example.test'},workspaces:[{id:w,name:'Studio',role:'Member'}]};
 const directory={role:'Member',users:[
   {id:'meera',name:'Meera Iyer',title:'Design lead',about:'',photo:null,role:'Member'},
-  {id:'ravi',name:'Ravi Kumar',title:'Operations',about:'Dispatch and suppliers.',photo:'33333333-3333-4333-8333-333333333333',role:'Member'},
+  {id:'ravi',name:'Ravi Kumar',title:'Operations',about:'Dispatch and suppliers.',handles:'Deliveries and returns',photo:'33333333-3333-4333-8333-333333333333',role:'Member'},
   {id:'priya',name:'Priya Shah',title:'',about:'',photo:null,role:'Admin'}],
   agents:[{id:'atlas',name:'Atlas',role:'Orders assistant',audience:'selected',avatar:'robot-03',manager:'Priya Shah'},
     {id:'nova',name:'Nova',role:'Research',audience:'only_me',avatar:'spark',manager:'Meera Iyer'}]};
@@ -59,6 +59,8 @@ test('a profile card opens from the directory and Message starts one direct conv
     const card=document.querySelector('aside.chat-side-panel');
     assert.equal(card.getAttribute('aria-label'),'Ravi Kumar profile');
     assert.match(card.textContent,/Dispatch and suppliers\./,'about text shown');
+    // What a person handles shows on their card, as it does for agents (2026-11-21).
+    assert.equal(card.querySelector('.profile-card-fact[title=Handles] div').textContent,'Deliveries and returns');
     assert.equal(card.contains(document.activeElement),true,'focus moves into the panel');
     assert.match(card.textContent,/Channels together: # orders/);
     // A shared channel is a link that opens it.

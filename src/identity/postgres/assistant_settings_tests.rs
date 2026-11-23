@@ -4,7 +4,7 @@ use super::{DraftRequest, SaveSettings};
 use crate::identity::chat::model::{Job, NewChat};
 use serde_json::json;
 
-async fn one(db: &PgStore, sql: &str, args: Vec<sea_orm::Value>) -> Value {
+pub(super) async fn one(db: &PgStore, sql: &str, args: Vec<sea_orm::Value>) -> Value {
     query(&db.db, &format!("SELECT to_jsonb(({sql})) AS v"), args)
         .await
         .unwrap()
@@ -12,7 +12,7 @@ async fn one(db: &PgStore, sql: &str, args: Vec<sea_orm::Value>) -> Value {
         .try_get("", "v")
         .unwrap()
 }
-async fn claimed(db: &PgStore, job: &Job) -> Job {
+pub(super) async fn claimed(db: &PgStore, job: &Job) -> Job {
     super::super::super::handoff_tests::claim(db, job).await
 }
 async fn queued(db: &PgStore, chat: &str) -> Job {
@@ -35,7 +35,7 @@ async fn room_of(db: &PgStore, agent: &str) -> String {
     .unwrap()
     .to_owned()
 }
-async fn direct_with(db: &PgStore, who: &User, w: &str, person: &User) -> String {
+pub(super) async fn direct_with(db: &PgStore, who: &User, w: &str, person: &User) -> String {
     db.chat_create(
         who,
         w,
@@ -66,6 +66,7 @@ fn draft_for(chat: &str, id: &str) -> DraftRequest {
         thread: None,
         instruction: "say yes".into(),
         message: None,
+        previous: None,
     }
 }
 async fn make_due(db: &PgStore, who: &User) {

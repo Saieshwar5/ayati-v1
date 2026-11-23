@@ -5,12 +5,13 @@ import { enqueue, confirmSent, outboxSnapshot, subscribeOutbox, type Submission 
 import { acknowledge, liveStatus, subscribeStatus, subscribeChanges } from './live';
 import { ConnectionBanner } from './connection-banner';
 import { ChatComposer } from './attachments';
-import { decodeMentions, requestAgents } from './mentions';
+import { requestAgents } from './mentions';
 import { quotePreview, ReplyingTo } from './quoted-message';
 import type { Attachment, Message } from './model';
 import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { storageScope, workspaceSession } from '../../workspace-context';
 import { ChatMessage } from './message';
+import { conversationImages } from './conversation-images';
 import { ChatThread } from './thread';
 import { threadSummary } from './thread-line';
 import { mergeMessages, newerMessage } from './message-state';
@@ -21,7 +22,8 @@ import { ShowProfile, useShowProfile } from './profile-card';
 import { AssistantRoom, TookOverLine } from './assistant-threads';
 import { ReplySwitch } from './assistant-reply-switch';
 import { positionOf, threadIn, useThreads } from './assistant-threads-model';
-import { useAssistantDraft } from './assistant-draft';
+import { mentionAssistant } from './assistant-ask-model';
+import { useAssistantAsk } from './assistant-ask';
 import { AssistantIntro, ExampleRequests } from './assistant-start';
 import { AssistantSettingsLink } from './assistant-settings';
 import { ConversationHeader, type DetailsControl } from './conversation-header';
@@ -175,32 +177,36 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   };
   const draftSent = useRef<(message: string) => void>(undefined);
   const updateDraft = (text: string) => { setDraft(text); try { sessionStorage.setItem(draftKey, text); } catch { /* Optional local draft. */ } };
+  /** Puts `content` in the outbox as this person's message; resolves with its ID once accepted. */
+  const post = async (content: string, quote: string | undefined, attachments: string[]): Promise<string | undefined> => {
+    if (chat.archived || pending.current) return undefined;
+    pending.current = true; setBusy(true); setError('');
+    try {
+      let agents = requestAgents(content, directAgent);
+      // Replying to an agent's message asks that agent, unless the text names others.
+      const quoted = quote ? allMessages.find(message => message.id === quote) : undefined;
+      if (!agents.length && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) agents = [quoted.author];
+      const asked = agents.length ? agents : undefined;
+      // The same payload keeps its ID, so a retried send can't post twice.
+      if (!attempt.current || attempt.current.content !== content || JSON.stringify(attempt.current.agents) !== JSON.stringify(asked) || attempt.current.reply_to !== quote || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, agents: asked, reply_to: quote, attachments };
+      const submission = attempt.current;
+      await enqueue(chat.id, submission);
+      attempt.current = undefined; bottom.current = true;
+      return submission.id;
+    } catch (e) { if (alive.current) setError(errorMessage(e)); return undefined; }
+    finally { pending.current = false; if (alive.current) setBusy(false); }
+  };
   /** Resolves true once the message is in the outbox; a voice recording joins the draft's files. */
   const send = async (voice?: Attachment): Promise<boolean> => {
-    if (chat.archived) return false;
+    // A draft that mentions your assistant asks it, where only you see it. Nothing is posted.
+    if (assist.asking && !voice) { const asked = await assist.ask(); if (asked && alive.current) setReplyTo(undefined); return asked; }
     const attachments = (voice ? [...files, voice] : files).map(f => f.id);
-    if (pending.current || (!draft.trim() && !attachments.length)) return false;
-    // A message that mentions your own assistant asks it for a reply; it is never posted.
-    if (assist.asking) { assist.ask?.(replyTo); return false; }
-    pending.current = true; setBusy(true); setError('');
-    let agents: string[];
-    try { agents = requestAgents(draft, directAgent); } catch (e) { setError(errorMessage(e)); pending.current = false; setBusy(false); return false; }
-    // Replying to an agent's message asks that agent, unless the text names others.
-    const quoted = replyTo ? allMessages.find(message => message.id === replyTo) : undefined;
-    if (!agents.length && quoted?.kind === 'agent' && history?.agents.includes(quoted.author)) agents = [quoted.author];
-    const asked = agents.length ? agents : undefined;
-    const content = draft || filesOnlyContent;
-    // The same payload keeps its ID, so a retried send can't post twice.
-    if (!attempt.current || attempt.current.content !== content || JSON.stringify(attempt.current.agents) !== JSON.stringify(asked) || attempt.current.reply_to !== replyTo || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, agents: asked, reply_to: replyTo, attachments };
-    const submission = attempt.current;
-    try {
-      await enqueue(chat.id, submission);
-      draftSent.current?.(submission.id);
-      if (!alive.current) return true;
-      updateDraft(''); setFiles([]); setReplyTo(undefined); attempt.current = undefined; bottom.current = true;
-      return true;
-    } catch (e) { if (alive.current) setError(errorMessage(e)); return false; }
-    finally { pending.current = false; if (alive.current) setBusy(false); }
+    if (!draft.trim() && !attachments.length) return false;
+    const id = await post(draft || filesOnlyContent, replyTo, attachments);
+    if (!id) return false;
+    draftSent.current?.(id);
+    if (alive.current) { updateDraft(''); setFiles([]); setReplyTo(undefined); }
+    return true;
   };
   const olderCursor = cursor === undefined ? history?.next_before : cursor;
   /** Scrolling near the top calls this on its own; the button passes `explicit`, which also retries a failed read. */
@@ -231,26 +237,21 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   const place = chat.kind === 'direct' ? 'Direct message' : chat.kind === 'group' ? 'Group' : `#${chat.name}`;
   const showProfile = useShowProfile();
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
-  // Your assistant in this chat: replies written into the message box, and what it does here on its own (schema 141).
+  // Your assistant in this chat: asked from the message box, and what it does here on its own (schema 141).
   const assistant = directory.agents.find(agent => agent.assistant && agent.yours);
   const assistantName = assistant?.name ?? 'Your assistant';
   const { threads, room } = useThreads();
   const handed = threadIn(threads, chat.id);
   const position = positionOf(handed);
-  const assist = useAssistantDraft({ chat: chat.id, name: assistantName, value: draft, change: updateDraft, sent: draftSent, disabled: busy || Boolean(chat.archived),
+  const composerField = () => section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea');
+  const assist = useAssistantAsk({ chat: chat.id, where: chat.kind === 'direct' ? `to ${title}` : chat.kind === 'group' ? 'in this group' : `in #${chat.name}`, direct: chat.kind === 'direct',
+    assistant, viewer, value: draft, change: updateDraft, messages: timeline, quote: replyTo, post: (text, quote) => post(text, quote, []), sent: draftSent,
+    focusBox: () => composerField()?.focus(), disabled: busy || Boolean(chat.archived),
     waiting: handed && position === 'ask' && handed.draft ? { thread: handed.id, ...handed.draft } : undefined });
   // It works on its own only in a direct chat with one other side that is not an assistant.
   const canSwitch = Boolean(assistant && partner) && !partner?.who.assistant && !chat.archived && chat.users.length + chat.agents.length === 2;
-  // Anywhere but its own chat it writes one reply when asked: to the latest message, or to one you choose.
-  const canAsk = Boolean(assistant) && chat.id !== room && !chat.archived;
-  const replyWith = (message: Message) => {
-    setReplyTo(message.id);
-    if (assistant && !decodeMentions(draft).mentions.some(item => item.kind === 'agent' && item.id === assistant.id)) updateDraft(`[@${assistantName.replace(/[\]\n]/g, ' ')}](mention:agent:${assistant.id}) ${draft}`);
-    requestAnimationFrame(() => composerField()?.focus());
-  };
   // Your own assistant's chat before its first message: who it is, examples to start from, the cursor ready.
   const emptyAssistant = partner?.kind === 'agent' && partner.who.assistant && partner.who.yours && history?.messages.length === 0 ? partner.who : undefined;
-  const composerField = () => section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea');
   useEffect(() => {
     // Not on touch screens, where focusing would cover the page with the keyboard.
     if (emptyAssistant && window.matchMedia?.('(pointer: fine)').matches) composerField()?.focus();
@@ -262,9 +263,11 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   // A direct message's agent: what it is doing for you here, and whether it takes messages now.
   const working = partner?.kind === 'agent' ? workingForYou(allMessages, partner.who.id) : undefined;
   const agentFree = partner?.kind !== 'agent' || takesMessages(partner.who);
-  // Not while the message box gives way to a paused agent's bar: there would be nowhere to write the reply.
-  const askAssistant = (message: Message) => canAsk && agentFree && message.author !== viewer ?{ name: assistantName, start: () => replyWith(message) } : undefined;
-  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
+  // One reply to a chosen message: it is quoted, and the box mentions your assistant, ready for what to ask.
+  // Not while the message box gives way to a paused agent's bar: there would be nowhere to write.
+  const replyWith = (message: Message) => { if (!assist.asking && assist.mention) updateDraft(mentionAssistant(draft, assist.mention)); startReply(message.id); };
+  const askAssistant = (message: Message) => assist.mention && agentFree && !chat.archived && message.author !== viewer ? { name: assistantName, start: () => replyWith(message) } : undefined;
+  return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }} images={() => conversationImages(allMessages, directory)}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} returnTo={returnTo} search={() => setSearching(true)} working={working}
       level={level} levelChanged={levelChanged} details={details}
       extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : canSwitch && <ReplySwitch chat={chat.id} assistantName={assistantName} partnerName={title} />} />
@@ -292,10 +295,10 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
     {error && <p className="chat-error" role="alert">{error} <Button onClick={() => void refresh.current()}>Retry</Button></p>}
     {replyTo && !chat.archived && <ReplyingTo {...quotePreview(allMessages.find(m => m.id === replyTo), agentName)} cancel={() => setReplyTo(undefined)} />}
     {emptyAssistant && !draft && !chat.archived && agentFree && <ExampleRequests use={startExample} />}
+    {assist.card}
     {!agentFree && partner?.kind === 'agent' ? <PausedBar agent={partner.who} admin={directory.role === 'Admin'} /> : <ChatComposer chat={chat.id} files={files} setFiles={setFiles} value={draft} change={updateDraft} send={send} disabled={busy || Boolean(chat.archived)} sendDisabled={!draft.trim() && !files.length}
-      placeholder="Message…" tools={assist.tool} notice={assist.notice} submitLabel={assist.asking ? `Ask ${assistantName}` : undefined}
+      placeholder="Message…" tools={assist.tool} notice={assist.notice} assistant={assist.mention}
       candidates={[
-        ...(canAsk && assistant ? [{ ...assistant, kind: 'agent' as const, yourAssistant: true }] : []),
         ...directory.users.filter(user => chat.users.includes(user.id) || chat.visibility === 'public').map(user => ({ ...user, kind: 'user' as const })),
         ...availableAgents.map(agent => ({ ...agent, kind: 'agent' as const })),
       ]} />}

@@ -7,8 +7,8 @@ import { ReadSource } from './company-rule-source';
 import { ReplayPanel } from './company-rule-replay';
 import { TableLimitPicker } from './company-rule-table';
 
-/** Settings → Company rules (core-agent CA1): conditions every agent must follow on
- * top of each action's Allow / Ask first / Block. Everyone reads them; admins edit. */
+/** Settings → Agent rules → Company rules (core-agent CA1): conditions every agent must
+ * follow on top of each action's Allow / Ask first / Block. Everyone reads them; admins edit. */
 export function CompanyRules() {
   const resource = useResource(loadRules);
   const toggle = useMutation();
@@ -29,25 +29,25 @@ export function CompanyRules() {
   const trial = (rule: CompanyRule) => rule.enabled && rule.trial_until_ms && rule.trial_until_ms > Date.now()
     ? `On trial until ${new Date(rule.trial_until_ms).toLocaleDateString([], { day: 'numeric', month: 'short' })}, would have acted ${rule.trial_matches ?? 0} times` : '';
   return <section className="company-rules" aria-label="Company rules">
-    <header className="settings-section-heading"><div><h2>Company rules</h2>
-      <p>Conditions every agent must follow, on top of each action's Allow, Ask first or Block. A rule can only make an agent stricter.</p></div>
-      {data?.can_manage && <Button primary disabled={!data.actions.length} onClick={() => setEditing('new')}>Add rule</Button>}</header>
-    {resource.error && <><p role="alert">{resource.error}</p><Button onClick={() => void resource.refresh().catch(() => {})}>Retry</Button></>}
-    {!data && !resource.error && <p role="status">Loading company rules…</p>}
-    {proposed.length > 0 && <section className="company-rule-proposals" aria-label="Proposed by agents"><h3>Proposed by agents</h3>
+    {proposed.length > 0 && <section className="company-rule-proposals" aria-label="Proposed by agents"><h3>Proposed by agents · {proposed.length}</h3>
       <ul className="settings-rows">{proposed.map(rule => <li key={rule.id} className="settings-row">
         <span><strong>{rule.summary}</strong><small>{rule.proposed_by_name ?? 'An agent'} proposed it from “{rule.proposal}”. Not in force.</small></span>
         {data?.can_manage && <span className="company-rule-actions">
           <Button primary disabled={toggle.busy} onClick={() => setEditing(rule)}>Review</Button>
           <Button disabled={toggle.busy} onClick={() => dismiss(rule)}>Dismiss</Button></span>}
       </li>)}</ul></section>}
-    {data && !data.rules.length && <p className="ui-empty">{data.actions.length ? 'No company rules yet.' : 'Connect an account in Connections first; rules apply to its actions.'}</p>}
-    {rules.length > 0 && <ul className="settings-rows">{rules.map(rule => <li key={rule.id} className="settings-row">
+    <header className="settings-subsection-heading"><div><h3>Company rules</h3>
+      <p>Conditions on top of each action's Allow, Ask first or Block. A rule can only make an agent stricter.</p></div>
+      {data?.can_manage && <Button disabled={!data.actions.length} onClick={() => setEditing('new')}>Add rule</Button>}</header>
+    {resource.error && <><p role="alert">{resource.error}</p><Button onClick={() => void resource.refresh().catch(() => {})}>Retry</Button></>}
+    {!data && !resource.error && <p role="status">Loading company rules…</p>}
+    {data && !data.rules.length && <p className="ui-empty">{data.actions.length ? 'No company rules yet.' : 'Connect an app in Apps first; rules apply to its actions.'}</p>}
+    {rules.length > 0 && <ul className="settings-rows">{rules.map(rule => <li key={rule.id} className={`settings-row${rule.enabled ? '' : ' company-rule-off'}`}>
       <span><strong>{rule.summary}</strong>
         <small>{[rule.enabled ? '' : 'Off', trial(rule), rule.note, rule.updated_by_name ? `Changed by ${rule.updated_by_name}` : ''].filter(Boolean).join(' · ')}</small></span>
       {data?.can_manage && <span className="company-rule-actions">
         <Button disabled={toggle.busy} onClick={() => setEditing(rule)}>Edit</Button>
-        <Button disabled={toggle.busy} onClick={() => flip(rule)}>{rule.enabled ? 'Turn off' : 'Turn on'}</Button></span>}
+        <label className="ui-switch"><input type="checkbox" role="switch" disabled={toggle.busy} checked={rule.enabled} onChange={() => flip(rule)} /><span>{rule.summary}</span></label></span>}
     </li>)}</ul>}
     <p className="ui-status" role="status">{toggle.status}</p>
     {editing && data && <RuleDialog key={editing === 'new' ? 'new' : editing.id} actions={data.actions} tables={data.tables} rule={editing === 'new' ? undefined : editing}

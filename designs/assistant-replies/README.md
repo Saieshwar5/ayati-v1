@@ -25,10 +25,11 @@ Where the app differs from the pictures, each on purpose:
   says replies go out unread. The prototype started it from the radio.
 - **The tag is the top line inside your own bubble**, not above it, so it
   moves with the message in every layout.
-- **The mark beside Attach still asks at once.** It did not become "insert the
-  mention": one click is less than two.
-- **A reply is never put over your words.** With something already typed, a
-  line offers Use it.
+- **Asking by mention came from `designs/assistant-mention`**, built in
+  parallel and merged first. Its draft card above the message box (Send as me,
+  Edit, Discard) is used for a reply written on Ask me first too, so the reply
+  never touches what you typed. The mark beside Attach puts the mention in the
+  box, as that design chose.
 - **A suggestion still sends its opening on Start.** Opening it as a waiting
   reply needs a chat that may not exist yet.
 

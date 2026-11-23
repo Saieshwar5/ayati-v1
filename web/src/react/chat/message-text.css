@@ -1,0 +1,25 @@
+/* A person's words. Text taller than the limit shows its first lines, fading out, until opened.
+   message-text.tsx reads the limit to measure text that is open or not yet clipped. */
+.chat-text { --chat-text-limit:192px; }
+.chat-text:not(.chat-text-expanded) { max-height:var(--chat-text-limit); overflow:hidden; }
+/* A short own message is inline so its time shares the last line; long text needs a box to clip. */
+.chat-message .message-markdown.chat-text.chat-text-long { display:block; position:relative; }
+.chat-text-long:not(.chat-text-expanded)::after { content:''; position:absolute; left:0; right:0; bottom:0; height:64px; pointer-events:none; background:linear-gradient(transparent,var(--raised) 56%); }
+
+/* The corner arrow of agent replies. Closed, it sits on the solid end of the fade and adds no height.
+   Open, it follows the bottom of the reading area so a long message can be closed from anywhere in it. */
+.chat-text-more { position:relative; z-index:1; display:flex; justify-content:flex-end; height:36px; margin:-36px -5px 0 0; pointer-events:none; }
+.chat-text-expanded + .chat-text-more { position:sticky; bottom:6px; margin-top:2px; }
+.chat-text-more button { pointer-events:auto; display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; padding:0; border:0; border-radius:10px; background:transparent; color:var(--muted); cursor:pointer; }
+.chat-text-more button:hover { color:var(--text); background:var(--selection); }
+.chat-text-more button:focus-visible { outline-offset:-2px; }
+.chat-text-expanded + .chat-text-more button { background:var(--raised); box-shadow:var(--bubble-shadow); }
+.chat-text-expanded + .chat-text-more button:hover { background:var(--selection); }
+@media(pointer:coarse) {
+  .chat-text-more { height:44px; margin-top:-44px; }
+  .chat-text-more button { width:44px; height:44px; }
+}
+@media(forced-colors:active) { .chat-text-more button { border:1px solid ButtonText; } }
+
+/* Code inside a bubble or a reply box keeps a fill that differs from it in both themes. */
+:is(.chat-message-own, .chat-message-bubble, .chat-response) .message-markdown :is(pre, :not(pre) > code) { background:var(--bubble-inset); }

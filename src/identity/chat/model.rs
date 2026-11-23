@@ -80,6 +80,13 @@ pub struct Forward {
     pub to: Target,
     #[serde(default)]
     pub note: String,
+    /// The forwarded message's own files to carry along, by ID. Each is copied
+    /// into the direct chat the forward goes to.
+    #[serde(default)]
+    pub files: Vec<String>,
+    /// Your own documents, already uploaded to that direct chat.
+    #[serde(default)]
+    pub attachments: Vec<String>,
 }
 
 #[derive(Deserialize)]

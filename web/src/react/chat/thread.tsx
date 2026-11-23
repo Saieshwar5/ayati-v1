@@ -11,6 +11,7 @@ import { filesOnlyContent, type Directory, type History, type Message } from './
 import { ChatMessage } from './message';
 import { askedBy, continuingAgent, namesSomeone } from './thread-line';
 import { ThreadFollow } from './thread-follow';
+import { useAssistantAsk } from './assistant-ask';
 import './thread-panel.css';
 
 export function ChatThread({ chat, root, history, directory, close, people = [], focus, archived, direct, place, read }: { archived?: boolean; focus?: string; people?: Mention[]; chat: string; root: Message; history: History; directory: Directory; close: () => void; refresh: () => Promise<void>;
@@ -46,23 +47,39 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
   const mutation = useMutation();
   const attempt = useRef<{ id: string; content: string; thread: string; agents?: string[]; attachments: string[] }>(undefined);
   const update = (value: string) => { setText(value); try { sessionStorage.setItem(key, value); } catch { /* Optional draft. */ } };
-  /** Resolves true once the reply is in the outbox; a voice recording joins the draft's files. */
-  const send = async (voice?: Attachment) => {
-    let sent = false;
+  /** Puts `content` in the outbox as this person's reply here; resolves with its ID once accepted. */
+  const post = async (content: string, attachments: string[]) => {
+    let id: string | undefined;
     await mutation.run(async () => {
-      const attachments = (voice ? [...files, voice] : files).map(f => f.id);
-      if (archived || !text.trim() && !attachments.length) return;
-      let agents = direct ? requestAgents(text, direct) : requestAgents(text);
+      if (archived) return;
+      let agents = direct ? requestAgents(content, direct) : requestAgents(content);
       // A plain reply goes to the agent a person last asked here; naming anyone
       // sends it only to whom it names.
-      if (!agents.length && continuing && !namesSomeone(text)) agents = [continuing];
+      if (!agents.length && continuing && !namesSomeone(content)) agents = [continuing];
       const asked = agents.length ? agents : undefined;
-      const content = text || filesOnlyContent;
       if (!attempt.current || attempt.current.content !== content || JSON.stringify(attempt.current.agents) !== JSON.stringify(asked) || JSON.stringify(attempt.current.attachments) !== JSON.stringify(attachments)) attempt.current = { id: crypto.randomUUID(), content, thread: root.id, agents: asked, attachments };
       await enqueue(chat, attempt.current);
-      update(''); setFiles([]); attempt.current = undefined; sent = true;
+      id = attempt.current.id; attempt.current = undefined;
     });
-    return sent;
+    return id;
+  };
+  // Your assistant, asked from this reply box: its draft is for this thread.
+  const replyBox = useRef<HTMLDivElement>(null);
+  const draftSent = useRef<(message: string) => void>(undefined);
+  const assist = useAssistantAsk({ chat, thread: root.id, where: 'in this thread', direct: false, assistant: directory.agents.find(agent => agent.assistant && agent.yours), viewer: me,
+    value: text, change: update, messages: [root, ...replies], post: content => post(content, []), sent: draftSent,
+    focusBox: () => replyBox.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea')?.focus(), disabled: mutation.busy || Boolean(archived) });
+  /** Resolves true once the reply is in the outbox; a voice recording joins the draft's files. */
+  const send = async (voice?: Attachment) => {
+    // A reply that mentions your assistant asks it, where only you see it. Nothing is posted.
+    if (assist.asking && !voice) return assist.ask();
+    const attachments = (voice ? [...files, voice] : files).map(f => f.id);
+    if (!text.trim() && !attachments.length) return false;
+    const id = await post(text || filesOnlyContent, attachments);
+    if (!id) return false;
+    draftSent.current?.(id);
+    update(''); setFiles([]);
+    return true;
   };
   const agents = directory.agents.filter(agent => history.agents.includes(agent.id));
   const continuingName = continuing && directory.agents.find(agent => agent.id === continuing)?.name;
@@ -75,7 +92,7 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
         <div ref={transcript} role="log" aria-label="Thread replies">{replies.map(message => <ChatMessage focused={message.id === focus} key={message.id} message={message} directory={directory} place={place} read={read} />)}<PendingMessages chat={chat} thread={root.id} agentName={id => directory.agents.find(agent => agent.id === id)?.name} /></div>
         {!count && !archived && <p className="chat-thread-empty"><strong>Start the thread</strong>Replies stay here, under this message, so the channel stays tidy.</p>}
       </div>
-      <div className="chat-thread-reply">
+      <div className="chat-thread-reply" ref={replyBox}>
         <div className="chat-thread-reply-line">
           {!archived && <p className="chat-thread-route" role="note">{waiting
             ? <>Your reply answers <strong>{directory.agents.find(agent => agent.id === waiting)?.name ?? 'the agent'}</strong>’s question</>
@@ -85,8 +102,9 @@ export function ChatThread({ chat, root, history, directory, close, people = [],
           <ThreadFollow chat={chat} thread={root.id} />
         </div>
         {archived && <p className="chat-archive-banner">This archived channel is closed to new thread replies. Your draft is kept.</p>}
+        {assist.card}
         <ChatComposer chat={chat} files={files} setFiles={setFiles} value={text} change={update} send={send} disabled={mutation.busy || Boolean(archived)}
-          sendDisabled={!text.trim() && !files.length} label="Reply in thread" placeholder="Reply…"
+          sendDisabled={!text.trim() && !files.length} label="Reply in thread" placeholder="Reply…" tools={assist.tool} notice={assist.notice} assistant={assist.mention}
           candidates={[...people, ...agents.map(agent => ({ ...agent, kind: 'agent' as const }))]} />
       </div>
     </div>

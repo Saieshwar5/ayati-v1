@@ -66,7 +66,7 @@ A model that isn't in the catalog uses the assignment's provider as before.
   It never includes routes or costs. The agents directory carries the same value as `catalog`.
 - Agent → Environment shows the catalog models allowed in the workspace, with their
   name, tags, description, abilities and price. Saving stores the model id with an empty provider.
-- Settings → Workspace: admins limit the workspace to some catalog models, chosen
+- Settings → Agent rules: admins limit the workspace to some catalog models, chosen
   from a list. Entries that still name a provider are marked and must be removed.
 - New agents start on the workspace default. If that model can't be chosen, they start on
   the first catalog model that isn't retiring.

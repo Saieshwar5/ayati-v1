@@ -4,11 +4,11 @@
 .response-preview-actions { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; margin-top:12px; }
 .response-preview-actions small { color:var(--muted); }
 .response-preview-actions button { min-height:36px; }
-.chat-response { position:relative; min-width:0; max-width:760px; margin-top:4px; padding:20px; border:1px solid var(--border); border-radius:16px; background:var(--soft); overflow-wrap:anywhere; }
+.chat-response { position:relative; min-width:0; max-width:760px; margin-top:4px; padding:20px; border-radius:16px; background:var(--raised); box-shadow:var(--bubble-shadow); overflow-wrap:anywhere; }
 .chat-response-long { padding-bottom:48px; }
 .chat-response-expanded { padding-top:48px; }
 .chat-response .response-excerpt { max-height:156px; overflow:hidden; }
-.chat-response-long:not(.chat-response-expanded)::after { content:''; position:absolute; pointer-events:none; left:1px; right:1px; bottom:40px; height:40px; background:linear-gradient(transparent,var(--soft)); }
+.chat-response-long:not(.chat-response-expanded)::after { content:''; position:absolute; pointer-events:none; left:0; right:0; bottom:40px; height:40px; background:linear-gradient(transparent,var(--raised)); }
 .response-corner, .inline-response-tools :is(button,a) { display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; padding:0; border:0; border-radius:10px; background:transparent; color:var(--muted); cursor:pointer; text-decoration:none; }
 .response-corner { position:absolute; right:4px; bottom:4px; z-index:1; }
 .response-collapse-top { top:4px; bottom:auto; }
@@ -29,7 +29,7 @@
   .workspace-chat .chat-message:has(.chat-response) > div > :not(header) { grid-column:1 / -1; }
   .workspace-chat .chat-message:has(.chat-response) .chat-response { grid-row:2; }
 }
-@media(forced-colors:active) { .response-corner { border:1px solid ButtonText; } }
+@media(forced-colors:active) { .response-corner { border:1px solid ButtonText; } .chat-response { border:1px solid CanvasText; } }
 .ui-dialog:has(.result-reader), .ui-dialog:has(.result-file-viewer) { width:min(760px,calc(100vw - 40px)); height:min(860px,calc(100dvh - 48px)); max-width:none; display:flex; flex-direction:column; padding:0; overflow:hidden; }
 .ui-dialog:has(.result-reader-expanded) { width:calc(100vw - 40px); height:calc(100dvh - 40px); }
 .ui-dialog:has(.result-reader) .ui-dialog-body, .ui-dialog:has(.result-file-viewer) .ui-dialog-body { flex:1; min-height:0; display:flex; padding:0; overflow:hidden; }
@@ -44,18 +44,8 @@
 .result-note, .result-update { padding:12px 20px; margin:0; font-size:13px; color:var(--muted); }
 .result-update { display:flex; gap:10px; align-items:center; border-bottom:1px solid var(--border); flex-shrink:0; height:64px; }
 .result-update span { flex:1; line-height:20px; }
-.result-image-stage { flex:1; overflow:auto; min-height:0; padding:16px; display:flex; align-items:center; justify-content:center; background:var(--soft); }
-.result-image-stage img { object-fit:contain; max-width:100%; max-height:100%; }
-.result-image-zoomed { display:block; }
-.result-image-zoomed img { max-width:none; max-height:none; height:auto; }
 .result-audio { display:block; width:calc(100% - 40px); margin:20px; flex-shrink:0; }
 .result-text-file { flex:1; overflow:auto; min-height:0; padding:20px; margin:0; white-space:pre-wrap; overflow-wrap:anywhere; }
-.result-files { max-width:100%; }
-.result-thumbnail { display:block; padding:0; border:1px solid var(--border); border-radius:8px; background:var(--surface); cursor:pointer; }
-.result-thumbnail img { display:block; max-width:192px; max-height:128px; object-fit:contain; }
-.result-files .chat-file > div { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
-.result-files .chat-file a { color:inherit; }
-.result-files .chat-file button { max-width:100%; overflow-wrap:anywhere; }
 @media(max-width:640px) {
   .ui-dialog:has(.result-reader), .ui-dialog:has(.result-file-viewer), .ui-dialog:has(.result-reader-expanded) { width:100vw; height:100dvh; max-height:100dvh; margin:0; border-radius:0; }
   .result-body { padding:20px; }

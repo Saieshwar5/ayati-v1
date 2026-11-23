@@ -158,8 +158,9 @@ test('Usage adds computer time and charges beside model use, by agent', async ()
     const { UsageReportView } = await import('../src/react/usage/usage-report.tsx');
     await render(UsageReportView, { title: 'Usage' });
     const text = document.body.textContent;
-    assert.match(text, /Charges\$0\.35/);
-    assert.match(text, /Computer time2 h 5 min/);
+    assert.match(text, /Charges, last 30 days\$0\.35/);
+    assert.match(text, /agent computers \$0\.35 for 2 h 5 min/);
+    assert.equal(document.querySelector('.usage-groups [aria-pressed=true]').textContent, 'Computers', 'with no model use, the computers are shown first');
     const table = [...document.querySelectorAll('table')].find(node => node.querySelector('caption').textContent === 'Computers by agent');
     assert.match(table.textContent, /Atlas2 h 5 min\$0\.35/);
     assert.doesNotMatch(text, /No model or computer use/);

@@ -1,6 +1,7 @@
 //! Shared company features use the PostgreSQL workspace transaction boundary.
 mod catalog;
 mod files;
+pub(crate) use files::copy_forwarded;
 mod work;
 use super::*;
 use axum::{Json, extract::Path as RoutePath, http::HeaderMap};

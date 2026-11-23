@@ -1,8 +1,9 @@
 // Your assistant in a direct chat, in a real browser against a real controller
-// (schema 141): the header switch, asking for a reply by mentioning it, the
-// @name tag on what it wrote, and a reply from one message. The controller
-// runs scripted replies and no executor, so nothing is handed over on its own
-// here: that part is covered by the PostgreSQL tests of assistant_reply_modes.
+// (schema 141): the header switch, a reply started from one message, and the
+// @name tag on what it wrote. Asking by mention itself is in assistant_ask.mjs.
+// The controller runs scripted replies and no executor, so nothing is handed
+// over on its own here: that is covered by the PostgreSQL tests of
+// assistant_reply_modes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -12,7 +13,7 @@ import { workerFixture } from './fixtures/independent_worker.mjs';
 import { root } from './fixtures/polling.mjs';
 const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
 
-test('the reply switch, a reply asked by mention and its tag work in a real browser', {
+test('the reply switch, a reply to one message and its tag work in a real browser', {
   skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 300000,
 }, async t => {
   let app, browser, page;
@@ -71,40 +72,30 @@ test('the reply switch, a reply asked by mention and its tag work in a real brow
   assert.equal(await page.locator('a.chat-contact .chat-thread-mark').count(), 0);
   app.pass('Off removes the pill and the mark');
 
-  // A message that mentions the assistant asks it and is never posted.
+  // One reply to a chosen message: it is quoted and the box mentions the assistant.
   const box = page.locator('.message-composer textarea');
-  await box.click();
-  await box.pressSequentially(`@${assistant.slice(0, 3)}`);
-  await page.getByRole('option', { name: /only you see this/ }).click();
-  await box.pressSequentially('say Friday at 3 works');
-  const send = page.locator('.message-composer button[type=submit]');
-  assert.equal(await send.textContent(), `Ask ${assistant}`);
-  await page.locator('.composer-notice', { hasText: 'Nothing is sent.' }).waitFor();
-  await shot('asking');
+  await page.locator(`[data-message-id="${asked}"]`).hover();
+  await page.getByRole('button', { name: `Reply with @${assistant}` }).first().click();
+  assert.equal(await box.inputValue(), `@${assistant} `);
+  await page.locator('.chat-replying', { hasText: 'Can we meet on Friday at 3?' }).waitFor();
+  await page.getByText(`Asking ${assistant}`).waitFor();
+  await shot('reply-with');
   await box.press('Enter');
-  await page.locator('.composer-notice', { hasText: /is writing a draft|Draft from/ }).waitFor();
+  const card = page.locator('.assistant-ask');
+  await card.getByText(`Draft from ${assistant}`).waitFor({ timeout: 90000 });
   assert.equal((await messages(app.cookie)).length, 1, 'nothing was posted in the chat');
-  app.pass('Mentioning the assistant asks it and posts nothing');
-
-  await page.locator('.composer-notice', { hasText: `Draft from ${assistant}` }).waitFor({ timeout: 90000 });
-  const drafted = await box.inputValue();
-  assert.ok(drafted.trim() && !drafted.includes(`@${assistant}`), 'the reply is in the message box');
   await shot('draft-ready');
-  await box.press('Enter');
+  app.pass('Reply with @name quotes the message, asks the assistant and posts nothing');
+
+  // The draft you send is yours; its tag is on top of it, for you alone.
+  await card.getByRole('button', { name: 'Send as me' }).click();
   const tag = page.locator('.chat-message-own .chat-assisted');
   await tag.waitFor({ timeout: 30000 });
   assert.equal(await tag.textContent(), `Written with @${assistant}`);
   const sent = (await messages(member)).at(-1);
   assert.equal(sent.author, (await app.request('/api/identity/session', app.cookie)).value.user.id);
+  assert.equal(sent.reply_to, asked, 'it stays a reply to the chosen message');
   assert.equal(sent.assisted ?? null, null, 'the other side gets an ordinary message');
   await shot('tag');
   app.pass('The reply you send is yours, tagged for you alone');
-
-  // One reply to a chosen message.
-  await page.locator(`[data-message-id="${asked}"]`).hover();
-  await page.getByRole('button', { name: `Reply with @${assistant}` }).first().click();
-  assert.equal(await box.inputValue(), `@${assistant} `);
-  await page.locator('.chat-replying', { hasText: 'Can we meet on Friday at 3?' }).waitFor();
-  await shot('reply-with');
-  app.pass('Reply with @name quotes the message and mentions the assistant');
 });

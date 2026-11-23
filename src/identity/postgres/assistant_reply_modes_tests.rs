@@ -4,7 +4,6 @@ use super::super::LIMIT;
 use super::super::tests::{one, queued, reply, room, stored, thread};
 use super::SetReplies;
 use crate::identity::chat::model::NewChat;
-use crate::identity::postgres::assistants::settings::DraftRequest;
 use crate::identity::postgres::{tests::*, *};
 use serde_json::json;
 
@@ -17,7 +16,6 @@ struct Scene {
     w: String,
     chat: String,
     own_room: String,
-    first: String,
     unanswered: String,
 }
 fn chat_of(kind: &str, with: &[&User]) -> NewChat {
@@ -46,8 +44,14 @@ async fn scene() -> Scene {
         .chat_create(&ravi, &w, &chat_of("direct", &[&priya]))
         .await
         .unwrap();
-    let first = message("Any update on the funding?", None);
-    db.chat_send(&priya, &w, &chat, &first).await.unwrap();
+    db.chat_send(
+        &priya,
+        &w,
+        &chat,
+        &message("Any update on the funding?", None),
+    )
+    .await
+    .unwrap();
     db.chat_send(&ravi, &w, &chat, &message("Let me check.", None))
         .await
         .unwrap();
@@ -60,7 +64,6 @@ async fn scene() -> Scene {
         w,
         chat,
         own_room,
-        first: first.id,
         unanswered: unanswered.id,
     }
 }
@@ -228,27 +231,6 @@ async fn on_ask_me_first_each_reply_waits_for_its_person_who_sends_it() {
     db.thread_draft_discard(ravi, w, &id).await.unwrap();
     assert!(waiting(db, ravi, w).await.is_null());
     assert_eq!(posted(db, chat).await, json!(before.as_i64().unwrap() + 4));
-
-    // A draft asked for one message says which; a message from elsewhere is refused.
-    let about = |message: &str| DraftRequest {
-        id: uuid::Uuid::new_v4().to_string(),
-        chat: chat.into(),
-        thread: None,
-        instruction: String::new(),
-        message: Some(message.into()),
-    };
-    let chosen = about(&s.first);
-    db.draft_request(ravi, w, &chosen).await.unwrap();
-    let told = one(
-        db,
-        "SELECT content FROM relay_chat_messages WHERE id=$1",
-        vec![chosen.id.clone().into()],
-    )
-    .await;
-    let told = told.as_str().unwrap();
-    assert!(told.contains("Answer this message in particular, from "));
-    assert!(told.contains(": Any update on the funding?\n"));
-    assert!(db.draft_request(ravi, w, &about(&chosen.id)).await.is_err());
 }
 
 #[tokio::test]

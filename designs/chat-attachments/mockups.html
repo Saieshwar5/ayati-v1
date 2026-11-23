@@ -1,0 +1,488 @@
+<title>Chat Attachment Designs</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a storyboard on Cuckoo's grey canvas. Words on the left; on the right the same
+   messages as they look today and as proposed, inside the product's white conversation surface.
+   Colour is used for one thing only: telling file types apart. */
+:root, .force-light {
+  --surface: #ffffff; --canvas: #f3f4f5; --raised: #ffffff; --text: #22252a; --muted: #5f6670;
+  --border: #e5e7ea; --border-control: #aeb8c5; --soft: #f7f8f9; --accent: #22252a; --on-accent: #ffffff;
+  --danger: #a42f35; --seen: #2f6fde; --focus: #52525b;
+  --pdf: #c2362f; --doc: #2b5fc7; --sheet: #1c7d4d;
+  --bubble-shadow: 0 1px 2px rgb(23 33 43 / 12%), 0 3px 10px rgb(23 33 43 / 8%);
+  --frame-shadow: 0 8px 24px rgb(23 33 43 / 10%);
+  --scrim: rgb(0 0 0 / 55%); --on-scrim: #ffffff;
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1c1f26; --canvas: #111318; --raised: #252a34; --text: #f0f1f5; --muted: #abb1bf;
+    --border: #303540; --border-control: #697487; --soft: #252a34; --accent: #f0f1f5; --on-accent: #20222a;
+    --danger: #ffadaf; --seen: #8fb4ff; --focus: #a1a1aa;
+    --pdf: #ff9a94; --doc: #9dbcff; --sheet: #7fd6a6;
+    --bubble-shadow: 0 1px 2px rgb(0 0 0 / 28%); --frame-shadow: 0 8px 24px rgb(0 0 0 / 32%);
+  }
+}
+:root[data-theme="dark"], .force-dark {
+  color-scheme: dark;
+  --surface: #1c1f26; --canvas: #111318; --raised: #252a34; --text: #f0f1f5; --muted: #abb1bf;
+  --border: #303540; --border-control: #697487; --soft: #252a34; --accent: #f0f1f5; --on-accent: #20222a;
+  --danger: #ffadaf; --seen: #8fb4ff; --focus: #a1a1aa;
+  --pdf: #ff9a94; --doc: #9dbcff; --sheet: #7fd6a6;
+  --bubble-shadow: 0 1px 2px rgb(0 0 0 / 28%); --frame-shadow: 0 8px 24px rgb(0 0 0 / 32%);
+}
+body { background: var(--canvas); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 72px; }
+.page { max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 56px; }
+h1, h2, h3, p, ul { margin: 0; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Page words */
+.intro { display: flex; flex-direction: column; gap: 10px; max-width: 68ch; }
+.intro h1 { font-size: 28px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.intro p, .notes p, .notes li { color: var(--muted); }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.story { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 32px; align-items: start; }
+.notes { display: flex; flex-direction: column; gap: 12px; }
+.notes h2 { font-size: 20px; line-height: 1.25; font-weight: 600; text-wrap: balance; }
+.notes ul { padding-left: 18px; display: flex; flex-direction: column; gap: 6px; }
+.notes strong { color: var(--text); font-weight: 600; }
+.needs { font-size: 13px; padding-top: 10px; border-top: 1px solid var(--border); }
+.compare { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; min-width: 0; }
+.pane { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.pane.proposed { flex: 1.6 1 340px; }
+.screen { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 14px; padding: 18px 16px;
+  display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.proposed .screen { box-shadow: var(--frame-shadow); }
+.caption { font-size: 12px; color: var(--muted); }
+
+/* A message */
+.msg { display: flex; gap: 10px; max-width: 100%; align-self: flex-start; min-width: 0; }
+.msg.own { align-self: flex-end; }
+.face { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--soft); border: 1px solid var(--border);
+  display: grid; place-items: center; font-size: 11px; font-weight: 600; color: var(--muted); }
+.col { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.who { display: flex; align-items: baseline; gap: 8px; font-size: 12px; }
+.who strong { font-weight: 600; }
+.who time, .meta { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bubble { box-sizing: border-box; max-width: 100%; min-width: 0; padding: 8px 11px; background: var(--raised); box-shadow: var(--bubble-shadow);
+  border-radius: 13px 13px 13px 4px; font-size: 14px; line-height: 1.45; }
+.own .bubble { border-radius: 12px 12px 3px 12px; }
+.meta { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; }
+.ticks { width: 15px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.ticks.seen { color: var(--seen); }
+
+/* Today's rows, redrawn from the screenshots */
+.old-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 5px 0; }
+.old-pill { border: 1px solid var(--border-control); border-radius: 9px; padding: 7px 12px; font-size: 14px; overflow-wrap: anywhere; }
+.old-row small { font-size: 12px; color: var(--muted); }
+.old-row u { font-size: 16px; }
+.old-thumb { display: block; width: 192px; max-width: 100%; aspect-ratio: 3 / 2; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.old-voice { display: flex; align-items: center; gap: 10px; width: 280px; max-width: 100%; }
+.old-voice b { flex: none; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); }
+.old-voice span { flex: 1; height: 3px; background: repeating-linear-gradient(90deg, var(--muted) 0 3px, transparent 3px 7px); opacity: .5; }
+.old-voice small { font-size: 12px; color: var(--muted); }
+
+/* Pictures */
+.pic { display: block; width: 100%; height: 100%; }
+.bubble.media { padding: 0; overflow: hidden; }
+.photo { position: relative; display: block; width: 320px; max-width: 100%; aspect-ratio: 16 / 10; padding: 0; border: 0; background: var(--soft); cursor: zoom-in; }
+.photo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; width: 302px; max-width: 100%; position: relative; }
+.photo-grid .photo { width: auto; aspect-ratio: 1; }
+.on-photo { position: absolute; right: 6px; bottom: 6px; margin: 0; padding: 2px 7px; border-radius: 10px; background: var(--scrim); color: var(--on-scrim); }
+.on-photo .ticks.seen { color: var(--on-scrim); }
+.more-photos { position: absolute; inset: 0; display: grid; place-items: center; background: var(--scrim); color: var(--on-scrim); font-size: 22px; font-weight: 600; }
+.media .text { padding: 8px 11px; }
+.media .text .meta { margin-top: 2px; }
+
+/* Files: a type tile, two lines, a quiet download */
+.files { display: flex; flex-direction: column; gap: 2px; width: 300px; max-width: 100%; }
+.bubble.has-files { padding: 6px 8px 7px; }
+.file { display: grid; grid-template-columns: 40px minmax(0, 1fr) 32px; align-items: center; gap: 10px; padding: 4px; border-radius: 9px; cursor: pointer; }
+.file:hover, .file.is-hover { background: var(--soft); }
+.kind { width: 40px; height: 40px; border-radius: 10px; display: grid; place-items: center; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  color: var(--muted); background: color-mix(in srgb, var(--muted) 14%, var(--raised)); }
+.kind.pdf { color: var(--pdf); background: color-mix(in srgb, var(--pdf) 13%, var(--raised)); }
+.kind.doc { color: var(--doc); background: color-mix(in srgb, var(--doc) 13%, var(--raised)); }
+.kind.sheet { color: var(--sheet); background: color-mix(in srgb, var(--sheet) 13%, var(--raised)); }
+.file-text { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+/* The name loses its middle, never its ending. */
+.file-name { display: flex; min-width: 0; font-size: 14px; font-weight: 500; line-height: 1.3; white-space: pre; }
+.file-name .head { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.file-name .tail { flex: none; }
+.file-text small { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.file-text small.failed { color: var(--danger); }
+.link { border: 0; background: none; padding: 0; text-decoration: underline; cursor: pointer; color: var(--text); font-size: 12px; }
+.icon-btn { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 8px; background: none; display: grid; place-items: center; cursor: pointer; color: var(--muted); opacity: 0; }
+.file:hover .icon-btn, .file.is-hover .icon-btn, .icon-btn:focus-visible, .icon-btn.always { opacity: 1; }
+.icon-btn:hover { color: var(--text); }
+.icon-btn svg, .tool svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+@media (pointer: coarse) { .icon-btn { opacity: 1; } }
+.has-files .text { padding: 2px 4px 6px; }
+.has-files .meta { margin: 2px 4px 0; }
+.ring { width: 40px; height: 40px; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 3; stroke: var(--border); }
+.ring .done { stroke: var(--text); stroke-linecap: round; }
+.ring-wrap { position: relative; width: 40px; height: 40px; display: grid; place-items: center; }
+.ring-wrap > span { position: absolute; font-size: 15px; line-height: 1; color: var(--muted); }
+.photo .ring-wrap { position: absolute; inset: 0; margin: auto; }
+.photo .ring circle { stroke: rgb(255 255 255 / 35%); } .photo .ring .done { stroke: var(--on-scrim); } .photo .ring-wrap > span { color: var(--on-scrim); }
+.photo.sending::after { content: ""; position: absolute; inset: 0; background: var(--scrim); opacity: .6; }
+.photo.sending .ring-wrap { z-index: 1; }
+
+/* Voice */
+.voice { display: flex; align-items: center; gap: 10px; width: 292px; max-width: 100%; }
+.voice-play { flex: none; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; cursor: pointer; }
+.voice-play svg { width: 15px; height: 15px; fill: currentColor; }
+.voice-play .pause, .is-playing .voice-play .play { display: none; }
+.is-playing .voice-play .pause { display: block; }
+.wave { flex: 1 1 0; min-width: 0; height: 28px; display: flex; align-items: center; justify-content: space-between; gap: 1px; overflow: hidden; }
+.wave i { flex: 0 1 3px; min-width: 1px; border-radius: 2px; background: var(--muted); opacity: .45; }
+.wave i.on { background: var(--text); opacity: 1; }
+.voice-time { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.speed { flex: none; min-width: 34px; height: 22px; padding: 0 6px; border: 0; border-radius: 11px; background: var(--soft); box-shadow: inset 0 0 0 1px var(--border); font-size: 11px; font-weight: 600; cursor: pointer; }
+.under-voice { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 4px; font-size: 13px; color: var(--muted); }
+.under-voice .meta { margin: 0; }
+.file .voice-play { width: 40px; height: 40px; }
+
+/* Message box */
+.box { border: 1px solid var(--border); border-radius: 16px; background: var(--raised); box-shadow: var(--bubble-shadow); padding: 10px 12px; display: flex; flex-direction: column; gap: 10px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-photo { position: relative; width: 56px; height: 56px; border-radius: 10px; overflow: hidden; }
+.chip-file { position: relative; display: flex; align-items: center; gap: 8px; height: 56px; box-sizing: border-box; max-width: 220px; padding: 0 30px 0 8px; border-radius: 10px; background: var(--soft); min-width: 0; }
+.chip-file .kind { width: 32px; height: 32px; border-radius: 8px; flex: none; font-size: 9px; }
+.remove { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: var(--scrim); color: var(--on-scrim); font-size: 13px; line-height: 1; cursor: pointer; }
+.draft { color: var(--muted); font-size: 14px; }
+.tools { display: flex; align-items: center; gap: 4px; }
+.tool { width: 32px; height: 32px; display: grid; place-items: center; color: var(--muted); }
+.send { margin-left: auto; width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-weight: 700; }
+
+.decide { display: flex; flex-direction: column; gap: 12px; max-width: 72ch; }
+.decide h2 { font-size: 20px; font-weight: 600; }
+.decide ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: var(--muted); }
+.decide strong { color: var(--text); font-weight: 600; }
+@media (max-width: 860px) { .story { grid-template-columns: minmax(0, 1fr); gap: 20px; } .page { gap: 44px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="pic-desert" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice">
+    <rect width="320" height="200" fill="#7cc0ea"/><circle cx="252" cy="50" r="19" fill="#fff3c4"/>
+    <path d="M0 128Q80 96 170 122T320 110V200H0Z" fill="#edd49a"/><path d="M0 154Q110 128 210 152T320 144V200H0Z" fill="#dfc07c"/>
+    <path d="M196 122a22 22 0 0 1 44 0Z" fill="#f6ead0"/><rect x="213" y="110" width="10" height="12" fill="#8a6b3c"/>
+    <text x="30" y="88" font-size="46" font-weight="700" fill="#ffffff" font-family="Inter, sans-serif">404</text>
+  </symbol>
+  <symbol id="pic-board" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+    <rect width="200" height="200" fill="#efece5"/><rect x="22" y="26" width="52" height="52" fill="#ffd95a" transform="rotate(-4 48 52)"/>
+    <rect x="92" y="34" width="52" height="52" fill="#ff9fb0" transform="rotate(3 118 60)"/><rect x="40" y="104" width="52" height="52" fill="#9bd0ff" transform="rotate(2 66 130)"/>
+    <rect x="112" y="110" width="52" height="52" fill="#a8e0a0" transform="rotate(-3 138 136)"/><path d="M30 178h140M150 20v60" stroke="#3b4350" stroke-width="3" stroke-linecap="round" fill="none"/>
+  </symbol>
+  <symbol id="pic-chart" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+    <rect width="200" height="200" fill="#161b24"/><rect x="18" y="18" width="164" height="14" rx="4" fill="#2a3240"/>
+    <rect x="28" y="120" width="20" height="56" fill="#6aa5ff"/><rect x="60" y="92" width="20" height="84" fill="#6aa5ff"/><rect x="92" y="106" width="20" height="70" fill="#6aa5ff"/>
+    <rect x="124" y="70" width="20" height="106" fill="#9cc4ff"/><rect x="156" y="52" width="20" height="124" fill="#9cc4ff"/>
+  </symbol>
+  <symbol id="pic-shop" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+    <rect width="200" height="200" fill="#cfe3f1"/><rect x="24" y="60" width="152" height="140" fill="#c9785a"/><rect x="24" y="48" width="152" height="18" fill="#7d3f2b"/>
+    <rect x="44" y="86" width="40" height="44" fill="#f4e9d2"/><rect x="116" y="86" width="40" height="44" fill="#f4e9d2"/><rect x="82" y="146" width="36" height="54" fill="#4f2a1e"/>
+  </symbol>
+  <symbol id="pic-boxes" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid slice">
+    <rect width="200" height="200" fill="#e9dccb"/><rect x="26" y="96" width="70" height="70" fill="#c89b62"/><rect x="104" y="80" width="72" height="86" fill="#b98548"/>
+    <rect x="56" y="40" width="64" height="56" fill="#d8b17d"/><path d="M26 166h150" stroke="#7b5a34" stroke-width="4" fill="none"/><path d="M61 96v70M140 80v86M88 40v56" stroke="#8f6a3d" stroke-width="5" fill="none"/>
+  </symbol>
+  <symbol id="i-ticks" viewBox="0 0 15 10"><path d="M1 5.5l3 3 5.5-7M6.5 8.5l1 0 5.5-7"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 20h14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8.5 6.2v11.6a.6.6 0 0 0 .9.5l9.2-5.8a.6.6 0 0 0 0-1L9.4 5.7a.6.6 0 0 0-.9.5Z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 6h2.6v12H8zM13.4 6H16v12h-2.6z"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m8 12 7-7a4 4 0 0 1 6 6l-10 10a6 6 0 0 1-8-8L13 3"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3"/></symbol>
+</svg>
+
+<div class="page">
+  <header class="intro">
+    <span class="eyebrow">Proposal · 21 November 2026</span>
+    <h1>Pictures, files and voice in a conversation</h1>
+    <p>Each kind of attachment gets its own shape, and all three share one width, so a conversation that mixes them keeps one edge. Every proposed screen uses the white raised bubble on the conversation surface. Voice players on this page can be played.</p>
+  </header>
+
+  <section class="story">
+    <div class="notes">
+      <h2>A picture is the message</h2>
+      <ul>
+        <li><strong>Nothing under it.</strong> Name, size and download are already in the image viewer's bar.</li>
+        <li><strong>320 px on its long side</strong>, filling the bubble to its corners.</li>
+        <li><strong>The time sits on the picture.</strong> With text, the text goes under the picture and the time under the text.</li>
+        <li><strong>Several pictures share a grid.</strong> "+3" opens the viewer at that picture.</li>
+      </ul>
+      <p class="needs">Needs from the server: previews of 640 px instead of 256 px, and each picture's width and height so its space is held before it loads.</p>
+    </div>
+    <div class="compare">
+      <div class="pane"><span class="eyebrow">Today</span>
+        <div class="screen">
+          <div class="msg own"><div class="bubble">
+            <span class="old-thumb"><svg class="pic"><use href="#pic-desert"/></svg></span>
+            <div class="old-row"><span class="old-pill">screenshot-2026-08-16_22-31-46.png</span><small>· 596 KB</small><u>↓</u></div>
+            <div class="meta"><time>8:41 PM</time><svg class="ticks seen"><use href="#i-ticks"/></svg></div>
+          </div></div>
+        </div>
+      </div>
+      <div class="pane proposed"><span class="eyebrow">Proposed</span>
+        <div class="screen">
+          <div class="msg own"><div class="bubble media">
+            <button type="button" class="photo" aria-label="Open screenshot-2026-08-16_22-31-46.png"><svg class="pic"><use href="#pic-desert"/></svg>
+              <span class="meta on-photo"><time>8:41 PM</time><svg class="ticks seen"><use href="#i-ticks"/></svg></span></button>
+          </div></div>
+          <div class="msg"><span class="face">MI</span><div class="col">
+            <div class="who"><strong>Meera Iyer</strong><time>8:44 PM</time></div>
+            <div class="bubble media">
+              <button type="button" class="photo" aria-label="Open screenshot-2026-08-16_22-31-46.png"><svg class="pic"><use href="#pic-desert"/></svg></button>
+              <div class="text">The repository link in the order email goes here. What is going on?</div>
+            </div>
+          </div></div>
+          <div class="msg own"><div class="bubble media">
+            <div class="photo-grid">
+              <button type="button" class="photo" aria-label="Open picture 1 of 7"><svg class="pic"><use href="#pic-shop"/></svg></button>
+              <button type="button" class="photo" aria-label="Open picture 2 of 7"><svg class="pic"><use href="#pic-board"/></svg></button>
+              <button type="button" class="photo" aria-label="Open picture 3 of 7"><svg class="pic"><use href="#pic-boxes"/></svg></button>
+              <button type="button" class="photo" aria-label="Open picture 4 of 7, and 3 more"><svg class="pic"><use href="#pic-chart"/></svg><span class="more-photos">+3</span></button>
+              <span class="meta on-photo"><time>8:52 PM</time><svg class="ticks"><use href="#i-ticks"/></svg></span>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="story">
+    <div class="notes">
+      <h2>A file is one row</h2>
+      <ul>
+        <li><strong>A type tile</strong> says what it is before the name is read: PDF, DOC, XLS, and grey for anything else.</li>
+        <li><strong>Name, then type and size.</strong> A long name loses its middle, so the ending stays readable.</li>
+        <li><strong>The whole row opens the file.</strong> Download appears on hover or focus, and always on touch.</li>
+        <li><strong>One width for every row</strong>, so two files in a message line up.</li>
+        <li><strong>No box inside the bubble.</strong> The tile carries the structure.</li>
+      </ul>
+      <p class="needs">Needs nothing from the server. A first-page preview for PDFs is left out: it would mean rendering PDFs on the server.</p>
+    </div>
+    <div class="compare">
+      <div class="pane"><span class="eyebrow">Today</span>
+        <div class="screen">
+          <div class="msg own"><div class="bubble">
+            <div class="old-row"><span class="old-pill">16. Myth of Sisyphus.pdf</span><small>· 368 KB</small><u>↓</u></div>
+            <div class="old-row"><span class="old-pill">046199498_Rel_18062024132753.pdf</span><small>· 26 KB</small><u>↓</u></div>
+            <div class="meta"><time>8:48 PM</time><svg class="ticks"><use href="#i-ticks"/></svg></div>
+          </div></div>
+        </div>
+      </div>
+      <div class="pane proposed"><span class="eyebrow">Proposed</span>
+        <div class="screen">
+          <div class="msg own"><div class="bubble has-files"><div class="files">
+            <div class="file" role="button" tabindex="0" aria-label="Open 16. Myth of Sisyphus.pdf, PDF, 368 KB"><span class="kind pdf">PDF</span>
+              <span class="file-text"><span class="file-name"><span class="head">16. Myth of Sisy</span><span class="tail">phus.pdf</span></span><small>PDF · 368 KB</small></span>
+              <button type="button" class="icon-btn" aria-label="Download 16. Myth of Sisyphus.pdf"><svg><use href="#i-down"/></svg></button></div>
+            <div class="file is-hover" role="button" tabindex="0" aria-label="Open 046199498_Rel_18062024132753.pdf, PDF, 26 KB"><span class="kind pdf">PDF</span>
+              <span class="file-text"><span class="file-name"><span class="head">046199498_Rel_180620241</span><span class="tail">32753.pdf</span></span><small>PDF · 26 KB</small></span>
+              <button type="button" class="icon-btn" aria-label="Download 046199498_Rel_18062024132753.pdf"><svg><use href="#i-down"/></svg></button></div>
+            <div class="meta"><time>8:48 PM</time><svg class="ticks"><use href="#i-ticks"/></svg></div>
+          </div></div></div>
+          <span class="caption" style="align-self:flex-end">The second row is shown as it looks under the mouse.</span>
+          <div class="msg"><span class="face">MI</span><div class="col">
+            <div class="who"><strong>Meera Iyer</strong><time>8:55 PM</time></div>
+            <div class="bubble has-files"><div class="files">
+              <div class="text">Pricing for the quarter, the signed offer and the site photos.</div>
+              <div class="file" role="button" tabindex="0" aria-label="Open Q3 pricing.xlsx, spreadsheet, 1.2 MB"><span class="kind sheet">XLS</span>
+                <span class="file-text"><span class="file-name"><span class="head">Q3 pri</span><span class="tail">cing.xlsx</span></span><small>Spreadsheet · 1.2 MB</small></span>
+                <button type="button" class="icon-btn" aria-label="Download Q3 pricing.xlsx"><svg><use href="#i-down"/></svg></button></div>
+              <div class="file" role="button" tabindex="0" aria-label="Open Offer letter, signed.docx, document, 84 KB"><span class="kind doc">DOC</span>
+                <span class="file-text"><span class="file-name"><span class="head">Offer letter, sig</span><span class="tail">ned.docx</span></span><small>Document · 84 KB</small></span>
+                <button type="button" class="icon-btn" aria-label="Download Offer letter, signed.docx"><svg><use href="#i-down"/></svg></button></div>
+              <div class="file" role="button" tabindex="0" aria-label="Open site-photos.zip, archive, 8.4 MB"><span class="kind">ZIP</span>
+                <span class="file-text"><span class="file-name"><span class="head">site-ph</span><span class="tail">otos.zip</span></span><small>Archive · 8.4 MB</small></span>
+                <button type="button" class="icon-btn" aria-label="Download site-photos.zip"><svg><use href="#i-down"/></svg></button></div>
+            </div></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="story">
+    <div class="notes">
+      <h2>Voice keeps its player, at the shared width</h2>
+      <ul>
+        <li><strong>The length counts while it plays</strong>: "0:05 / 0:12".</li>
+        <li><strong>A speed chip appears once playing</strong>: 1×, 1.5×, 2×.</li>
+        <li><strong>The folded Transcript line stays</strong>, with the time beside it.</li>
+        <li><strong>An uploaded recording is a file row</strong> with Play where the type tile would be, instead of a player and a file row.</li>
+      </ul>
+      <p class="needs">Needs nothing from the server.</p>
+    </div>
+    <div class="compare">
+      <div class="pane"><span class="eyebrow">Today</span>
+        <div class="screen">
+          <div class="msg own"><div class="bubble">
+            <div class="old-voice"><b></b><span></span><small>0:03</small></div>
+            <div class="meta"><time>8:49 PM</time><svg class="ticks"><use href="#i-ticks"/></svg></div>
+          </div></div>
+        </div>
+      </div>
+      <div class="pane proposed"><span class="eyebrow">Proposed</span>
+        <div class="screen">
+          <div class="msg own"><div class="bubble">
+            <div class="voice" data-seconds="12" data-at="5">
+              <button type="button" class="voice-play" aria-label="Play voice message"><svg class="play"><use href="#i-play"/></svg><svg class="pause"><use href="#i-pause"/></svg></button>
+              <span class="wave" aria-hidden="true"></span><span class="voice-time">0:12</span><button type="button" class="speed" aria-label="Playback speed">1×</button>
+            </div>
+            <div class="under-voice"><span>≡ Transcript ⌄</span><span class="meta"><time>8:49 PM</time><svg class="ticks"><use href="#i-ticks"/></svg></span></div>
+          </div></div>
+          <div class="msg"><span class="face">MI</span><div class="col">
+            <div class="who"><strong>Meera Iyer</strong><time>8:58 PM</time></div>
+            <div class="bubble">
+              <div class="voice" data-seconds="47">
+                <button type="button" class="voice-play" aria-label="Play voice message"><svg class="play"><use href="#i-play"/></svg><svg class="pause"><use href="#i-pause"/></svg></button>
+                <span class="wave" aria-hidden="true"></span><span class="voice-time">0:47</span><button type="button" class="speed" aria-label="Playback speed" hidden>1×</button>
+              </div>
+              <div class="under-voice"><span>≡ Transcript ⌄</span></div>
+            </div>
+          </div></div>
+          <div class="msg"><span class="face">MI</span><div class="col">
+            <div class="bubble has-files"><div class="files">
+              <div class="file"><button type="button" class="voice-play" aria-label="Play supplier-call.mp3"><svg class="play"><use href="#i-play"/></svg></button>
+                <span class="file-text"><span class="file-name"><span class="head">supplier-c</span><span class="tail">all.mp3</span></span><small>Audio · 2:41 · 3.1 MB</small></span>
+                <button type="button" class="icon-btn always" aria-label="Download supplier-call.mp3"><svg><use href="#i-down"/></svg></button></div>
+            </div></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="story">
+    <div class="notes">
+      <h2>Before and while it is sent</h2>
+      <ul>
+        <li><strong>In the message box</strong>, a picture is a small thumbnail and a file is a small tile with its name, each with × to remove it. Today both are a button reading "name ×".</li>
+        <li><strong>While sending</strong>, the message is already in place with a ring that fills; × stops it. Today the box says "Uploading…".</li>
+        <li><strong>Not sent</strong> keeps the row, says so, and offers Retry.</li>
+      </ul>
+    </div>
+    <div class="compare">
+      <div class="pane proposed"><span class="eyebrow">Message box</span>
+        <div class="screen">
+          <div class="box">
+            <div class="chips">
+              <span class="chip-photo"><svg class="pic"><use href="#pic-board"/></svg><button type="button" class="remove" aria-label="Remove whiteboard.jpg">×</button></span>
+              <span class="chip-photo"><svg class="pic"><use href="#pic-boxes"/></svg><button type="button" class="remove" aria-label="Remove delivery.jpg">×</button></span>
+              <span class="chip-file"><span class="kind pdf">PDF</span>
+                <span class="file-text"><span class="file-name"><span class="head">16. Myth of Si</span><span class="tail">syphus.pdf</span></span><small>368 KB</small></span>
+                <button type="button" class="remove" aria-label="Remove 16. Myth of Sisyphus.pdf">×</button></span>
+            </div>
+            <span class="draft">Message #orders</span>
+            <div class="tools"><span class="tool"><svg><use href="#i-clip"/></svg></span><span class="tool"><svg><use href="#i-mic"/></svg></span><span class="send">↑</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="pane proposed"><span class="eyebrow">Sending and not sent</span>
+        <div class="screen">
+          <div class="msg own"><div class="bubble media">
+            <div class="photo sending" style="width:240px"><svg class="pic"><use href="#pic-board"/></svg>
+              <span class="ring-wrap"><svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="done" cx="20" cy="20" r="17" stroke-dasharray="66 107"/></svg><span>×</span></span></div>
+          </div></div>
+          <div class="msg own"><div class="bubble has-files"><div class="files">
+            <div class="file"><span class="ring-wrap"><svg class="ring" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17"/><circle class="done" cx="20" cy="20" r="17" stroke-dasharray="40 107"/></svg><span>×</span></span>
+              <span class="file-text"><span class="file-name"><span class="head">site-ph</span><span class="tail">otos.zip</span></span><small>Sending · 3.1 of 8.4 MB</small></span><span></span></div>
+            <div class="file"><span class="kind pdf">PDF</span>
+              <span class="file-text"><span class="file-name"><span class="head">16. Myth of Sisy</span><span class="tail">phus.pdf</span></span><small class="failed">Not sent · <button type="button" class="link">Retry</button></small></span><span></span></div>
+          </div></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="story">
+    <div class="notes">
+      <h2>Both themes, and a phone</h2>
+      <p>The same parts on the light and dark surfaces. Type colours lighten in dark so the tile still reads. At 320 px every part shrinks with the bubble; nothing scrolls sideways.</p>
+    </div>
+    <div class="compare" id="themes"></div>
+  </section>
+
+  <section class="decide">
+    <h2>Three choices for you</h2>
+    <ol>
+      <li><strong>Pictures to the bubble's corners, or inside a thin white frame.</strong> Shown: to the corners. A 3 px frame would keep every bubble looking alike, at the cost of a smaller picture.</li>
+      <li><strong>Coloured type tiles, or grey for all.</strong> Shown: coloured. Grey is quieter and matches the rest of Chat; colour is faster to scan in a list of files.</li>
+      <li><strong>The speed chip on voice messages.</strong> Shown. It is the only new control here; leaving it out keeps the player exactly as it is today.</li>
+    </ol>
+  </section>
+</div>
+
+<template id="theme-sample">
+  <div class="msg"><span class="face">MI</span><div class="col">
+    <div class="who"><strong>Meera Iyer</strong><time>8:44 PM</time></div>
+    <div class="bubble media"><button type="button" class="photo" aria-label="Open picture"><svg class="pic"><use href="#pic-desert"/></svg></button>
+      <div class="text">What is going on here?</div></div>
+  </div></div>
+  <div class="msg own"><div class="bubble has-files"><div class="files">
+    <div class="file"><span class="kind pdf">PDF</span><span class="file-text"><span class="file-name"><span class="head">16. Myth of Sisy</span><span class="tail">phus.pdf</span></span><small>PDF · 368 KB</small></span>
+      <button type="button" class="icon-btn always" aria-label="Download"><svg><use href="#i-down"/></svg></button></div>
+    <div class="file"><span class="kind sheet">XLS</span><span class="file-text"><span class="file-name"><span class="head">Q3 pri</span><span class="tail">cing.xlsx</span></span><small>Spreadsheet · 1.2 MB</small></span>
+      <button type="button" class="icon-btn always" aria-label="Download"><svg><use href="#i-down"/></svg></button></div>
+    <div class="meta"><time>8:48 PM</time><svg class="ticks seen"><use href="#i-ticks"/></svg></div>
+  </div></div></div>
+  <div class="msg own"><div class="bubble">
+    <div class="voice" data-seconds="12" data-at="4">
+      <button type="button" class="voice-play" aria-label="Play voice message"><svg class="play"><use href="#i-play"/></svg><svg class="pause"><use href="#i-pause"/></svg></button>
+      <span class="wave" aria-hidden="true"></span><span class="voice-time">0:12</span><button type="button" class="speed" aria-label="Playback speed">1×</button>
+    </div>
+    <div class="under-voice"><span>≡ Transcript ⌄</span><span class="meta"><time>8:49 PM</time><svg class="ticks"><use href="#i-ticks"/></svg></span></div>
+  </div></div>
+</template>
+
+<script>
+// The theme section repeats one sample on a light, a dark and a phone-width surface.
+const sample = document.getElementById('theme-sample'), themes = document.getElementById('themes');
+[['Light', 'force-light', ''], ['Dark', 'force-dark', ''], ['Dark, 320 px wide', 'force-dark', 'max-width:320px']].forEach(([label, theme, style]) => {
+  const pane = document.createElement('div'); pane.className = 'pane proposed'; pane.style.cssText = style;
+  pane.innerHTML = `<span class="eyebrow">${label}</span><div class="screen ${theme}"></div>`;
+  pane.lastChild.append(sample.content.cloneNode(true)); themes.append(pane);
+});
+
+// Voice players: bars drawn from a fixed shape, played by the clock. One plays at a time.
+const clock = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+let stopCurrent;
+document.querySelectorAll('.voice').forEach((player, number) => {
+  const total = Number(player.dataset.seconds), wave = player.querySelector('.wave'), time = player.querySelector('.voice-time');
+  const chip = player.querySelector('.speed'), button = player.querySelector('.voice-play');
+  const bars = Array.from({ length: 40 }, (_, index) => {
+    const bar = document.createElement('i');
+    const height = 0.22 + 0.78 * Math.abs(Math.sin(index * 0.9 + number * 2) * Math.sin(index * 0.23 + number + 0.6));
+    bar.style.height = `${Math.round(height * 100)}%`; wave.append(bar); return bar;
+  });
+  let at = Number(player.dataset.at) || 0, rate = 1, last = 0, frame = 0;
+  const paint = () => {
+    const played = at / total * bars.length;
+    bars.forEach((bar, index) => bar.classList.toggle('on', index < played));
+    time.textContent = at > 0 ? `${clock(at)} / ${clock(total)}` : clock(total);
+    chip.hidden = !(at > 0);
+  };
+  const stop = () => { cancelAnimationFrame(frame); frame = 0; player.classList.remove('is-playing'); button.setAttribute('aria-label', 'Play voice message'); };
+  const tick = now => {
+    at += (now - last) / 1000 * rate; last = now;
+    if (at >= total) { at = 0; stop(); paint(); return; }
+    paint(); frame = requestAnimationFrame(tick);
+  };
+  button.addEventListener('click', () => {
+    if (frame) { stop(); return; }
+    if (stopCurrent) stopCurrent();
+    stopCurrent = stop; player.classList.add('is-playing'); button.setAttribute('aria-label', 'Pause voice message');
+    last = performance.now(); frame = requestAnimationFrame(tick);
+  });
+  chip.addEventListener('click', () => { rate = rate === 1 ? 1.5 : rate === 1.5 ? 2 : 1; chip.textContent = `${rate}×`; });
+  paint();
+});
+</script>

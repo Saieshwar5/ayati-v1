@@ -1,7 +1,6 @@
 import { messageHtml } from '../../markdown';
 import '../../message-content.css';
 import { MessageReceipt, useSeen } from './receipt';
-import { workspaceSession } from '../../workspace-context';
 import { filesOnlyContent, type Directory, type Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { FollowUpLine, TaskChip } from './task-chip';
@@ -13,8 +12,9 @@ import { QuestionCards } from '../questions/card';
 import { useResults, useResultSource, useResultReading } from '../results/provider';
 import { InlineResponse } from '../results/inline-response';
 import { HandoffCard, CoordinationView } from './handoffs';
-import { MessageFiles } from '../results/files';
-import { AgentFace, AiTag, PersonFace } from '../faces';
+import { MessageFiles, MessagePictures } from '../results/files';
+import { AiTag } from '../faces';
+import { messageAuthor } from './message-author';
 import { useShowProfile } from './profile-card';
 import { useState } from 'react';
 import { DeleteMessage, EditMessage, MessageToolbar, ReactionBar, useReactions } from './message-actions';
@@ -22,7 +22,9 @@ import { RequestDetails } from '../activity/request-details';
 import { SaveAnswer } from './save-answer';
 import { doorLabel } from './doors';
 import { ThreadLine, type threadSummary } from './thread-line';
-import { ForwardedBlock, ForwardMessage, forwardedOnly } from './forward-message';
+import { ForwardedBlock, forwardedFiles, forwardedOnly } from './forward-message';
+import { ForwardMessage } from './forward-window';
+import { MessageText } from './message-text';
 export function ChatMessage({ message, directory, thread, openThread, reply, quoted, askAssistant, read, place = '', compact = false, focused = false }: { focused?: boolean;
   /** Hears when this message has been read on this page (receipt.tsx). */
   read?: (id: string) => void;
@@ -33,18 +35,15 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const openResult = useResults();
   const source = useResultSource();
   const reading = useResultReading();
-  const name = message.kind === 'agent' ? directory.agents.find(agent => agent.id === message.author)?.name ?? message.name ?? 'Agent' : message.name ?? 'Former member';
-  const own = message.kind !== 'agent' && message.author === workspaceSession?.user?.id;
+  const { agent, person, name, own, face } = messageAuthor(message, directory);
   const showProfile = useShowProfile();
-  const agent = message.kind === 'agent' ? directory.agents.find(item => item.id === message.author) : undefined;
-  const person = message.kind === 'agent' ? undefined : directory.users.find(user => user.id === message.author);
-  const face = agent ? <AgentFace agent={agent} /> : message.kind === 'agent' ? <AgentFace agent={{ id: message.author, name }} />
-    : person ? <PersonFace person={person} /> : <PersonFace person={{ id: message.author, name }} />;
   const profile = (agent || person) && (() => showProfile({ kind: agent ? 'agent' : 'user', id: message.author }));
   const element = useSeen(message, own, read);
   const placeholder = message.content === filesOnlyContent && Boolean(message.attachments?.length);
   // A forward without words of its own shows only what it forwards (schema 125).
   const bareForward = Boolean(message.forwarded) && message.content === forwardedOnly;
+  // The files that came with a forwarded message show inside its copy; the sender's own below their words.
+  const files = forwardedFiles(message.forwarded, message.attachments);
   const text = message.state === 'queued' ? message.progress?.text || message.content : placeholder || bareForward ? '' : message.content;
   // Just a voice message: its time and ticks can share the transcript line.
   const voiceOnly = own && placeholder && message.attachments?.length === 1 && message.attachments[0].mime.startsWith('audio/');
@@ -65,27 +64,34 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
   const edited = message.edited_at && !deleted ? <span className="chat-message-edited">edited</span> : null;
   const via = doorLabel(message.door);
   const door = via ? <span className="chat-message-door">{via}</span> : null;
+  // Another person's words sit in a bubble under their name; an agent's reply has its own box.
+  const bubble = !own && message.kind !== 'agent';
+  // A person's pictures lead their message, with any words under them; an agent's follow its reply.
+  const pictures = files.own.length ? <MessagePictures files={files.own} /> : null;
+  const body = deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
+    {writer && <p className="chat-assisted" title="Only you and workspace admins can see this.">{sentForYou ? <><span className="message-mention">@{writer}</span> sent this for you</> : <>Written with <span className="message-mention">@{writer}</span></>}</p>}
+    {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
+    {message.forwarded && <ForwardedBlock forwarded={message.forwarded} files={files.carried} />}
+    {message.kind !== 'agent' && pictures}
+    {(text || message.response?.page) && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} openPage={openResult ? () => openResult({ kind: 'page', id: message.id }) : undefined} /> : message.kind === 'agent' ? <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} /> : <MessageText text={text} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
+    {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
+    <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
+    {message.approval && <ApprovalCard reference={message.approval} />}
+    {message.task && <TaskChip task={message.task} />}
+    {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
+    {message.agent_setup && <AgentDraftCard reply={message.id} ready={message.state === 'complete'} assistant={name} />}
+    {message.questions && <QuestionCards questions={message.questions} />}
+    {message.kind === 'agent' && pictures}
+    {files.own.length ? <MessageFiles files={files.own} /> : null}
+    {!own && edited}
+    <ReactionBar message={message} reactions={reactions} directory={directory} />
+  </>;
   if (message.follow_up) return <FollowUpLine element={element} id={message.id} task={message.follow_up} time={time} />;
   // Tapping a message on a touch screen focuses it and reveals its actions.
   return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>
     {!own && (profile ? <button type="button" className="chat-message-face" aria-label={`View profile of ${name}`} onClick={profile}>{face}</button> : face)}
     <div className={voiceOnly ? 'chat-voice-bubble' : undefined}>{!own && <header>{profile ? <button type="button" className="chat-message-author" onClick={profile}>{name}</button> : <strong>{name}</strong>}{message.kind === 'agent' && <AiTag />}{person?.title && <span className="chat-message-title">{person.title}</span>}{time}{door}</header>}
-      {deleted ? <p className="chat-message-deleted">Message deleted</p> : editing ? <EditMessage message={message} done={() => setEditing(false)} /> : <>
-      {writer && <p className="chat-assisted" title="Only you and workspace admins can see this.">{sentForYou ? <><span className="message-mention">@{writer}</span> sent this for you</> : <>Written with <span className="message-mention">@{writer}</span></>}</p>}
-      {message.reply_to && quoted && <QuotedMessage id={message.reply_to} {...quoted} />}
-      {message.forwarded && <ForwardedBlock forwarded={message.forwarded} />}
-      {(text || message.response?.page) && !message.approval && (message.kind === 'agent' && !message.response_unavailable && !message.handoff ? <InlineResponse key={message.id} id={message.id} text={text} reference={message.response} source={source} reading={reading} openReader={openResult ? () => openResult({ kind: 'response', id: message.id }) : undefined} openPage={openResult ? () => openResult({ kind: 'page', id: message.id }) : undefined} /> : <div className="message-markdown" dangerouslySetInnerHTML={{ __html: messageHtml(text) }} />)}<ReplyProgress message={message} name={name} cancel={cancel} />
-      {message.handoff && <HandoffCard handoff={message.handoff} onRequest />}
-      <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
-      {message.approval && <ApprovalCard reference={message.approval} />}
-      {message.task && <TaskChip task={message.task} />}
-      {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
-      {message.agent_setup && <AgentDraftCard reply={message.id} ready={message.state === 'complete'} assistant={name} />}
-      {message.questions && <QuestionCards questions={message.questions} />}
-      {message.attachments?.length ? <MessageFiles files={message.attachments} /> : null}
-      {!own && edited}
-      <ReactionBar message={message} reactions={reactions} directory={directory} />
-      </>}
+      {bubble ? <div className="chat-message-bubble">{body}</div> : body}
       {own && <div className="chat-message-meta">{door}{edited}{time}<MessageReceipt message={message} /></div>}
     </div>
     {thread && <ThreadLine summary={thread} directory={directory} open={openThread} />}

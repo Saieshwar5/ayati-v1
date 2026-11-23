@@ -66,6 +66,7 @@ mod channel_archive_recovery_tests;
 mod channel_lifecycle;
 pub(crate) mod chat;
 mod chat_intake;
+pub(crate) use chat_intake::message_forwarding::copy_id;
 mod chat_notification_migration;
 #[cfg(test)]
 mod chat_notification_tests;

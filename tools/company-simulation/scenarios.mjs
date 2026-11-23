@@ -54,6 +54,29 @@ export async function scenarios(c, request, check, fixtures, timings) {
     await send(7,channels['Order desk'],'12 desks are available; 8 need replenishment. Purchasing is coordinating the shortage.');
     await agentReply(8,channels.Operations,'I have uploaded the driver recording and signed note. [delivery]',agents[8].id);
   });
+  await check('A forward copies the message\'s file byte for byte and carries the sender\'s own document',async()=>{
+    const shared=(await history(8,channels.Operations)).messages.find(m=>m.attachments?.some(a=>a.name===fixtures[0].name));
+    const [original]=shared.attachments;
+    // Sales (3) is not in Operations: the forward goes to another conversation, where the original can't be read.
+    const room=(await request(8,`${w}/chats`,{id:randomUUID(),name:'Direct',kind:'direct',description:'',users:[employees[3].user.id],agents:[]})).id;
+    const note=Buffer.from('Please file this with the Northstar order.\n');
+    const own=await request(8,`${w}/chats/${room}/objects?name=cover-note.txt`,undefined,{raw:note,mime:'text/plain'});
+    const forward={id:randomUUID(),chat:randomUUID(),to:{kind:'user',id:employees[3].user.id},note:'For your records.',files:[original.id],attachments:[own.id]};
+    assert.equal((await request(8,`${w}/chats/${channels.Operations}/messages/${shared.id}/forward`,forward)).chat,room);
+    // A retried request sends it once, with the same copy.
+    await request(8,`${w}/chats/${channels.Operations}/messages/${shared.id}/forward`,forward);
+    const landed=(await history(3,room)).messages.filter(m=>m.id===forward.id);
+    assert.equal(landed.length,1);
+    const [copy]=landed[0].forwarded.files;
+    assert.notEqual(copy.id,original.id);assert.equal(copy.name,original.name);
+    assert.deepEqual(landed[0].attachments.map(a=>a.id).sort(),[copy.id,own.id].sort());
+    assert.equal(checksum(await request(3,`${w}/objects/${copy.id}`)),original.checksum);
+    assert.equal(checksum(await request(3,`${w}/objects/${own.id}`)),checksum(note));
+    await request(3,`${w}/objects/${original.id}`,undefined,{expected:400});
+    await request(12,`${w}/objects/${copy.id}`,undefined,{expected:400});
+    // A file of another message, and a message that only shared files with none kept, are refused.
+    await request(8,`${w}/chats/${channels.Operations}/messages/${shared.id}/forward`,{...forward,id:randomUUID(),files:[own.id],attachments:[]},{expected:400});
+  });
   await check('Private finance, announcement posting and forged-thread boundaries',async()=>{
     await send(12,channels.Finance,'FINANCE_PRIVATE_CANARY: supplier bank detail review is still pending.');
     await request(3,`${w}/chats/${channels.Finance}/messages`,undefined,{expected:400});

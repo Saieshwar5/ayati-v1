@@ -12,6 +12,11 @@
   --workspace-shadow-color: rgb(23 33 43 / 10%);
   --workspace-shadow: 0 8px 24px var(--workspace-shadow-color);
   --workspace-shadow-compact: 0 4px 12px var(--workspace-shadow-color);
+  /* Message bubbles and reply boxes: a soft lift instead of a grey fill; insets are blocks inside them. */
+  --bubble-shadow: 0 1px 2px rgb(23 33 43 / 12%), 0 3px 10px rgb(23 33 43 / 8%); --bubble-inset: var(--soft);
+  /* File type tiles in a conversation, and what is written on a picture (the same in both themes). */
+  --file-pdf: #c2362f; --file-doc: #2b5fc7; --file-sheet: #1c7d4d;
+  --picture-scrim: rgb(0 0 0 / 55%); --on-picture: #ffffff;
   font-size: 16px; color: var(--text); background: var(--canvas);
 }
 :root[data-theme=dark] {
@@ -25,6 +30,8 @@
   --success: #85c9a7; --working: #afa5ff; --online: #4cc38a;
   --shadow: #00000044; --shadow-deep: #00000070;
   --workspace-shadow-color: rgb(0 0 0 / 32%);
+  --bubble-shadow: 0 1px 2px rgb(0 0 0 / 28%); --bubble-inset: var(--surface);
+  --file-pdf: #ff9a94; --file-doc: #9dbcff; --file-sheet: #7fd6a6;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme=light]) {
@@ -38,6 +45,8 @@
     --success: #85c9a7; --working: #afa5ff; --online: #4cc38a;
     --shadow: #00000044; --shadow-deep: #00000070;
     --workspace-shadow-color: rgb(0 0 0 / 32%);
+    --bubble-shadow: 0 1px 2px rgb(0 0 0 / 28%); --bubble-inset: var(--surface);
+    --file-pdf: #ff9a94; --file-doc: #9dbcff; --file-sheet: #7fd6a6;
   }
 }
 body { color: var(--text); background: var(--canvas); }

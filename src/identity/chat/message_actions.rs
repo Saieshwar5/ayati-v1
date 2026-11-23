@@ -69,12 +69,17 @@ async fn forward(
     if input.to.kind == "agent" {
         super::super::collaboration::validate_agent(&app, &user, &w, &input.to.id).await?;
     }
+    super::super::collaboration::copy_forwarded(&app, &user, &w, &chat, &message, &input).await?;
     let (target, job) = app
         .store
         .forward_message(&user, &w, &chat, &message, &input)
         .await?;
     if job.is_some() {
         app.runtimes.chat_wake.notify_one();
+    }
+    // A carried voice message whose transcript was still waiting waits again.
+    if !input.files.is_empty() && app.config.transcription_model.is_some() {
+        crate::identity::transcription::wake();
     }
     Ok(Json(json!({"ok":true,"chat":target})))
 }

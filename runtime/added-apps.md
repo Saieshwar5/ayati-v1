@@ -11,7 +11,7 @@ allowed and changes ask first.
 
 ## What the admin does
 
-**Settings › Connections › Allowed apps › Add more apps.**
+**Settings › Apps › Add apps.**
 
 1. **Search the library.** Each result is one of:
    - *addable*: Composio signs the app in itself (managed OAuth);

@@ -15,7 +15,11 @@ export type ResultSource = {
   file: (id: string) => string;
   subscribe?: (check: (scope?: string | null) => void) => () => void;
 };
-export type Selection = { kind: 'response'; id: string } | { kind: 'page'; id: string } | { kind: 'file'; id: string; name: string };
+export type Selection = { kind: 'response'; id: string } | { kind: 'page'; id: string } | { kind: 'file' | 'image'; id: string; name: string };
+/** The pictures the image viewer shows itself; other image types open as files. */
+export const isViewerImage = (mime: string) => mime === 'image/png' || mime === 'image/jpeg';
+/** A picture of the conversation the image viewer was opened from: who shared it and when (seconds). */
+export type ViewerImage = { id: string; name: string; by?: string; at?: number; face?: import('react').ReactNode };
 export const query = (path: string, values: Record<string, string | boolean>) => `${path}${path.includes('?') ? '&' : '?'}${new URLSearchParams(Object.entries(values).map(([key, value]) => [key, String(value)]))}`;
 export function responsePreview(text: string, reference?: ResponseReference) {
   const characters = [...text];

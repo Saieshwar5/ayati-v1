@@ -7,9 +7,9 @@ import { reactFixture } from './react-fixture.mjs';
 import { outboxStorage } from './outbox-storage-fixture.mjs';
 
 // What your assistant does in a chat (schema 141): the switch in a direct chat's
-// header, a reply that waits in your message box on Ask me first, and asking it
-// for one reply by mentioning it or from a message. Nothing it writes here is
-// posted until you send it.
+// header, a reply that waits in the draft card on Ask me first, and a reply to
+// one message started from that message. Asking by mention itself is in
+// assistant-ask.test.mjs. Nothing it writes here is posted until you send it.
 const w = '11111111-1111-4111-8111-111111111111', url = `http://localhost/w/${w}/?view=chat&conversation=dm-priya`;
 const session = { user: { id: 'ravi', email: 'ravi@example.test' }, workspaces: [{ id: w, name: 'Northwind', role: 'Member' }] };
 const directory = { role: 'Member',
@@ -106,57 +106,39 @@ test('the header switch turns your assistant on once, and replying for you start
   });
 });
 
-test('on Ask me first the reply waits in your empty message box, is never put over your words, and is discarded on request', async () => {
-  const waiting = [thread({ draft: { reply: 'r9', state: 'complete', text: 'Thursday works for me.' } })];
-  const writes = [];
-  await withChat({ threads: waiting, writes }, async ({ input, notice, click, until }) => {
-    await until(() => input().value === 'Thursday works for me.');
-    assert.match(notice(), /Reply from Ayati.*Only you see this\. Edit it, then send\./);
+test('on Ask me first the reply waits in the draft card: sent as you with its record, moved into the box, or discarded', async () => {
+  const waiting = () => [thread({ draft: { reply: 'r9', state: 'complete', text: 'Thursday works for me.' } })];
+  const card = () => document.querySelector('.assistant-ask');
+  let writes = [];
+  await withChat({ threads: waiting(), writes, draft: 'I was about to say' }, async ({ input, click, until }) => {
+    await until(() => card());
+    assert.match(card().textContent, /Draft from Ayati.*Only you see this · Will be sent as you to Priya Sharma.*Thursday works for me\./);
+    assert.equal(input().value, 'I was about to say', 'your message box stays yours');
     assert.equal(document.querySelector('.chat-replies > button').textContent, 'Ayati asks you first');
     assert.equal(writes.length, 0, 'nothing is sent by showing it');
+    await click(button(card(), 'Send as me'));
+    await until(() => writes.some(write => write.path === '/assistant/drafts/r9/used'));
+    const posted = writes.find(write => write.path === '/chats/dm-priya/messages');
+    assert.equal(posted.body.content, 'Thursday works for me.');
+    assert.deepEqual(writes.find(write => write.path === '/assistant/drafts/r9/used').body, { message: posted.body.id }, 'the private record of who wrote it');
+    assert.equal(card(), null, 'not offered again');
+  });
+  writes = [];
+  await withChat({ threads: waiting(), writes }, async ({ input, notice, click, until }) => {
+    await until(() => card());
+    await click(button(card(), 'Edit'));
+    assert.equal(input().value, 'Thursday works for me.');
+    assert.match(notice(), /Draft from Ayati.*Edit it, then send/);
+    assert.equal(card(), null);
     await click(button(document, 'Discard'));
     assert.equal(input().value, '');
-    assert.deepEqual(writes, [{ path: '/assistant/threads/t1/draft/discard', body: {} }]);
-    assert.equal(notice(), '', 'not offered again');
-  });
-  await withChat({ threads: [thread({ draft: { reply: 'r10', state: 'complete', text: 'Thursday works for me.' } })], writes: [], draft: 'I was about to say' }, async ({ input, notice, click }) => {
-    assert.equal(input().value, 'I was about to say', 'your own words stay');
-    assert.match(notice(), /Ayati has a reply ready/);
-    await click(button(document, 'Use it'));
-    assert.equal(input().value, 'Thursday works for me.');
-    await click(button(document, 'Discard'));
-    assert.equal(input().value, 'I was about to say', 'discarding puts your words back');
+    await click(button(card(), 'Discard'));
+    assert.deepEqual(writes, [{ path: '/assistant/threads/t1/draft/discard', body: {} }], 'discarding tells the thread');
+    assert.equal(card(), null);
   });
 });
 
-test('a message that mentions your assistant asks it for a reply and is never posted', async () => {
-  const writes = [];
-  await withChat({ writes }, async ({ input, notice, change, click, submit, tick, until }) => {
-    await change(input(), '@Ay');
-    const option = document.querySelector('.mention-menu [role=option]');
-    assert.match(option.textContent, /Ayati.*Your assistant · only you see this/, 'your assistant is first in the list');
-    await click(option);
-    await change(input(), `${input().value}say Thursday is better`);
-    const send = document.querySelector('.message-composer button[type=submit]');
-    assert.equal(send.textContent, 'Ask Ayati');
-    assert.match(notice(), /Only you see this\..*Nothing is sent\./);
-    await submit(document.querySelector('form.message-composer'));
-    assert.deepEqual(writes.map(write => write.path), ['/assistant/drafts'], 'nothing is posted in the chat');
-    assert.deepEqual({ ...writes[0].body, id: undefined }, { id: undefined, chat: 'dm-priya', thread: null, instruction: 'say Thursday is better' });
-    assert.match(notice(), /Ayati is writing a draft/);
-    await submit(document.querySelector('form.message-composer'));
-    assert.equal(writes.length, 1, 'asked once while it writes');
-    await tick();
-    assert.equal(input().value, 'Thursday at 3 works for me.');
-    assert.equal(document.querySelector('.message-composer button[type=submit]').getAttribute('aria-label'), 'Send message');
-    // Now it is an ordinary message of yours.
-    await submit(document.querySelector('form.message-composer'));
-    await until(() => writes.some(write => write.path === '/chats/dm-priya/messages'));
-    assert.equal(writes.find(write => write.path === '/chats/dm-priya/messages').body.content, 'Thursday at 3 works for me.');
-  });
-});
-
-test('a reply to one message is asked for from that message, on the other side’s messages only', async () => {
+test('a reply to one message is started from that message, on the other side’s messages only', async () => {
   const writes = [];
   await withChat({ writes }, async ({ input, click, submit, until }) => {
     const tool = id => document.querySelector(`[data-message-id="${id}"] .chat-assistant-tool`);
@@ -165,10 +147,12 @@ test('a reply to one message is asked for from that message, on the other side�
     await click(tool('m1'));
     assert.equal(input().value, '@Ayati ');
     assert.match(document.querySelector('.chat-replying').textContent, /Replying to Priya Sharma.*Can we meet on Friday at 3\?/);
+    assert.equal(document.querySelector('.message-composer button[type=submit]').textContent, 'Ask Ayati');
     assert.equal(writes.length, 0, 'nothing is asked until you send');
     await submit(document.querySelector('form.message-composer'));
     await until(() => writes.length === 1);
-    assert.deepEqual({ ...writes[0], body: { ...writes[0].body, id: undefined } },
-      { path: '/assistant/drafts', body: { id: undefined, chat: 'dm-priya', thread: null, instruction: '', message: 'm1' } });
+    assert.equal(writes[0].path, '/assistant/drafts', 'it asks your assistant and posts nothing');
+    assert.equal(writes[0].body.message, 'm1', 'about the message you chose');
+    assert.equal(writes[0].body.chat, 'dm-priya');
   });
 });

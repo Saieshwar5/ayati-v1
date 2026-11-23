@@ -1,0 +1,58 @@
+/* The forward window: who it goes to, the message, then your words and documents. */
+.ui-dialog:has(.chat-forward) { width: min(440px, calc(100vw - 32px)); }
+.ui-dialog:has(.chat-forward) .ui-dialog-header { padding: 12px 12px 10px 16px; border-bottom: 0; }
+.ui-dialog:has(.chat-forward) .ui-dialog-header h2 { font-size: 15px; }
+.ui-dialog:has(.chat-forward) .ui-dialog-header .ui-icon { border-color: transparent; color: var(--muted); }
+.ui-dialog:has(.chat-forward) .ui-dialog-body { padding: 0 16px 14px; }
+.chat-forward { display: grid; gap: 10px; min-width: 0; font-size: 14px; }
+.chat-forward-to { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 4px 6px 4px 11px; border: 1px solid var(--border-control); border-radius: 10px; background: var(--surface); }
+.chat-forward-to:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.chat-forward-to-label { flex: none; color: var(--muted); font-size: 13px; font-weight: 500; }
+.chat-forward-to input { flex: 1; min-width: 0; padding: 4px 0; border: 0; outline: 0; background: none; color: var(--text); font: inherit; }
+/* The field's own border carries the focus ring. */
+.chat-forward-to input:focus-visible, .chat-forward-box textarea:focus-visible { outline: none; }
+.chat-forward-to input::placeholder, .chat-forward-box textarea::placeholder { color: var(--muted); }
+.chat-forward .chat-avatar { width: 24px; height: 24px; flex: 0 0 24px; font-size: 10px; }
+.chat-forward-chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 3px 4px; border-radius: 999px; background: var(--selection); font-size: 13.5px; font-weight: 500; }
+.chat-forward-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-forward-chip .ai-tag { background: var(--surface); }
+.chat-forward-chip button, .chat-forward-files button { flex: none; border: 0; border-radius: 6px; background: none; color: var(--muted); font: inherit; line-height: 1; cursor: pointer; }
+.chat-forward-chip button { width: 22px; height: 22px; border-radius: 50%; font-size: 15px; }
+.chat-forward-chip button:hover, .chat-forward-files button:hover { color: var(--text); background: var(--border); }
+.chat-forward-list { display: grid; gap: 1px; margin: -2px -6px 0; }
+.chat-forward-list p { margin: 0; padding: 2px 8px; color: var(--muted); font-size: 12px; }
+.chat-forward-list .chat-forward-list-label { font-size: 11.5px; font-weight: 600; }
+.chat-forward-row { display: flex; align-items: center; gap: 9px; width: 100%; min-width: 0; min-height: 36px; padding: 5px 8px; border: 0; border-radius: 9px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.chat-forward-row:hover { background: var(--soft); }
+.chat-forward-row[aria-selected=true] { background: var(--selection); }
+.chat-forward-row[aria-disabled=true] { cursor: default; }
+.chat-forward-row[aria-disabled=true] .chat-forward-row-name, .chat-forward-row[aria-disabled=true] .chat-avatar { opacity: .55; }
+.chat-forward-row-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 0; }
+.chat-forward-row-line { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 13px; }
+.chat-forward-row-state { flex: none; color: var(--warning); font-size: 11.5px; font-weight: 500; }
+.chat-forward .chat-forwarded { margin: 0; }
+.chat-forward-clamped { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }
+.chat-forward-expand { justify-self: start; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.chat-forward-files { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; margin: 2px 0 0; padding: 0; list-style: none; }
+.chat-forward-files li { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 4px 6px 4px 8px; border: 1px solid var(--border-panel); border-radius: 8px; background: var(--surface); font-size: 12.5px; }
+.chat-forward-files svg { flex: none; color: var(--muted); }
+.chat-forward-file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.chat-forward-files small { flex: none; color: var(--muted); font-size: inherit; font-variant-numeric: tabular-nums; }
+.chat-forward-files button { padding: 2px 4px; font-size: 14px; }
+.chat-forward-files li.left-out { border-style: dashed; background: none; }
+.chat-forward-files li.left-out .chat-forward-file-name { color: var(--muted); font-weight: 400; text-decoration: line-through; }
+.chat-forward-files .chat-forward-include { font-size: 12px; text-decoration: underline; }
+.chat-forward-box { display: grid; gap: 6px; padding: 9px 9px 9px 11px; border: 1px solid var(--border-control); border-radius: 12px; }
+.chat-forward-box:focus-within { outline: 2px solid var(--focus); outline-offset: 1px; }
+.chat-forward-box textarea { width: 100%; min-height: 40px; max-height: 120px; padding: 2px 0; border: 0; outline: 0; resize: none; background: none; color: var(--text); font: inherit; field-sizing: content; }
+.chat-forward-actions { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chat-forward-attach { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
+.chat-forward-attach:hover { background: var(--soft); color: var(--text); }
+.chat-forward-hint { flex: 1; min-width: 0; color: var(--muted); font-size: 12px; }
+.chat-forward-actions .ui-button { max-width: 64%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-forward-note { margin: 0; color: var(--muted); font-size: 12px; }
+.chat-forward .chat-error { margin: 0; }
+@media (pointer: coarse) {
+  .chat-forward-row { min-height: 44px; }
+  .chat-forward-attach, .chat-forward-chip button { width: 36px; height: 36px; }
+}

@@ -1,5 +1,6 @@
 // The account menu at the foot of the rail (designs/chat-and-account screen 9, D245):
-// only you, your workspaces, Settings and Sign out. Profile and theme live in Settings.
+// only you, your workspaces, Settings, Help and Sign out. Profile and theme live in Settings;
+// Help and feedback opens as a dialog from here (2026-11-21; it was a Settings page).
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { currentWorkspace, workspaceSession, workspaceId, workspaceUrl, identityRequest } from '../workspace-context';
@@ -10,14 +11,16 @@ import { useMutation } from './requests';
 import { activeStatus, applyPresence, usePresence } from './chat/presence';
 import { clearsPhrase, PresenceDot, statusEmoji, statusLabel } from './chat/presence-view';
 import { StatusDialog } from './chat/status-dialog';
+import { HelpDialog } from './help-dialog';
 
-type IconName = 'check' | 'workspaces' | 'settings' | 'sign-out' | 'status';
+type IconName = 'check' | 'workspaces' | 'settings' | 'sign-out' | 'status' | 'help';
 function MenuIcon({ name }: { name: IconName }) {
   return <svg className="account-menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
     {name === 'check' && <path d="m5 12.5 4.5 4.5L19 7.5" />}
     {name === 'workspaces' && <><path d="M4 21V4h10v17M14 9h6v12M2 21h20" /><path d="M7.5 8h3M7.5 12h3M7.5 16h3M17 13v.01M17 17v.01" /></>}
     {name === 'settings' && <><path d="M3 6h18M3 12h18M3 18h18" /><circle cx="8" cy="6" r="2" /><circle cx="16" cy="12" r="2" /><circle cx="9" cy="18" r="2" /></>}
     {name === 'sign-out' && <><path d="M14 4H5v16h9" /><path d="M10 12h11m-4-4 4 4-4 4" /></>}
+    {name === 'help' && <><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17v.5" strokeLinecap="round" /></>}
     {name === 'status' && <><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0M9 9.5v.01M15 9.5v.01" strokeLinecap="round" /></>}
   </svg>;
 }
@@ -61,6 +64,7 @@ export function AccountMenu() {
   const user = workspaceSession?.user ?? undefined;
   const [open, setOpen] = useState(false);
   const [choosing, setChoosing] = useState(false);
+  const [helping, setHelping] = useState(false);
   const [reads, setReads] = useState(0);
   const photo = useMyPhoto(user?.id, reads);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -108,10 +112,12 @@ export function AccountMenu() {
       <div className="account-menu-group">
         {workspaceSession?.simulation && <a className="workspace-menu-action" href="/index.html?view=simulation">Simulation · switch employee</a>}
         <a className="workspace-menu-action" href={workspaceUrl('/?view=settings&section=profile')}><MenuIcon name="settings" />Settings</a>
+        <button type="button" className="workspace-menu-action" onClick={() => { close(); setHelping(true); }}><MenuIcon name="help" />Help and feedback</button>
         <button type="button" className="workspace-menu-action" disabled={mutation.busy} onClick={signOut}><MenuIcon name="sign-out" />Sign out</button>
         <p className="workspace-menu-status" role="status">{mutation.status}</p>
       </div>
     </section>, document.body)}
     {choosing && <StatusDialog close={() => setChoosing(false)} />}
+    {helping && <HelpDialog close={() => setHelping(false)} />}
   </>;
 }

@@ -50,6 +50,10 @@ items. Dark mode uses the corresponding existing tokens, not literal white.
 `--muted` is `#5F6670` in light mode (2026-11-14, shared with the mobile app). The
 earlier `#697079` fell to 4.38:1 on `--selection`; the new value keeps meta text
 and small labels at 5:1 or more on every light surface.
+Message bubbles and reply boxes (2026-11-21) sit on `--raised` with `--bubble-shadow`, not a
+grey fill: white with a soft shadow in light mode, the lighter raised fill with a faint shadow
+in dark mode. Blocks inside them (a forwarded message, code) use `--bubble-inset`, which
+differs from the bubble in both themes.
 
 - Establish hierarchy with spacing, type, alignment and thin dividers first.
 - Apply the approved OpenPencil D / Selective treatment: keep ordinary row,
@@ -59,7 +63,7 @@ and small labels at 5:1 or more on every light surface.
   The Chat directory boundary uses `--border-structure` (#D6DAE0). Each has a
   corresponding dark-theme value. Keep resting borders 1 px; do not thicken
   every container or add boxes around Agents or Users rows. Ordinary agent prose
-  uses the softly filled response box described under Chat.
+  uses the raised response box described under Chat.
 - Preserve filled primary actions, borderless icon buttons, soft search fields
   and selected-row fills. Reserve stronger focus emphasis for interaction:
   ordinary controls keep the shared 2 px focus outline; the composer uses its
@@ -196,7 +200,8 @@ or agent dot, name and AI tag, job or role, and the status line. Its actions dep
 on where you are and what you may do: Message (not inside your direct message with
 them, not to yourself); that conversation's bell and Pin (inside it); Add to channel
 (an agent, the channels you manage, one tap each); Resume first, then Settings (an
-agent's owners and admins); Edit profile (yourself). Facts: About or Handles, email
+agent's owners and admins); Edit profile (yourself). Facts: About, Handles (what a
+person or an agent handles, one line), email
 with a copy button, the agent's owners with their faces (opening their profile),
 and shared channels as chips that open them. Channel Details: the description and
 one muted line of facts, the round actions (bell, Pin, Archive), People and agents
@@ -297,7 +302,7 @@ and sends it with any typed text at once; the same button, now a mic with ×, ca
 Recording stops at 5 minutes (or 10 MiB) and waits for Send or Delete rather than sending itself. A
 failed upload or send stays as "Voice message 0:12 not sent" with Retry and Delete. Sent voice
 messages share one player for sender and receiver (play/pause, a waveform that fills, the length, a
-keyboard slider; one plays at a time) with the folded Transcript line under it. Recipient selection is under
+keyboard slider, a speed chip once it plays; one plays at a time) with the folded Transcript line under it. Recipient selection is under
 @; typing an @name alone does not dispatch an agent. Private-agent tools remain
 in the header overflow menu. Do not restore the permanent Create panel button
 above the composer; explicit creation-mode links and Home creation still work.
@@ -321,14 +326,30 @@ only from its primary button. Under 760 px the pill keeps the mark and drops
 its words. A message it wrote shows its name as a mention on a muted line at
 the top of your own bubble ("@Ayati sent this for you", "Written with
 @Ayati"); nothing is added beside the time. The mark on a message's toolbar
-asks for one reply to that message; the mark beside Attach, or a mention of
-your assistant in the message box, asks for a draft, which is written into the
-box under a one-line bar. While the box mentions your assistant the send
-button reads "Ask Ayati", because that message is not posted. The sliders button
+quotes that message and mentions your assistant in the box, to ask for one
+reply to it. A reply it wrote on its own, on Ask me first, uses the same draft
+card as one you asked for (below). The sliders button
 in its own chat's header opens its page in Agents, where everything about it is
 set up ([About you, rules, regular checks](assistants.md#set-up-on-its-agent-page-2026-11-19)). Do not restore a banner
-across the conversation, a row above the message box or rows under the
-assistant in the list.
+across the conversation or rows under the assistant in the list.
+
+Asking your assistant from a message box (2026-11-21, the owner's choice of
+[`designs/assistant-mention`](../designs/assistant-mention/README.md),
+[assistants](assistants.md#asked-from-any-message-box-2026-11-21)). The working
+purple (`--working`) marks what only its person sees. Your assistant is the
+first row of the @ list, with a purple ring and "Your assistant · Only you see
+what you ask". Once it is mentioned the message box has a purple border, a
+one-line bar ("Asking <name> · Only you see this. Nothing is sent in #sales.")
+and its submit button reads "Ask <name>" on purple instead of the dark ↑. The
+mark beside Attach only puts that mention in the box. The draft is a card
+above the message box (a tinted purple surface, `assistant-ask.css`): one line
+saying whose draft it is and where it will go, what was asked, the message it
+answers as a quote, the text on the page's surface (scrolling in place past
+300 px), then Send as me, Edit, Discard and a one-line "Ask <name> to change
+it…". This card replaces the 2026-11-19 rule against a row above the message
+box: the box stays free while the assistant works. Warnings use
+`--warning-bg`: a draft the conversation has moved past (Send as me then stops
+being the primary button) and a typed assistant name that would be posted.
 
 Personal Pinned rows appear once above Channels and Direct messages, in pin-time
 order. Pin controls are keyboard/touch accessible and keep unread/selected state.
@@ -345,20 +366,50 @@ and Archived thread title. Archive review belongs near the top of Details and
 shows visible unfinished work. Restore opens future intake only. See
 [Chat organization](chat-organization.md).
 
-Agent prose uses the selected OpenPencil corner-arrow design: a soft themed fill,
-quiet border and 16 px corners. Long replies have a bounded deterministic excerpt,
+Agent prose uses the selected OpenPencil corner-arrow design in a raised box: the
+`--raised` fill with `--bubble-shadow` and 16 px corners, no border or grey fill
+(2026-11-21). Long replies have a bounded deterministic excerpt,
 a fading lower edge and a bare corner-arrow icon with a 44 px target. No labelled
 expansion footer or character count. The icon opens the saved body inline and
 reverses to collapse; expanded replies also have a top corner collapse control.
 Short replies use their natural height. On phones, place the box below its author
 row to use the available width. Keep conversation scrolling and preserve drafts.
 
+People's messages (2026-11-21) use the same raised bubble on both sides: yours on the
+right, another person's under their name on the left, with the small corner on the
+sender's side. Side, face and name tell them apart, not colour. A message taller than
+192 px shows its first lines with a fading lower edge and the same corner arrow, which
+sits on the faded edge and adds no height. Opening shows the whole text in place; the
+arrow then follows the bottom of the reading area so a long message can be closed from
+anywhere in it, and closing returns to the message. Reaching hidden text with the
+keyboard or find-in-page opens the message. Short messages are unchanged, and the
+12,000-character sending limit stays.
+
 Remove Check progress launchers from Chat; request activity remains in Agents Work.
 Keep ordinary reply status, Stop, questions and approval controls. Expanded saved
 replies retain exact Copy/Markdown actions and a secondary full reading view.
-New saved versions load explicitly so reading does not jump. Keep images as small
-thumbnails until opened in a fit/zoom viewer. See [saved reading](result-reading.md)
-for source authority, supported files and current limits.
+New saved versions load explicitly so reading does not jump.
+
+What a message shares (2026-11-21, [`designs/chat-attachments`](../designs/chat-attachments/README.md),
+`message-files.css`) has three shapes at one width, a 322 px bubble. Pictures are the
+message: no name, size or download under them, 16:10 for one and square tiles for two
+to four with "+3" on the last, running to the bubble's corners, above any words. Your
+own picture-only message carries its time on the picture, on `--picture-scrim`. A file
+is one row with no box of its own: a 40 px type tile (`--file-pdf`, `--file-doc`,
+`--file-sheet`, grey otherwise), the name with its middle shortened, then type and
+size; the row opens it and the download arrow shows on hover, focus and touch. Voice
+keeps its player, with the length counting and a 1×/1.5×/2× chip once it plays; an
+uploaded recording has its name and size under the same player. In the message box a
+waiting picture is a 56 px preview and a file a tile with its name, each with ×. Do
+not restore a file row under a picture or a bordered file button.
+
+A picture opens in the image viewer (2026-11-21): the whole
+window, dark in both themes so every picture has the same quiet background, with one
+slim bar (who shared it and when, its name and size, zoom as a real percentage,
+download, close as borderless icons), arrows and "2 of 5" for the conversation's other
+pictures, and no zoom buttons or arrows on phones (pinch and swipe). This is the one
+surface that does not follow the light theme. See [saved reading](result-reading.md#image-viewer-2026-11-21)
+for its behaviour, source authority, supported files and current limits.
 
 A reply may carry one page: a bordered card inside the response box (small picture,
 PAGE label, title, sections and reading time) that opens a near-full-window reading
@@ -409,29 +460,47 @@ retains the existing drawer. Conversations live in Chat; Open conversation from
 work returns to its exact source/thread. Unsupported capabilities must say so.
 See [behavior and authority](agents-team-workspace.md).
 
-Settings → People uses the same directory language. People and invitations remain separate
-tabs; inviting opens a focused dialog. Each person's ⋯ menu changes the role, opens the
-Agent access drawer or opens the removal dialog. Keep
+Settings → People uses the same directory language. People and waiting invitations are
+one list, invitations first (2026-11-21; they were two tabs); inviting opens a focused
+dialog. Rows show the photo, job title and online dot. Each person's ⋯ menu changes the
+role, opens the Agent access drawer or opens the removal dialog. Keep
 workspace membership, roles and agent access distinct. Preserve
-explicit saves, pending states, validation and confirmation for destructive actions.
+pending states, validation and confirmation for destructive actions.
 
 ## Settings
 
-Settings follows the simplified design (D232, `designs/settings-simplified/`).
+Settings follows the simplified design (D232, `designs/settings-simplified/`) as amended
+on 2026-11-21 (`designs/settings-redesign/`).
 - **Layout:** a 248 px sidebar with "You" and "Workspace" groups beside one bounded,
-  locally scrolling page. On phones the list comes first and each page has
-  "‹ Settings".
-- **Members:** Profile, Preferences, Help and This workspace, which ends with Leave
-  workspace.
-- **Admins:** add Workspace, People, Company rules, Usage, Billing
-  ("Coming later") and Audit log. Members also see Company rules, read-only.
+  locally scrolling page. Every page has a stroke icon. On phones the list comes
+  first and each page has "‹ Settings".
+- **Members:** Profile, Preferences, This workspace (which ends with Leave
+  workspace), Agent rules (read-only) and Usage (their own).
+- **Admins:** General, People, Apps, Agent rules, Usage and Audit log.
+- **Not pages:** Help and feedback is a dialog in the account menu. Do not add a
+  page, row or badge for something that is not built ("Coming later").
+- **Saving:** typed text shows the dark "Unsaved changes" bar (Discard, Save) at the
+  foot of the page, and only while something is unsaved. Switches and choices save
+  when they change, with a short status. A choice with a consequence asks first.
+- **Profile:** a 96 px photo that is the control for changing it, fields grouped as
+  About you, For agents, Status and presence, Account, and beside them the profile
+  card others open in Chat, drawn from the draft. The sign-in email is text.
+- **Lists:** one list per page. Apps has one choice per app (Ask first until
+  decided, Allowed, Off) with its connections under it; things waiting for an
+  admin sit in one bordered "Needs your answer" panel above the list. Round filter
+  buttons show a count for each state.
+- **Usage:** budgets first, then one charge number, a bar per day (one hue,
+  `#2a78d6` light and `#3987e5` dark, with the day and amount on hover) and one
+  table grouped by a segmented switch. Token counts appear only when asked for.
+- **Audit log:** sentences under Today, Yesterday or the date, with the time and
+  the person's face; an admin view carries a tag, not colour alone.
 - **Roles:** Admin and Member labels. Hide admin pages from members and enforce the
   same boundary on the server.
-- **People:** flat rows with a ⋯ menu. Destructive changes open confirming dialogs.
 Keep all workspace administration here rather than adding Users, Company or
 Feedback global navigation items. Group controls with headings, spacing and thin
-separators. Keep the current theme and setup/connection behavior. See
-[Settings and ownership](settings.md) and [approved mockups](../designs/settings/README.md).
+separators; keep page descriptions to one line and drop "Admins only" badges, since
+members never see those pages. See
+[Settings and ownership](settings.md) and [the approved redesign](../designs/settings-redesign/README.md).
 
 ## Implementation and verification
 

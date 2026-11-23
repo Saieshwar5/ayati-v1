@@ -9,7 +9,13 @@ use crate::identity::{
 };
 use serde_json::json;
 
-async fn agent(db: &PgStore, owner: &User, w: &str, name: &str, audience: &str) -> String {
+pub(super) async fn agent(
+    db: &PgStore,
+    owner: &User,
+    w: &str,
+    name: &str,
+    audience: &str,
+) -> String {
     let input = SaveAgent {
         id: uuid::Uuid::new_v4().to_string(),
         name: name.into(),
@@ -26,7 +32,7 @@ async fn agent(db: &PgStore, owner: &User, w: &str, name: &str, audience: &str) 
     db.save_agent_profile(owner, w, &input).await.unwrap();
     input.id
 }
-async fn direct_with(db: &PgStore, who: &User, w: &str, person: &User) -> String {
+pub(super) async fn direct_with(db: &PgStore, who: &User, w: &str, person: &User) -> String {
     db.chat_create(
         who,
         w,
@@ -42,7 +48,7 @@ async fn direct_with(db: &PgStore, who: &User, w: &str, person: &User) -> String
     .await
     .unwrap()
 }
-fn forward(kind: &str, id: &str, note: &str) -> Forward {
+pub(super) fn forward(kind: &str, id: &str, note: &str) -> Forward {
     Forward {
         id: uuid::Uuid::new_v4().to_string(),
         chat: uuid::Uuid::new_v4().to_string(),
@@ -51,9 +57,11 @@ fn forward(kind: &str, id: &str, note: &str) -> Forward {
             id: id.into(),
         },
         note: note.into(),
+        files: vec![],
+        attachments: vec![],
     }
 }
-async fn named(db: &PgStore, who: &User, name: &str) {
+pub(super) async fn named(db: &PgStore, who: &User, name: &str) {
     execute(
         &db.db,
         "UPDATE relay_users SET display_name=$2 WHERE id=$1",
@@ -62,7 +70,7 @@ async fn named(db: &PgStore, who: &User, name: &str) {
     .await
     .unwrap();
 }
-async fn stored(db: &PgStore, id: &str) -> Value {
+pub(super) async fn stored(db: &PgStore, id: &str) -> Value {
     query(
         &db.db,
         "SELECT to_jsonb(m) AS data FROM relay_chat_messages m WHERE id=$1",
