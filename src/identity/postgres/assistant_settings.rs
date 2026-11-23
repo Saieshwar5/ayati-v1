@@ -340,6 +340,13 @@ impl PgStore {
             )
             .await?;
         }
+        // A reply that waited in a thread (schema 141) was sent, so it waits no more.
+        execute(
+            &tx,
+            "UPDATE relay_work_threads SET draft=NULL WHERE workspace=$1 AND owner=$2 AND draft=$3",
+            vec![w.into(), user.id.clone().into(), reply.into()],
+        )
+        .await?;
         tx.commit().await?;
         if changed == 0 {
             return Ok(false);

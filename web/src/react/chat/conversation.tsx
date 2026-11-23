@@ -19,8 +19,10 @@ import { Button } from '../ui';
 import { errorMessage } from '../requests';
 import { agentChatNote, agentRuleNote, chatRequest, conversationName, directPartner, filesOnlyContent, type Conversation, type Directory, type History } from './model';
 import { ShowProfile, useShowProfile } from './profile-card';
-import { AssistantRoom, ThreadPill, TookOverLine } from './assistant-threads';
-import { threadIn, useThreads } from './assistant-threads-model';
+import { AssistantRoom, TookOverLine } from './assistant-threads';
+import { ReplySwitch } from './assistant-reply-switch';
+import { positionOf, threadIn, useThreads } from './assistant-threads-model';
+import { mentionAssistant } from './assistant-ask-model';
 import { useAssistantAsk } from './assistant-ask';
 import { AssistantIntro, ExampleRequests } from './assistant-start';
 import { AssistantSettingsLink } from './assistant-settings';
@@ -235,17 +237,19 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   const place = chat.kind === 'direct' ? 'Direct message' : chat.kind === 'group' ? 'Group' : `#${chat.name}`;
   const showProfile = useShowProfile();
   const availableAgents = directory.agents.filter(agent => history?.agents.includes(agent.id));
-  // Your assistant in this chat: asked from the message box, and a chat handed over to it (schema 136).
+  // Your assistant in this chat: asked from the message box, and what it does here on its own (schema 141).
   const assistant = directory.agents.find(agent => agent.assistant && agent.yours);
   const assistantName = assistant?.name ?? 'Your assistant';
   const { threads, room } = useThreads();
   const handed = threadIn(threads, chat.id);
+  const position = positionOf(handed);
   const composerField = () => section.current?.querySelector<HTMLTextAreaElement>('.message-composer textarea');
   const assist = useAssistantAsk({ chat: chat.id, where: chat.kind === 'direct' ? `to ${title}` : chat.kind === 'group' ? 'in this group' : `in #${chat.name}`, direct: chat.kind === 'direct',
     assistant, viewer, value: draft, change: updateDraft, messages: timeline, quote: replyTo, post: (text, quote) => post(text, quote, []), sent: draftSent,
-    focusBox: () => composerField()?.focus(), disabled: busy || Boolean(chat.archived) });
-  // Only a direct chat with one other side, and only from a message that side sent.
-  const canHandOver = Boolean(assistant && partner) && !partner?.who.assistant && !chat.archived && chat.users.length + chat.agents.length === 2 && handed?.state !== 'running';
+    focusBox: () => composerField()?.focus(), disabled: busy || Boolean(chat.archived),
+    waiting: handed && position === 'ask' && handed.draft ? { thread: handed.id, ...handed.draft } : undefined });
+  // It works on its own only in a direct chat with one other side that is not an assistant.
+  const canSwitch = Boolean(assistant && partner) && !partner?.who.assistant && !chat.archived && chat.users.length + chat.agents.length === 2;
   // Your own assistant's chat before its first message: who it is, examples to start from, the cursor ready.
   const emptyAssistant = partner?.kind === 'agent' && partner.who.assistant && partner.who.yours && history?.messages.length === 0 ? partner.who : undefined;
   useEffect(() => {
@@ -259,11 +263,14 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
   // A direct message's agent: what it is doing for you here, and whether it takes messages now.
   const working = partner?.kind === 'agent' ? workingForYou(allMessages, partner.who.id) : undefined;
   const agentFree = partner?.kind !== 'agent' || takesMessages(partner.who);
-  const handOver = (message: Message) => canHandOver && message.author === partner?.who.id && (message.kind === 'agent') === (partner?.kind === 'agent') ? assistantName : undefined;
+  // One reply to a chosen message: it is quoted, and the box mentions your assistant, ready for what to ask.
+  // Not while the message box gives way to a paused agent's bar: there would be nowhere to write.
+  const replyWith = (message: Message) => { if (!assist.asking && assist.mention) updateDraft(mentionAssistant(draft, assist.mention)); startReply(message.id); };
+  const askAssistant = (message: Message) => assist.mention && agentFree && !chat.archived && message.author !== viewer ? { name: assistantName, start: () => replyWith(message) } : undefined;
   return <ApprovalViewer key={storageScope(`approval.${chat.id}`)}><ManagedResults chat={chat.id} changed={open => { readingResult.current = open; }} images={() => conversationImages(allMessages, directory)}><section ref={section} className="chat-conversation" aria-label={`Conversation with ${title}`} data-connection={connection}>
     <ConversationHeader chat={chat} directory={directory} title={title} back={back} returnTo={returnTo} search={() => setSearching(true)} working={working}
       level={level} levelChanged={levelChanged} details={details}
-      extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : <ThreadPill chat={chat.id} assistantName={assistantName} />} />
+      extra={chat.id === room ? assistant && <AssistantSettingsLink agent={assistant.id} name={assistantName} /> : canSwitch && <ReplySwitch chat={chat.id} assistantName={assistantName} partnerName={title} />} />
     <ConnectionBanner status={connection} />
     <NewRepliesBar threads={threadsWithNew(allMessages, newReply)} open={setThread} />
     {chat.id === room && <AssistantRoom assistantName={assistantName} />}
@@ -279,7 +286,7 @@ export function ConversationPane({ chat, directory, back, focus, returnTo, level
       {!history && !error && <p className="chat-empty" role="status">Loading messages…</p>}
       {emptyAssistant && <AssistantIntro assistant={emptyAssistant} />}
       {history?.messages.length === 0 && !emptyAssistant && <div className="chat-empty"><h3>{chat.kind === 'direct' ? `Say hello to ${title}` : `Welcome to #${title}`}</h3><p>{chat.kind === 'direct' ? 'Start the conversation below.' : 'Keep the conversation and work together here.'}</p></div>}
-      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}{message.id === handed?.anchor && <TookOverLine assistantName={assistantName} />}<ChatMessage handOver={handOver(message)} focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id, newReply)} place={place} openThread={() => setThread(message.id)}
+      {timeline.map((message, index) => <Fragment key={message.id}>{message.id === line?.id && <UnreadLine start={line} />}{position === 'auto' && message.id === handed?.anchor && <TookOverLine assistantName={assistantName} />}<ChatMessage askAssistant={askAssistant(message)} focused={message.id === focus} compact={index > 0 && message.id !== line?.id && timeline[index-1].author === message.author && timeline[index-1].kind === message.kind && message.at-timeline[index-1].at < 120} key={message.id} message={message} directory={directory} thread={threadSummary(allMessages, message.id, newReply)} place={place} openThread={() => setThread(message.id)}
         reply={chat.archived ? undefined : () => startReply(message.id)} quoted={message.reply_to ? quotePreview(allMessages.find(m => m.id === message.reply_to), agentName) : undefined} /></Fragment>)}
       <PendingMessages chat={chat.id} agentName={agentName} />
       {away && <JumpToLatest count={newBelow} jump={jumpToLatest} />}

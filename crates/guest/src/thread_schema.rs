@@ -34,12 +34,12 @@ pub fn tools() -> Vec<Value> {
             "title":{"type":"string","maxLength":120},
             "opening":{"type":"string","maxLength":4000}
         },"required":["to","title","opening"],"additionalProperties":false}}),
-        json!({"name":"thread_reply","description":"Only in a running thread your person started. Send one message there: it is posted as your person's own message, so write as them. Use a stable key for exact retries. If you need your person's decision or information they did not agree to share, do not send; say what you need in your reply instead.","inputSchema":{"type":"object","properties":{
+        json!({"name":"thread_reply","description":"Only in a running thread where you reply for your person. Send one message there: it is posted as your person's own message, so write as them. Not when you are asked for a reply your person sends themselves: then your answer is the reply. Use a stable key for exact retries. If you need your person's decision or information they did not agree to share, do not send; say what you need in your reply instead.","inputSchema":{"type":"object","properties":{
             "thread":{"type":"string","maxLength":64},
             "key":{"type":"string","maxLength":64},
             "text":{"type":"string","maxLength":4000}
         },"required":["thread","key","text"],"additionalProperties":false}}),
-        json!({"name":"finish_thread","description":"When a thread's matter is settled, stop it with one line on how it ended. Your person can resume it.","inputSchema":{"type":"object","properties":{
+        json!({"name":"finish_thread","description":"When the matter of a thread you reply in is settled, say so with one line on how it ended. You stop sending there; your person sends from then on, and can let you reply again.","inputSchema":{"type":"object","properties":{
             "thread":{"type":"string","maxLength":64},
             "summary":{"type":"string","maxLength":400}
         },"required":["thread","summary"],"additionalProperties":false}}),

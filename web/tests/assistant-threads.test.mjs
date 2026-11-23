@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { reactFixture } from './react-fixture.mjs';
 
-// Your assistant replying for you (schemas 128 and 136): what it suggests starts
-// only when you press Start, a chat it replies in says so in its header and can
-// be stopped there, a chat is handed over from a message with one instruction,
-// and only your own messages carry its mark.
+// Your assistant working in your chats (schemas 128 and 141): what it suggests starts
+// only when you press Start, a chat it works in carries its mark and is listed in
+// its own chat, and what it wrote carries its name as a mention, for you alone.
+// The header switch and the message box are in assistant-replies.test.mjs.
 const w = '11111111-1111-4111-8111-111111111111', url = `http://localhost/w/${w}/?view=chat&conversation=room`;
 const session = { user: { id: 'ravi', email: 'ravi@example.test' }, workspaces: [{ id: w, name: 'Northwind', role: 'Member' }] };
 const directory = { role: 'Member',
@@ -58,86 +58,56 @@ test('what your assistant suggests shows in its own chat and starts once when yo
   }, { url, fetch: server([thread('t1', 'suggested')], writes) });
 });
 
-test('a chat your assistant replies in says so in its header, the list and its own chat; stop, resume and delete', async () => {
+test('a chat your assistant works in carries its mark and is listed in its own chat, where it is turned off', async () => {
   const writes = [];
+  const list = [thread('t1', 'running', { mode: 'auto', working: true, instruction: 'Ask about leave in December' }),
+    thread('t2', 'running', { mode: 'ask', chat: 'dm-priya', counterpart: 'priya', kind: 'user', name: 'Priya Sharma', draft: { reply: 'r1', state: 'complete', text: 'Friday works.' } }),
+    thread('t3', 'stopped', { chat: 'dm-arjun', counterpart: 'arjun', kind: 'user', name: 'Arjun Rao', detail: 'Stopped: Arjun Rao left the workspace' }),
+    thread('t4', 'stopped', { chat: 'dm-meera', counterpart: 'meera', kind: 'user', name: 'Meera Iyer' })];
   await reactFixture(async ({ render, click }) => {
     await show(render, view => createElement('div', null,
-      createElement(view.ThreadPill, { chat: 'dm-hr', assistantName: 'Ayati' }),
-      createElement(view.ThreadMark, { chat: 'dm-hr', assistantName: 'Ayati' }),
-      createElement(view.ThreadMark, { chat: 'dm-priya', assistantName: 'Ayati' }),
+      ...['dm-hr', 'dm-priya', 'dm-arjun', 'dm-meera'].map(chat => createElement(view.ThreadMark, { key: chat, chat, assistantName: 'Ayati' })),
       createElement(view.AssistantRoom, { assistantName: 'Ayati' })));
-    const pill = document.querySelector('.chat-thread-pill.running');
-    assert.match(pill.querySelector('summary').textContent, /Ayati is writing…/);
-    assert.match(pill.querySelector('.chat-thread-about').textContent, /What you asked.*Ask about leave in December/);
     const marks = [...document.querySelectorAll('.chat-thread-mark')];
-    assert.deepEqual(marks.map(mark => mark.getAttribute('aria-label')), ['Ayati is replying for you'], 'only on the chat it replies in');
-    const strip = document.querySelector('.chat-thread-strip');
-    assert.match(strip.textContent, /Replying for you in 1 chat.*HR Desk.*Writing a reply/);
-    assert.ok(button(strip, 'Open'));
-    await click(button(pill, 'Stop'));
+    assert.deepEqual(marks.map(mark => [mark.getAttribute('aria-label'), mark.classList.contains('auto')]),
+      [['Ayati is replying for you', true], ['Ayati asks you first', false]], 'no mark where it is off');
+    const rows = [...document.querySelectorAll('.chat-thread-item')];
+    assert.match(document.querySelector('.chat-thread-strip h3').textContent, /Working in 2 of your chats/);
+    assert.match(rows[0].textContent, /HR Desk.*Writing a reply….*Ask about leave in December/);
+    assert.match(rows[1].textContent, /Priya Sharma.*Asks you first · a reply is ready/);
+    assert.match(rows[2].textContent, /Arjun Rao.*Stopped: Arjun Rao left the workspace/, 'one it had to stop in says why');
+    assert.equal(rows.length, 3, 'a chat you turned it off in is not listed');
+    assert.ok(button(rows[0], 'Open'));
+    await click(button(rows[0], 'Turn off'));
     assert.deepEqual(writes.at(-1), { path: '/assistant/threads/t1/state', body: { state: 'stopped' } });
-  }, { url, fetch: server([thread('t1', 'running', { working: true, instruction: 'Ask about leave in December' })], writes) });
-  await reactFixture(async ({ render, click }) => {
-    await show(render, view => createElement('div', null,
-      createElement(view.ThreadPill, { chat: 'dm-hr', assistantName: 'Ayati' }), createElement(view.ThreadMark, { chat: 'dm-hr', assistantName: 'Ayati' })));
-    const pill = () => document.querySelector('.chat-thread-pill.stopped');
-    assert.match(pill().textContent, /Ayati stopped.*You stopped it/);
-    assert.equal(document.querySelector('.chat-thread-mark').getAttribute('aria-label'), 'Ayati stopped replying here');
-    await click(button(pill(), 'Resume'));
-    assert.deepEqual(writes.at(-1).body, { state: 'running' });
-    await click(button(pill(), 'Delete'));
-    assert.deepEqual(writes.at(-1).body, { state: 'deleted' });
-  }, { url, fetch: server([thread('t1', 'stopped', { detail: 'You stopped it.' })], writes) });
+    await click(button(rows[2], 'Dismiss'));
+    assert.deepEqual(writes.at(-1), { path: '/assistant/threads/t3/state', body: { state: 'deleted' } });
+  }, { url, fetch: server(list, writes) });
 });
 
-test('a chat is handed over from the other side’s message with one instruction; a failed start keeps your words and its ID', async () => {
-  const writes = [];
-  await reactFixture(async ({ render, click, change }) => {
-    globalThis.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
-    await (await import('../src/workspace-context.ts')).enterWorkspace();
-    const { ChatMessage } = await import('../src/react/chat/message.tsx');
-    const list = [
-      { id: 'm1', chat: 'dm-priya', author: 'priya', name: 'Priya Sharma', kind: 'user', content: 'Any update on the funding?', state: 'sent', at: 2 },
-      { id: 'm2', chat: 'dm-priya', author: 'ravi', name: 'Ravi Kumar', kind: 'user', content: 'Let me check.', state: 'sent', at: 3 }];
-    // The conversation offers it only on the other side's messages.
-    await render(() => createElement('div', null, list.map(message => createElement(ChatMessage, { key: message.id, message, directory, openThread() {}, handOver: message.author === 'priya' ? 'Ayati' : undefined }))));
-    const tool = id => document.querySelector(`[data-message-id="${id}"] .chat-takeover-tool`);
-    assert.equal(tool('m2'), null, 'not on your own message');
-    assert.equal(tool('m1').getAttribute('aria-label'), 'Let Ayati take over from here');
-    await click(tool('m1'));
-    const dialog = () => document.querySelector('dialog');
-    assert.match(dialog().textContent, /Let Ayati take over from here.*Priya Sharma.*Any update on the funding\?/);
-    assert.match(dialog().textContent, /replies to Priya Sharma as you, starting with this message, until you stop it/);
-    assert.equal(button(dialog(), 'Start').disabled, true, 'it needs to know what to do');
-    await change(dialog().querySelector('textarea'), ' Tell her we are close. ');
-    await click(button(dialog(), 'Start'));
-    assert.match(dialog().textContent, /already replying/);
-    assert.equal(dialog().querySelector('textarea').value, ' Tell her we are close. ');
-    await click(button(dialog(), 'Start'));
-    assert.equal(writes.length, 2);
-    assert.equal(writes[1].body.id, writes[0].body.id, 'the same hand-over keeps its ID');
-    assert.deepEqual({ ...writes[1], body: { ...writes[1].body, id: undefined } },
-      { path: '/assistant/take-over', body: { id: undefined, chat: 'dm-priya', message: 'm1', instruction: 'Tell her we are close.' } });
-    assert.equal(dialog(), null, 'closed once started');
-  }, { url, fetch: server([], writes, { fail: 1 }) });
-});
-
-test('only your own message shows that your assistant wrote it', async () => {
+test('what your assistant wrote carries its name as a mention above your own message, for you alone', async () => {
   await reactFixture(async ({ render }) => {
     globalThis.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
     await (await import('../src/workspace-context.ts')).enterWorkspace();
     const { ChatMessage } = await import('../src/react/chat/message.tsx');
     const assisted = { agent: 'ayati', thread: 't1', title: 'Leave in December', by: 'assistant' };
+    const mine = { chat: 'dm-hr', author: 'ravi', name: 'Ravi Kumar', kind: 'user', state: 'sent' };
     const list = [
-      { id: 'm1', chat: 'dm-hr', author: 'ravi', name: 'Ravi Kumar', kind: 'user', content: 'Priya approves it.', state: 'sent', at: 2, assisted },
-      { id: 'm2', chat: 'dm-hr', author: 'ravi', name: 'Ravi Kumar', kind: 'user', content: 'Thanks!', state: 'sent', at: 3, assisted: { ...assisted, by: 'owner' } },
-      { id: 'm3', chat: 'dm-hr', author: 'priya', name: 'Priya Sharma', kind: 'user', content: 'Noted.', state: 'sent', at: 4, assisted }];
+      { ...mine, id: 'm1', content: 'Priya approves it.', at: 2, assisted },
+      { ...mine, id: 'm2', content: 'Friday at 3 works.', at: 3, assisted: { agent: 'ayati', title: 'Draft', by: 'assistant', draft: 'r1' } },
+      { ...mine, id: 't1', content: 'Hi, I would like leave.', at: 1, assisted },
+      { ...mine, id: 'm4', content: 'Thanks!', at: 4, assisted: { ...assisted, by: 'owner' } },
+      { ...mine, id: 'm5', author: 'priya', name: 'Priya Sharma', content: 'Noted.', at: 5, assisted }];
     await render(() => createElement('div', null, list.map(message => createElement(ChatMessage, { key: message.id, message, directory, openThread() {} }))));
-    const mark = id => document.querySelector(`[data-message-id="${id}"] .chat-assisted`);
-    assert.equal(mark('m1').textContent, 'Ayati');
-    assert.match(mark('m1').title, /Written by Ayati · Leave in December/);
-    assert.ok(mark('m1').closest('.chat-message-meta'), 'beside its time');
-    assert.equal(mark('m2'), null, 'what you wrote yourself has no mark');
-    assert.equal(mark('m3'), null, 'never on someone else’s message');
+    const tag = id => document.querySelector(`[data-message-id="${id}"] .chat-assisted`);
+    assert.equal(tag('m1').textContent, '@Ayati sent this for you', 'it sent this one itself');
+    assert.equal(tag('m1').querySelector('.message-mention').textContent, '@Ayati');
+    assert.match(tag('m1').title, /Only you and workspace admins/);
+    assert.equal(tag('m1').closest('.chat-message-meta'), null, 'above the message, not beside its time');
+    assert.ok(tag('m1').compareDocumentPosition(document.querySelector('[data-message-id="m1"] .message-markdown')) & 4, 'before the text');
+    assert.equal(tag('m2').textContent, 'Written with @Ayati', 'a draft you sent yourself');
+    assert.equal(tag('t1').textContent, 'Written with @Ayati', 'an opening you started yourself');
+    assert.equal(tag('m4'), null, 'what you wrote yourself has no tag');
+    assert.equal(tag('m5'), null, 'never on someone else’s message');
   }, { url, fetch: server([], []) });
 });
