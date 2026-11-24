@@ -3,6 +3,10 @@
 **Status: proposal, not built.** Nothing here exists in code. Open
 [`mockups.html`](mockups.html) for the screens and the diagrams.
 
+This is one level of [the memory system](../memory-system/README.md), which adds
+agent, room and person memory, history search and the build plan. Where the two
+differ (for example the size given with a request), that folder is newer.
+
 The idea: agents save what they learn about the business while working, and every
 agent uses it. It is one memory for the workspace, next to the three that exist:
 an assistant's memory of its person ([assistants](../../runtime/assistants.md#memory-schema-138)),
