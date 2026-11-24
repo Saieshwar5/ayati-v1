@@ -359,6 +359,33 @@ async fn runs_fall_on_the_local_calendar_with_days_off_and_holidays() {
         Some(at(&db, "2026-12-01 10:00", ist).await),
         "Sunday and the holiday are skipped"
     );
+    // A minute rule is a fixed period from the first run (schema 145).
+    let minutes = json!({"unit":"minute","every":90});
+    assert_eq!(
+        next(
+            &db,
+            &w,
+            minutes.clone(),
+            ist,
+            "2026-11-24 09:00",
+            "2026-11-24 12:05"
+        )
+        .await,
+        Some(at(&db, "2026-11-24 13:30", ist).await)
+    );
+    assert_eq!(
+        next(
+            &db,
+            &w,
+            minutes,
+            ist,
+            "2026-11-24 09:00",
+            "2026-11-24 08:00"
+        )
+        .await,
+        Some(at(&db, "2026-11-24 09:00", ist).await),
+        "before the first run, the first run"
+    );
     // A daylight-saving zone keeps local clock time.
     let london = "Europe/London";
     let nine = json!({"unit":"day","at":"09:00"});

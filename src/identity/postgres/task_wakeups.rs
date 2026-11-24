@@ -125,15 +125,33 @@ pub(super) async fn later(tx: &DatabaseTransaction, w: &str, id: &str, detail: &
     Ok(())
 }
 
-/// The person a task is for and its conversation.
+/// Task rooms, instructions and checks in code exist from schema 145.
+pub(crate) async fn rooms(db: &impl ConnectionTrait) -> Result<bool> {
+    Ok(query(
+        db,
+        "SELECT to_regprocedure('relay_task_calendar_due(jsonb,text,bigint,bigint,text)') IS NOT NULL AS ready",
+        vec![],
+    )
+    .await?
+    .context("Schema check unavailable")?
+    .try_get("", "ready")?)
+}
+
+/// The person a task is for and where its runs happen: its work room when a
+/// channel asked for it (schema 145), otherwise its own conversation.
 pub(super) async fn owner(
     tx: &DatabaseTransaction,
     w: &str,
     task: &str,
 ) -> Result<Option<(User, String)>> {
+    let place = if rooms(tx).await? {
+        "COALESCE(room,chat)"
+    } else {
+        "chat"
+    };
     let Some(row) = query(
         tx,
-        "SELECT requester,chat FROM relay_tasks WHERE workspace=$1 AND id=$2",
+        &format!("SELECT requester,{place} AS chat FROM relay_tasks WHERE workspace=$1 AND id=$2"),
         vec![w.into(), task.into()],
     )
     .await?

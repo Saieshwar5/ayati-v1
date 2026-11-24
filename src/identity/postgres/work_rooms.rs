@@ -133,18 +133,39 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
         return Ok(());
     };
     let target = schedule["chat"].as_str().context("Missing post target")?;
+    let own = schedule["id"]
+        .as_str()
+        .filter(|_| schedule["kind"] == "schedule");
+    post(
+        tx,
+        job,
+        content,
+        schedule["name"].as_str().unwrap_or("Automation"),
+        schedule["principal"].as_str().context("Missing person")?,
+        target,
+        own,
+    )
+    .await
+}
+
+/// Post one short message with a run's result in `target` for `principal`, if
+/// they may still post there with this agent; either way record the outcome.
+/// Used by schedules and triggers, and by tasks a channel asked for (schema 145).
+pub(super) async fn post(
+    tx: &DatabaseTransaction,
+    job: &Job,
+    content: &str,
+    name: &str,
+    principal: &str,
+    target: &str,
+    own: Option<&str>,
+) -> Result<()> {
     let person = User {
-        id: schedule["principal"]
-            .as_str()
-            .context("Missing person")?
-            .into(),
+        id: principal.into(),
         email: String::new(),
         display_name: None,
     };
     let w = &job.workspace;
-    let own = schedule["id"]
-        .as_str()
-        .filter(|_| schedule["kind"] == "schedule");
     let (state, message, reason) = match authority_for(tx, &person, w, &job.agent, own, target)
         .await
     {
@@ -154,11 +175,7 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
                 shown.push('…');
             }
             let id = uuid::Uuid::new_v4().to_string();
-            let text = format!(
-                "**{}**\n\n{shown}\n\n[View run](run:{})",
-                schedule["name"].as_str().unwrap_or("Automation"),
-                job.reply
-            );
+            let text = format!("**{name}**\n\n{shown}\n\n[View run](run:{})", job.reply);
             execute(tx, "INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at) VALUES($1,$2,$3,$4,'agent',$5,'complete',$6)",
                 vec![id.clone().into(), w.into(), target.into(), job.agent.clone().into(), text.into(), now().into()]).await?;
             ("posted", Some(id), None)

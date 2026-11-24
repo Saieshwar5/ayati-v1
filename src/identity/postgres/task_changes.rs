@@ -51,6 +51,8 @@ pub(crate) struct ChangeTask {
     pub until: Option<String>,
     pub max_runs: Option<i64>,
     pub paused: Option<bool>,
+    /// What each run must do (schema 145).
+    pub instructions: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -152,6 +154,36 @@ pub(super) async fn schedule(
         ],
     )
     .await?;
+    // The owner's channel rule (schema 145): a task a channel or group asked for
+    // works in a private room with the person who asked and posts each run's
+    // result to the conversation.
+    if super::wakeups::rooms(tx).await? {
+        let place = query(tx, "SELECT t.room IS NULL AND c.kind<>'direct' AND NOT c.work AS needs,t.title,t.requester,t.agent
+            FROM relay_tasks t JOIN relay_chats c ON c.workspace=t.workspace AND c.id=t.chat WHERE t.workspace=$1 AND t.id=$2",
+            vec![w.into(), task.into()]).await?.context("Task unavailable")?;
+        if place.try_get::<bool>("", "needs")? {
+            let (title, person, agent): (String, String, String) = (
+                place.try_get("", "title")?,
+                place.try_get("", "requester")?,
+                place.try_get("", "agent")?,
+            );
+            let room = super::super::work_rooms::open(
+                tx,
+                w,
+                &title,
+                "Runs of a task asked for in a conversation",
+                &person,
+                &agent,
+            )
+            .await?;
+            execute(
+                tx,
+                "UPDATE relay_tasks SET room=$3 WHERE workspace=$1 AND id=$2",
+                vec![w.into(), task.into(), room.into()],
+            )
+            .await?;
+        }
+    }
     match (&timing.repeat, first) {
         (Some(_), Some(first)) => {
             cancel_runs(tx, w, task).await?;
@@ -229,8 +261,17 @@ impl PgStore {
             until: input.until.clone(),
             max_runs: input.max_runs,
         };
+        let instructions = input
+            .instructions
+            .as_deref()
+            .map(instructions_text)
+            .transpose()?;
         ensure!(
-            title.is_some() || done_when.is_some() || timing.any() || input.paused.is_some(),
+            title.is_some()
+                || done_when.is_some()
+                || timing.any()
+                || input.paused.is_some()
+                || instructions.is_some(),
             "Say what to change"
         );
         let tx = self.workspace_tx(&job.workspace).await?;
@@ -240,6 +281,9 @@ impl PgStore {
         let w = job.workspace.as_str();
         execute(&tx, "UPDATE relay_tasks SET title=COALESCE($3,title),done_when=COALESCE($4,done_when),kind='commitment' WHERE workspace=$1 AND id=$2",
             vec![w.into(), input.task.clone().into(), title.into(), done_when.clone().into()]).await?;
+        if let Some(text) = &instructions {
+            set_instructions(&tx, w, &input.task, text).await?;
+        }
         if input.paused == Some(true) {
             pause(&tx, w, &input.task, "Paused in chat.").await?;
         } else {
@@ -429,5 +473,35 @@ pub(super) async fn add_note(
     .await?;
     execute(tx, "DELETE FROM relay_task_notes WHERE workspace=$1 AND task=$2 AND id NOT IN (SELECT id FROM relay_task_notes WHERE workspace=$1 AND task=$2 ORDER BY created_ms DESC LIMIT 20)",
         vec![w.into(), task.into()]).await?;
+    Ok(())
+}
+
+/// What each run must do, as the agent wrote it: 1 to 4,000 characters.
+pub(super) fn instructions_text(text: &str) -> Result<String> {
+    let text = text.trim();
+    ensure!(
+        (1..=4000).contains(&text.chars().count()),
+        "Keep instructions to 1 to 4,000 characters"
+    );
+    Ok(text.to_string())
+}
+
+/// Save what each run of `task` must do (schema 145).
+pub(super) async fn set_instructions(
+    tx: &DatabaseTransaction,
+    w: &str,
+    task: &str,
+    text: &str,
+) -> Result<()> {
+    ensure!(
+        super::wakeups::rooms(tx).await?,
+        "Task instructions need a newer workspace schema"
+    );
+    execute(
+        tx,
+        "UPDATE relay_tasks SET instructions=$3 WHERE workspace=$1 AND id=$2",
+        vec![w.into(), task.into(), text.into()],
+    )
+    .await?;
     Ok(())
 }

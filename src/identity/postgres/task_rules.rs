@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Rule {
-    /// `hour`, `day`, `week` or `month`.
+    /// `minute` (a fixed period from the first run), `hour`, `day`, `week` or `month`.
     pub unit: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub every: Option<i64>,
@@ -77,12 +77,27 @@ fn list(items: &[String]) -> String {
 
 impl Rule {
     pub(crate) fn validate(&self) -> Result<()> {
+        if self.unit == "minute" {
+            ensure!(
+                self.every.is_some_and(|n| (15..=1440).contains(&n)),
+                "A minute rule runs every 15 to 1440 minutes"
+            );
+            ensure!(
+                self.at.is_none()
+                    && self.from.is_none()
+                    && self.to.is_none()
+                    && self.days.is_none()
+                    && self.day_of_month.is_none(),
+                "A minute rule only has every"
+            );
+            return Ok(());
+        }
         let max = match self.unit.as_str() {
             "hour" => 24,
             "day" => 365,
             "week" => 52,
             "month" => 12,
-            _ => anyhow::bail!("unit is hour, day, week or month"),
+            _ => anyhow::bail!("unit is minute, hour, day, week or month"),
         };
         ensure!(
             self.every.is_none_or(|n| (1..=max).contains(&n)),
@@ -140,6 +155,7 @@ impl Rule {
     /// About how long one period lasts, for the missed-run window.
     pub(crate) fn period_ms(&self) -> i64 {
         let unit = match self.unit.as_str() {
+            "minute" => 60_000,
             "hour" => 3_600_000,
             "day" => 86_400_000,
             "week" => 7 * 86_400_000,
@@ -153,6 +169,7 @@ impl Rule {
         let every = self.every.unwrap_or(1).max(1);
         let at = format!(" at {}", shown(self.at.as_deref().unwrap_or("09:00")));
         let base = match self.unit.as_str() {
+            "minute" => format!("Every {every} minutes"),
             "hour" => {
                 let head = if every == 1 {
                     "Every hour".to_string()
@@ -279,6 +296,7 @@ mod tests {
                 json!({"unit":"hour","from":"09:00","to":"19:00"}),
                 "Every hour from 9:00 to 19:00",
             ),
+            (json!({"unit":"minute","every":90}), "Every 90 minutes"),
         ];
         for (value, sentence) in cases {
             let rule = rule(value);
@@ -290,7 +308,10 @@ mod tests {
     #[test]
     fn rules_outside_their_bounds_are_refused() {
         for value in [
+            json!({"unit":"second"}),
             json!({"unit":"minute"}),
+            json!({"unit":"minute","every":5}),
+            json!({"unit":"minute","every":30,"at":"09:00"}),
             json!({"unit":"day","every":0}),
             json!({"unit":"month","every":13}),
             json!({"unit":"day","at":"25:00"}),

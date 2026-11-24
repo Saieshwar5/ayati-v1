@@ -41,3 +41,26 @@ impl MigrationTrait for TaskLifetimes {
         ))
     }
 }
+
+/// Schema 145: task rooms for channel tasks, instructions, checks in code, the
+/// schedule a task came from, and minute rules (designs/agent-tasks/one-system.md).
+pub(crate) struct TaskRooms;
+impl MigrationName for TaskRooms {
+    fn name(&self) -> &str {
+        "m20261124_000145_task_rooms"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for TaskRooms {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("task_rooms.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Task rooms require a forward migration".into(),
+        ))
+    }
+}

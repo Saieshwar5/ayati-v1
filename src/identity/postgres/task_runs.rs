@@ -358,6 +358,21 @@ impl PgStore {
                 " This is the last run."
             });
         }
+        if super::wakeups::rooms(tx).await?
+            && let Some(instructions) = query(
+                tx,
+                "SELECT instructions FROM relay_tasks WHERE workspace=$1 AND id=$2",
+                vec![w.into(), task.into()],
+            )
+            .await?
+            .and_then(|r| {
+                r.try_get::<Option<String>>("", "instructions")
+                    .ok()
+                    .flatten()
+            })
+        {
+            brief.push_str(&format!("\nWhat to do each run: {instructions}"));
+        }
         brief.push_str(&notes_text(tx, w, task).await?);
         brief.push_str("\nDo what is due now. Then call task_note with one line for the next run. If nothing changed and there is nothing to tell the person, reply with exactly NO_CHANGE and nothing else.");
         Ok(NewMessage {
@@ -375,28 +390,44 @@ impl PgStore {
 /// After a task run finished: a run that answered NO_CHANGE is kept out of the
 /// conversation and recorded as "no change".
 pub(crate) async fn after_finish(tx: &DatabaseTransaction, job: &Job, content: &str) -> Result<()> {
-    if content.lines().next().map(str::trim) != Some("NO_CHANGE")
-        || !super::wakeups::lifetimes(tx).await?
-    {
+    if !super::wakeups::lifetimes(tx).await? {
         return Ok(());
     }
-    let quiet = query(
-        tx,
-        "UPDATE relay_task_wakeups SET quiet=TRUE WHERE workspace=$1 AND reply=$2 AND kind='repeat' RETURNING message",
-        vec![job.workspace.clone().into(), job.reply.clone().into()],
-    )
-    .await?;
-    let Some(row) = quiet else { return Ok(()) };
-    let message: Option<String> = row.try_get("", "message")?;
-    execute(
-        tx,
-        "UPDATE relay_chat_messages SET content='',attachments='[]',state='deleted' WHERE workspace=$1 AND id IN ($2,$3)",
-        vec![
-            job.workspace.clone().into(),
-            job.reply.clone().into(),
-            message.unwrap_or_default().into(),
-        ],
-    )
-    .await?;
+    if content.lines().next().map(str::trim) == Some("NO_CHANGE") {
+        let quiet = query(
+            tx,
+            "UPDATE relay_task_wakeups SET quiet=TRUE WHERE workspace=$1 AND reply=$2 AND kind='repeat' RETURNING message",
+            vec![job.workspace.clone().into(), job.reply.clone().into()],
+        )
+        .await?;
+        let Some(row) = quiet else { return Ok(()) };
+        let message: Option<String> = row.try_get("", "message")?;
+        execute(
+            tx,
+            "UPDATE relay_chat_messages SET content='',attachments='[]',state='deleted' WHERE workspace=$1 AND id IN ($2,$3)",
+            vec![
+                job.workspace.clone().into(),
+                job.reply.clone().into(),
+                message.unwrap_or_default().into(),
+            ],
+        )
+        .await?;
+        return Ok(());
+    }
+    // A task a channel asked for works in its room and posts each run's result to
+    // the channel (schema 145, the owner's channel rule).
+    if super::wakeups::rooms(tx).await?
+        && let Some(row) = query(
+            tx,
+            "SELECT t.title,t.requester,t.chat FROM relay_task_wakeups k JOIN relay_tasks t ON t.workspace=k.workspace AND t.id=k.task
+             WHERE k.workspace=$1 AND k.reply=$2 AND t.room=$3 AND t.chat<>t.room",
+            vec![job.workspace.clone().into(), job.reply.clone().into(), job.chat.clone().into()],
+        )
+        .await?
+    {
+        let (title, requester, chat): (String, String, String) =
+            (row.try_get("", "title")?, row.try_get("", "requester")?, row.try_get("", "chat")?);
+        super::super::work_rooms::post(tx, job, content, &title, &requester, &chat, None).await?;
+    }
     Ok(())
 }

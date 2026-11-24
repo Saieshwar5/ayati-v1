@@ -152,6 +152,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::memory::Memory),
             Box::new(super::evolution::Evolution),
             Box::new(super::tasks::migration::TaskLifetimes),
+            Box::new(super::tasks::migration::TaskRooms),
         ]
     }
 }

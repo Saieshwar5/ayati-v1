@@ -114,7 +114,8 @@ async fn cuckoo_books_every_run_and_a_quiet_run_stays_out_of_the_conversation() 
     );
     assert!(tools["now"].as_str().unwrap().len() >= 16);
     let made = db
-        .create_task(&job, &task(json!({"title":"Check stock below reorder level","repeat":{"unit":"day","at":"10:00"}})))
+        .create_task(&job, &task(json!({"title":"Check stock below reorder level","repeat":{"unit":"day","at":"10:00"},
+            "instructions":"List the items below their reorder level and tell purchasing"})))
         .await
         .unwrap();
     let id = made["id"].as_str().unwrap().to_string();
@@ -140,17 +141,25 @@ async fn cuckoo_books_every_run_and_a_quiet_run_stays_out_of_the_conversation() 
     let (reply, content) = last_run(&db, &id).await;
     assert!(content.starts_with("Task run 1 · Check stock"), "{content}");
     assert!(content.contains("first run"));
+    assert!(
+        content.contains("What to do each run: List the items below their reorder level"),
+        "{content}"
+    );
     let booked = pending(&db, &id).await;
     assert_eq!(booked.len(), 1, "the next run is booked as this one starts");
     assert_eq!(booked[0]["kind"], "repeat");
     let row = one(&db, "SELECT runs,(SELECT task FROM relay_chat_jobs WHERE reply=$2) AS job_task,(SELECT chat FROM relay_chat_messages WHERE id=$2) AS chat FROM relay_tasks WHERE id=$1", vec![id.clone().into(), reply.clone().into()]).await;
     assert_eq!(row["runs"], 1);
     assert_eq!(row["job_task"], id.as_str(), "the run is part of the task");
+    // The owner's channel rule: a group's task works in a private room with the
+    // person who asked and posts each run's result to the group.
+    let room = one(&db, "SELECT t.room,c.work,c.kind FROM relay_tasks t JOIN relay_chats c ON c.id=t.room WHERE t.id=$1", vec![id.clone().into()]).await;
+    assert_eq!(room["work"], true, "a private work room");
     assert_eq!(
-        row["chat"],
-        job.chat.as_str(),
-        "in the conversation it was asked in"
+        row["chat"], room["room"],
+        "the run works in the task's room, not the group"
     );
+    assert_ne!(row["chat"], job.chat.as_str());
 
     let run = claim(&db, &reply).await;
     db.task_note(
@@ -175,6 +184,32 @@ async fn cuckoo_books_every_run_and_a_quiet_run_stays_out_of_the_conversation() 
     assert!(
         second.contains("Rice and sugar are fine"),
         "notes reach the next run"
+    );
+    let (reply, _) = last_run(&db, &id).await;
+    let run = claim(&db, &reply).await;
+    db.chat_finish(
+        &run,
+        "Rice is below its reorder level: 12 bags left.",
+        "complete",
+    )
+    .await
+    .unwrap();
+    let posted = one(&db, "SELECT p.state,p.chat,m.content,m.kind FROM relay_run_posts p JOIN relay_chat_messages m ON m.id=p.message WHERE p.reply=$1", vec![reply.clone().into()]).await;
+    assert_eq!(posted["state"], "posted");
+    assert_eq!(
+        posted["chat"],
+        job.chat.as_str(),
+        "the result goes to the group that asked"
+    );
+    let text = posted["content"].as_str().unwrap();
+    assert!(
+        text.starts_with("**Check stock below reorder level**") && text.contains("12 bags left"),
+        "{text}"
+    );
+    assert_eq!(
+        one(&db, "SELECT count(*) AS n FROM relay_run_posts p JOIN relay_task_wakeups k ON k.reply=p.reply WHERE k.task=$1", vec![id.clone().into()]).await["n"],
+        1,
+        "the quiet run posted nothing"
     );
     let summary = db.task_details(&owner, &w, &id).await.unwrap();
     assert!(summary["id"].is_string());

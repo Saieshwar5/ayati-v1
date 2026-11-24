@@ -42,8 +42,8 @@ fn rule(value: Option<&Value>) -> bool {
         ) && r
             .get("unit")
             .and_then(Value::as_str)
-            .is_some_and(|u| ["hour", "day", "week", "month"].contains(&u))
-            && minutes(r, "every", 365, false)
+            .is_some_and(|u| ["minute", "hour", "day", "week", "month"].contains(&u))
+            && minutes(r, "every", 1440, false)
             && ["at", "from", "to"]
                 .iter()
                 .all(|key| text(r, key, 5, false))
@@ -67,9 +67,10 @@ fn timing(v: &serde_json::Map<String, Value>) -> bool {
         && text(v, "first_at", 16, false)
         && text(v, "until", 10, false)
         && minutes(v, "max_runs", 1000, false)
+        && text(v, "instructions", 4000, false)
 }
 
-const TIMING: [&str; 4] = ["repeat", "first_at", "until", "max_runs"];
+const TIMING: [&str; 5] = ["repeat", "first_at", "until", "max_runs", "instructions"];
 
 pub(crate) fn create(input: &Value) -> bool {
     input.as_object().is_some_and(|v| {
@@ -227,7 +228,13 @@ mod tests {
             "first_at":"2026-11-25 09:00","until":"2026-12-31"})
         ));
         assert!(!super::create(
-            &json!({"title":"x","repeat":{"unit":"minute"}})
+            &json!({"title":"x","repeat":{"unit":"second"}})
+        ));
+        assert!(super::create(
+            &json!({"title":"Check stock","repeat":{"unit":"minute","every":90},"instructions":"List items below reorder level"})
+        ));
+        assert!(!super::create(
+            &json!({"title":"x","instructions":"y".repeat(4001)})
         ));
         assert!(!super::create(
             &json!({"title":"x","repeat":{"unit":"week","days":[0]}})

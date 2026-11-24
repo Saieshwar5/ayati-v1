@@ -57,6 +57,8 @@ pub(crate) struct CreateTask {
     pub first_at: Option<String>,
     pub until: Option<String>,
     pub max_runs: Option<i64>,
+    /// Schema 145: what each run must do, when the title is not enough.
+    pub instructions: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -244,6 +246,10 @@ impl PgStore {
             until: input.until.clone(),
             max_runs: input.max_runs,
         };
+        if let Some(text) = &input.instructions {
+            let text = changes::instructions_text(text)?;
+            changes::set_instructions(&tx, &job.workspace, &id, &text).await?;
+        }
         if timing.any() {
             ensure!(
                 wakeups::lifetimes(&tx).await?,
