@@ -5,6 +5,8 @@ use crate::identity::{
 };
 use serde_json::json;
 
+#[path = "home_intervals.rs"]
+pub(super) mod intervals;
 #[path = "home_living.rs"]
 pub(super) mod living;
 
@@ -19,6 +21,9 @@ pub(super) async fn cancel_unstarted(tx: &DatabaseTransaction, w: &str, panel: &
 }
 pub(super) async fn bind(db: &impl ConnectionTrait, w: &str, panel: &str, job: &Job) -> Result<()> {
     ensure!(execute(db,"INSERT INTO relay_home_update_runs(workspace,panel,reply,policy_revision,panel_revision,expected_generation) SELECT workspace,panel,$3,revision,panel_revision,generation FROM relay_home_maintenance WHERE workspace=$1 AND panel=$2 AND enabled",vec![w.into(),panel.into(),job.reply.clone().into()]).await?==1,"Panel update agreement unavailable");
+    // Every update that starts counts as the panel's latest: its next fixed-interval
+    // update comes one interval later.
+    intervals::book(db, w, panel, true).await?;
     living::claim_direct(db, w, panel, &job.reply).await
 }
 pub(super) async fn schedule_authority(

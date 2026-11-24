@@ -90,41 +90,18 @@ impl PgStore {
             ensure!(!previous.is_null(), "No update agreement to pause");
             previous["scopes"].clone()
         };
-        let old_schedule = previous["schedule"].as_str();
         super::home_update_runs::cancel_unstarted(&tx, w, id).await?;
-        if let Some(old) = old_schedule {
-            execute(&tx,"UPDATE relay_agent_schedules SET state='paused',revision=revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),old.into()]).await?;
+        // Before schema 146 an interval ran as a bound schedule; it never runs again.
+        if let Some(old) = previous["schedule"].as_str() {
+            execute(&tx,"UPDATE relay_agent_schedules SET state='paused',revision=revision+1 WHERE workspace=$1 AND id=$2 AND state<>'completed'",vec![w.into(),old.into()]).await?;
             super::automation_dispatch::cancel_unstarted(&tx, w, old).await?;
         }
-        let schedule = if let Some(interval) = input.interval_seconds {
-            if old_schedule.is_some() && previous["interval_seconds"] == interval {
-                old_schedule.map(str::to_owned)
-            } else if input.enabled {
-                ensure!(query(&tx,"SELECT count(*) AS n FROM relay_agent_schedules WHERE workspace=$1 AND agent=$2",vec![w.into(),p["agent"].as_str().unwrap().into()]).await?.unwrap().try_get::<i64>("","n")?<100,"Agent routine limit reached");
-                let sid = uuid::Uuid::new_v4().to_string();
-                execute(&tx,"INSERT INTO relay_agent_schedules(workspace,id,agent,principal,chat,name,content,first_ms,interval_seconds,timezone,request_hash,next_ms) VALUES($1,$2,$3,$4,$5,'Personal Home panel update','Refresh the controller-bound personal Home panel. Use home_panel_update_context, perform its reviewed reads, then refresh_home_panel.',(extract(epoch FROM clock_timestamp())*1000)::bigint+$6::bigint*1000,$6,'UTC',$2,(extract(epoch FROM clock_timestamp())*1000)::bigint+$6::bigint*1000)",vec![w.into(),sid.clone().into(),p["agent"].as_str().unwrap().into(),user.id.clone().into(),p["chat"].as_str().unwrap().into(),interval.into()]).await?;
-                execute(
-                    &tx,
-                    "INSERT INTO relay_home_schedule_bindings VALUES($1,$2,$3)",
-                    vec![w.into(), sid.clone().into(), id.into()],
-                )
-                .await?;
-                Some(sid)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        if input.enabled
-            && let Some(sid) = &schedule
-        {
-            execute(&tx,"UPDATE relay_agent_schedules SET state='enabled',revision=revision+1,detail='' WHERE workspace=$1 AND id=$2",vec![w.into(),sid.clone().into()]).await?;
-        }
-        execute(&tx,"INSERT INTO relay_home_maintenance(workspace,panel,revision,panel_revision,enabled,instructions,interval_seconds,stale_seconds,scopes,schedule) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) ON CONFLICT(workspace,panel) DO UPDATE SET revision=excluded.revision,panel_revision=excluded.panel_revision,enabled=excluded.enabled,instructions=excluded.instructions,interval_seconds=excluded.interval_seconds,stale_seconds=excluded.stale_seconds,scopes=excluded.scopes,schedule=excluded.schedule",vec![w.into(),id.into(),(input.revision+1).into(),input.panel_revision.into(),input.enabled.into(),input.instructions.trim().into(),input.interval_seconds.into(),input.stale_seconds.into(),scopes.into(),schedule.into()]).await?;
+        execute(&tx,"INSERT INTO relay_home_maintenance(workspace,panel,revision,panel_revision,enabled,instructions,interval_seconds,stale_seconds,scopes,schedule) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL) ON CONFLICT(workspace,panel) DO UPDATE SET revision=excluded.revision,panel_revision=excluded.panel_revision,enabled=excluded.enabled,instructions=excluded.instructions,interval_seconds=excluded.interval_seconds,stale_seconds=excluded.stale_seconds,scopes=excluded.scopes,schedule=NULL",vec![w.into(),id.into(),(input.revision+1).into(),input.panel_revision.into(),input.enabled.into(),input.instructions.trim().into(),input.interval_seconds.into(),input.stale_seconds.into(),scopes.into()]).await?;
         if super::home_update_runs::living::available(&tx).await? {
             execute(&tx,"UPDATE relay_home_maintenance SET follow_sources=COALESCE($3,follow_sources),min_gap_seconds=COALESCE($4,min_gap_seconds),bindings=NULL WHERE workspace=$1 AND panel=$2",vec![w.into(),id.into(),input.follow_sources.into(),input.min_gap_seconds.into()]).await?;
         }
+        // The fixed interval runs on the panel's own update queue (schema 146).
+        super::home_update_runs::intervals::agreed(&tx, w, id, previous, input).await?;
         let result = json!({"revision":input.revision+1,"enabled":input.enabled});
         super::home_receipts::remember(&tx, user, w, &input.request, &payload, &result).await?;
         audit(&tx, &user.id, Some(w), "home_update_agreement", id).await?;

@@ -74,3 +74,6 @@ next starts.
 4. Event triggers as task wake-ups.
 5. Regular checks as tasks.
 6. Leftovers removed; docs and the full suites.
+
+Built: step 1 (schema 145); step 2 (schema 146, `m20261124_000146_panel_intervals`):
+panel intervals run on the panel's own update queue and panel schedules are paused.

@@ -153,6 +153,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::evolution::Evolution),
             Box::new(super::tasks::migration::TaskLifetimes),
             Box::new(super::tasks::migration::TaskRooms),
+            Box::new(super::home_update_runs::intervals::migration::PanelIntervals),
         ]
     }
 }
