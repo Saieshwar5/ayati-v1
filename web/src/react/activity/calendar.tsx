@@ -1,7 +1,6 @@
 import { useCallback, useState } from 'react';
 import { Button } from '../ui';
 import { agentSectionUrl } from '../agents/workspace-tabs';
-import { workspaceUrl } from '../../workspace-context';
 import { taskUrl, type Scope } from './model';
 import { useLive } from './use-live';
 import { UpcomingView } from './upcoming';
@@ -10,8 +9,8 @@ import { days, itemState, loadCalendar, range, timeIn, weekStart, zoneLabel, typ
 /** Activity › Calendar (designs/agent-tasks), which replaces Planned: a week of what
  * agents did and will do on their own, in the workspace's time zone. Tasks are
  * made and changed by asking the agent in chat; here people look and open a task
- * to pause or stop it. The List keeps Planned's list with Pause and Resume for
- * schedules and triggers. */
+ * to pause or stop it. The List keeps Planned's list: triggers, booked task runs and
+ * follow-ups (schedules became tasks in schema 147). */
 export function CalendarView({ scope, search, list: startOnList = false }: { scope: Scope; search: string; list?: boolean }) {
   const [list, setList] = useState(startOnList);
   const [offset, setOffset] = useState(0);
@@ -52,7 +51,7 @@ function Week({ scope, search, offset }: { scope: Scope; search: string; offset:
         const shown = day.items.filter(matches);
         return <section key={day.key} role="listitem" className={`activity-day${index === today ? ' today' : ''}`} aria-label={`${day.name} ${day.date}`}>
           <h3>{day.name} <b>{day.date}</b>{index === today && <span> · today</span>}</h3>
-          {shown.map(item => <Entry key={`${item.kind}.${'task' in item ? item.task : item.schedule}.${item.at}`} item={item} zone={data.timezone} />)}
+          {shown.map(item => <Entry key={`${item.kind}.${item.task}.${item.at}`} item={item} zone={data.timezone} />)}
           {!shown.length && <p className="activity-day-empty">—</p>}
         </section>;
       })}</div>
@@ -71,10 +70,7 @@ function Week({ scope, search, offset }: { scope: Scope; search: string; offset:
 
 function Entry({ item, zone }: { item: CalendarItem; zone: string }) {
   const state = itemState(item);
-  const href = 'task' in item ? taskUrl(item.task)
-    : item.kind === 'schedule_run' ? workspaceUrl(`/?view=activity&tab=history&run=${encodeURIComponent(item.reply)}`)
-      : agentSectionUrl(item.agent, 'Automations');
-  return <a className={`activity-entry ${state.tone}`} href={href}>
+  return <a className={`activity-entry ${state.tone}`} href={taskUrl(item.task)}>
     <time>{timeIn(item.at, zone)}{state.tone !== 'planned' ? ` · ${state.label}` : ''}</time>
     <span>{item.title}</span>
     <small>{item.agent_name}</small>

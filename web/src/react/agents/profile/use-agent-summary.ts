@@ -4,7 +4,6 @@ import { useResource } from '../../requests';
 import { subscribeChanges } from '../../chat/live';
 import { loadControls, type ToolConnection } from '../control-model';
 import { loadAgentSkills, type Skill } from '../skills/model';
-import { loadSchedules, type Routine } from '../automation/model';
 import { loadEvents, type EventTrigger } from '../automation/event-model';
 import { loadOwnComputers, ownComputerOf, type OwnComputer } from '../computer/own-computers';
 import { loadRequests, type AgentRequest } from '../request-model';
@@ -18,8 +17,9 @@ export type AgentSummary = {
   /** Lessons waiting for a decision, and whether lessons exist here at all. */
   lessons: { waiting: number; available: boolean };
   apps: ToolConnection[]; servers: ToolConnection[]; ownComputer?: OwnComputer; canAddComputer: boolean;
-  schedules: Routine[]; triggers: EventTrigger[]; requests: AgentRequest[];
-  /** Its open tasks that run on their own: repeating, or with a run booked (designs/agent-tasks). */
+  triggers: EventTrigger[]; requests: AgentRequest[];
+  /** Its open tasks that run on their own: repeating, or with a run booked (designs/agent-tasks).
+   * Schedules became such tasks in schema 147. */
   tasks: TaskItem[];
 };
 
@@ -28,14 +28,13 @@ const settled = async <T,>(work: Promise<T>): Promise<T | undefined> => { try { 
 async function load(agent: Agent): Promise<AgentSummary> {
   const id = encodeURIComponent(agent.id);
   // Independent reads, together: no part waits for another.
-  const [skills, notes, always, learning, controls, own, schedules, events, requests, tasks] = await Promise.all([
+  const [skills, notes, always, learning, controls, own, events, requests, tasks] = await Promise.all([
     settled(loadAgentSkills(agent.id)),
     settled(identityRequest<{ notes: { forgotten: boolean }[] }>(`${base}/${id}/knowledge`)),
     settled(identityRequest<{ items: unknown[] }>(`/workspaces/${workspaceId}/library-always/${id}`)),
     agent.editable ? settled(identityRequest<{ available: boolean; proposals?: { state: string }[] }>(`${base}/${id}/learning`)) : undefined,
     settled(loadControls(agent.id)),
     settled(loadOwnComputers()),
-    agent.editable ? settled(loadSchedules(agent.id)) : undefined,
     agent.editable ? settled(loadEvents(agent.id)) : undefined,
     settled(loadRequests(agent.id, agent.editable ? 'visible' : 'mine', 'all')),
     settled(loadTasks('all')),
@@ -49,7 +48,7 @@ async function load(agent: Agent): Promise<AgentSummary> {
     apps: connections.filter(connection => connection.provider !== 'system'),
     servers: connections.filter(connection => connection.provider === 'system'),
     ownComputer: ownComputerOf(own, agent.id), canAddComputer: Boolean(own?.can_change),
-    schedules: schedules?.schedules ?? [], triggers: events?.triggers ?? [],
+    triggers: events?.triggers ?? [],
     requests: requests?.requests ?? [],
     tasks: (tasks?.items ?? []).filter(task => task.agent === agent.id && (task.repeats || task.next_wakeup_ms)),
   };

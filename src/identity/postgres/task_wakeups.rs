@@ -285,8 +285,13 @@ impl PgStore {
                 super::runs::notes_text(&tx, w, &task).await?,
             )
         } else {
+            // A one-time task converted from a schedule (schema 147) says what to do.
+            let what = super::runs::instructions(&tx, w, &task)
+                .await?
+                .map(|text| format!("\nWhat to do: {text}"))
+                .unwrap_or_default();
             format!(
-                "Follow-up · {title}\nYou booked this follow-up for your task \"{title}\" (task {task}){done_when}.{} Check where things stand, do what is due now, then tell the person in one or two sentences. Call close_task when the outcome is reached, or follow_up to check again later.",
+                "Follow-up · {title}\nYou booked this follow-up for your task \"{title}\" (task {task}){done_when}.{} Check where things stand, do what is due now, then tell the person in one or two sentences. Call close_task when the outcome is reached, or follow_up to check again later.{what}",
                 note.map(|n| format!(" Your note: {n}")).unwrap_or_default(),
             )
         };

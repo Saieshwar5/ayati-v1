@@ -6,9 +6,8 @@ import type { Scope, TaskRunState } from './model';
 type Base = { agent: string; agent_name: string; title: string };
 export type CalendarRun = Base & { kind: 'run'; task: string; at: number; state: Exclude<TaskRunState, 'planned'>; detail: string; reply: string | null };
 export type CalendarPlanned = Base & { kind: 'planned'; task: string; at: number; run_kind: 'repeat' | 'follow_up' | 'continue' };
-export type CalendarScheduleRun = Base & { kind: 'schedule_run'; schedule: string; at: number; state: 'done' | 'failed' | 'cancelled' | 'working'; reply: string };
-export type CalendarSchedule = Base & { kind: 'schedule'; schedule: string; at: number };
-export type CalendarItem = CalendarRun | CalendarPlanned | CalendarScheduleRun | CalendarSchedule;
+/** A schedule's runs from before schema 147 come as runs of the task it became. */
+export type CalendarItem = CalendarRun | CalendarPlanned;
 export type Untimed = Base & ({ kind: 'trigger'; trigger: string; detail: string | null } | { kind: 'paused'; task: string; detail: string | null });
 export type CalendarData = { from: number; to: number; now: number; timezone: string; items: CalendarItem[]; untimed: Untimed[] };
 
@@ -52,7 +51,7 @@ export const range = (start: number) => ({ from: start - DAY, to: start + 8 * DA
 
 /** What a past or planned item reads as. */
 export function itemState(item: CalendarItem): { label: string; tone: 'planned' | 'done' | 'problem' | 'quiet' | 'working' } {
-  if (item.kind === 'planned' || item.kind === 'schedule') return { label: item.kind === 'planned' && item.run_kind === 'continue' ? 'Next part' : 'Planned', tone: 'planned' };
+  if (item.kind === 'planned') return { label: item.run_kind === 'continue' ? 'Next part' : 'Planned', tone: 'planned' };
   const labels: Record<string, [string, 'done' | 'problem' | 'quiet' | 'working']> = {
     done: ['Done', 'done'], no_change: ['No change', 'quiet'], failed: ['Failed', 'problem'], blocked: ["Couldn't start", 'problem'],
     missed: ['Missed', 'problem'], skipped: ['Skipped', 'quiet'], cancelled: ['Stopped', 'quiet'], working: ['Working', 'working'],

@@ -163,6 +163,23 @@ pub(super) async fn pause(
     Ok(())
 }
 
+/// Pause a task with `reason`, or resume it and book its next run.
+pub(in crate::identity::postgres) async fn set_paused(
+    tx: &DatabaseTransaction,
+    w: &str,
+    task: &str,
+    paused: Option<&str>,
+) -> Result<()> {
+    match paused {
+        Some(reason) => pause(tx, w, task, reason).await,
+        None => {
+            execute(tx, "UPDATE relay_tasks SET paused_ms=NULL,paused_reason=NULL WHERE workspace=$1 AND id=$2", vec![w.into(), task.into()]).await?;
+            book_next(tx, w, task, now_ms(tx).await?).await?;
+            Ok(())
+        }
+    }
+}
+
 /// How many of the task's last three runs failed.
 async fn failed_in_a_row(tx: &DatabaseTransaction, w: &str, task: &str) -> Result<i64> {
     Ok(query(
@@ -180,6 +197,28 @@ async fn failed_in_a_row(tx: &DatabaseTransaction, w: &str, task: &str) -> Resul
     })
     .transpose()?
     .unwrap_or(0))
+}
+
+/// What each run of the task must do (schema 145), if it says.
+pub(super) async fn instructions(
+    tx: &DatabaseTransaction,
+    w: &str,
+    task: &str,
+) -> Result<Option<String>> {
+    if !super::wakeups::rooms(tx).await? {
+        return Ok(None);
+    }
+    Ok(query(
+        tx,
+        "SELECT instructions FROM relay_tasks WHERE workspace=$1 AND id=$2",
+        vec![w.into(), task.into()],
+    )
+    .await?
+    .and_then(|r| {
+        r.try_get::<Option<String>>("", "instructions")
+            .ok()
+            .flatten()
+    }))
 }
 
 /// The last notes runs left, newest first, as lines for the next run's brief.
@@ -358,19 +397,7 @@ impl PgStore {
                 " This is the last run."
             });
         }
-        if super::wakeups::rooms(tx).await?
-            && let Some(instructions) = query(
-                tx,
-                "SELECT instructions FROM relay_tasks WHERE workspace=$1 AND id=$2",
-                vec![w.into(), task.into()],
-            )
-            .await?
-            .and_then(|r| {
-                r.try_get::<Option<String>>("", "instructions")
-                    .ok()
-                    .flatten()
-            })
-        {
+        if let Some(instructions) = instructions(tx, w, task).await? {
             brief.push_str(&format!("\nWhat to do each run: {instructions}"));
         }
         brief.push_str(&notes_text(tx, w, task).await?);
@@ -427,7 +454,7 @@ pub(crate) async fn after_finish(tx: &DatabaseTransaction, job: &Job, content: &
     {
         let (title, requester, chat): (String, String, String) =
             (row.try_get("", "title")?, row.try_get("", "requester")?, row.try_get("", "chat")?);
-        super::super::work_rooms::post(tx, job, content, &title, &requester, &chat, None).await?;
+        super::super::work_rooms::post(tx, job, content, &title, &requester, &chat, false).await?;
     }
     Ok(())
 }

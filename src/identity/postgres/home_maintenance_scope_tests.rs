@@ -63,11 +63,6 @@ async fn home_maintenance_member_owns_updates_without_agent_management_authority
     db.save_home_agreement(&member, &w, &p.id, &agreement(0, Some(60)))
         .await
         .unwrap();
-    let tx = db.workspace_tx(&w).await.unwrap();
-    super::automation_access::invalidate_inaccessible(&tx, &w)
-        .await
-        .unwrap();
-    tx.commit().await.unwrap();
     let state = panel(&db, &member, &w).await;
     assert!(state["maintenance"]["eligible"] == true);
     assert!(state["maintenance"]["next_ms"].as_i64().is_some());

@@ -3,7 +3,6 @@ use super::*;
 use crate::identity::chat::model::Job;
 
 pub(super) async fn inaccessible(tx: &DatabaseTransaction, w: &str) -> Result<()> {
-    super::automation_access::invalidate_inaccessible(tx, w).await?;
     super::event_dispatch::invalidate_inaccessible(tx, w).await?;
     super::handoff_lifecycle::invalidate_inaccessible(tx, w).await?;
     let event_clause = if super::event_access::exists(tx).await? {

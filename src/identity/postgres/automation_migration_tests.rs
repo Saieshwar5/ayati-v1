@@ -1,12 +1,5 @@
 use super::{tests::*, *};
-use crate::identity::automations::model::due;
 use sea_orm_migration::MigratorTrait;
-#[test]
-fn automation_due_is_anchored_and_coalesces_without_calendar_or_backward_clock_replay() {
-    assert_eq!(due(10000, None, 100000), (10000, None));
-    assert_eq!(due(10000, Some(5), 27777), (25000, Some(30000)));
-    assert_eq!(due(10000, Some(5), 1000), (10000, Some(15000)));
-}
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn automation_upgrade_preserves_v26_profiles_and_sample_receipts_without_dispatch() {
@@ -45,15 +38,12 @@ async fn automation_upgrade_preserves_v26_profiles_and_sample_receipts_without_d
         "Saved before upgrade"
     );
     assert_eq!(db.company_counts(&owner, &w).await.unwrap()["jobs"], 0);
-    assert_eq!(
-        db.schedules(&owner, &w, &a).await.unwrap()["schedules"],
-        serde_json::json!([])
-    );
     assert!(
-        !db.schedules(&owner, &w, &a).await.unwrap()["execution_available"]
+        !db.post_targets(&owner, &w, &a).await.unwrap()["execution_available"]
             .as_bool()
             .unwrap()
     );
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 0);
     assert!(
         db.chat_messages(&owner, &w, &c).await.unwrap()["messages"]
             .as_array()

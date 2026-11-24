@@ -84,3 +84,7 @@ export const eventPath = (agent: string, id?: string) =>
 export const loadEvents = (agent: string) => identityRequest<Events>(eventPath(agent));
 export const loadAppEvents = (connection: string) =>
   identityRequest<{ events: AppEvent[] }>(`/workspaces/${workspaceId}/apps/${encodeURIComponent(connection)}/events`);
+/** Where the agent's owner may post an automation's results, at most 100. */
+export type PostTargets = { conversations: { id: string; name: string; kind: string }[]; more_conversations: boolean; execution_available: boolean };
+export const loadPostTargets = (agent: string) =>
+  identityRequest<PostTargets>(`/workspaces/${workspaceId}/agent-profiles/${encodeURIComponent(agent)}/post-targets`);

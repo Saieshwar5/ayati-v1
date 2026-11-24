@@ -54,7 +54,7 @@ function GeneralForm({ settings, saved }: { settings: WorkspaceSettings; saved: 
       <label className="ui-field">Time zone<select name="timezone" value={zone} onChange={event => setZone(event.target.value)}>
         {!settings.timezone && <option value="">Choose a time zone…</option>}
         {zones.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>
-      <p className="ui-help">Agent tasks, schedules and the clock on Home use this. India time unless you choose another.{zone && timeIn(zone) ? ` It is ${timeIn(zone)} there now.` : ''}</p>
+      <p className="ui-help">Agent tasks and the clock on Home use this. India time unless you choose another.{zone && timeIn(zone) ? ` It is ${timeIn(zone)} there now.` : ''}</p>
     </fieldset>
     {(renamed || moved) && <SaveBar form={form} busy={mutation.busy} disabled={!name.trim()} discard={() => { setName(settings.name); setZone(settings.timezone ?? ''); mutation.setStatus(''); }} />}
     <p className="ui-status" role="status">{mutation.status}</p>

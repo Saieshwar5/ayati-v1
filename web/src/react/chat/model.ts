@@ -49,8 +49,6 @@ export type Message = {
   follow_up?: import('../activity/model').TaskRef | null;
   /** A task run that found nothing to report (schema 144); not shown. */
   quiet?: boolean;
-  /** Routines the agent proposed with this reply (Phase 4), saved only by the person who asked. */
-  routines?: import('./routine-proposal').RoutineProposal[];
   /** Your assistant drafted a new agent with this reply (schema 139); only you get this. */
   agent_setup?: boolean;
   chat?: string; delivered?: number; seen?: number;

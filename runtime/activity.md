@@ -2,8 +2,11 @@
 
 One page for everything agents do (D235, built in M4). It sits in the main menu
 between Chat and Agents (`/w/<workspace-id>/?view=activity`) and reads existing
-records: chat requests, tool actions, approvals, questions, schedule and trigger
-runs, hand-offs and agent setting changes. Opening it never starts work.
+records: chat requests, tool actions, approvals, questions, task, schedule and
+trigger runs, hand-offs and agent setting changes. Opening it never starts work. Since
+schema 147 schedules are tasks: their earlier runs stay in History and show on the
+Calendar as runs of the task they became, and nothing in Activity lists or pauses a
+schedule any more.
 
 ## Views
 
@@ -48,7 +51,7 @@ it is on (it is off on Insights).
     while the keyboard is in the list or the opened item, never from elsewhere on the page.
 - **Work** (`&tab=work`; Now and Tasks until Design A), with **Agents / Tasks** beside the tabs.
   - **Agents**: "While you were away", one flat row per agent (Working, Waiting, Failing,
-    Needs fixing, Paused or Idle with its next schedule run) with its own Pause, How to
+    Needs fixing, Paused or Idle with its next task run) with its own Pause, How to
     fix it and Set up, and requests running now with **Stop**. An agent's name opens it
     beside the list: what waits on you (each opening its row in Needs you), what it is
     doing, what comes up in the next day, today's count and **All history**. It follows
@@ -57,7 +60,8 @@ it is on (it is off on Insights).
     fixing first), with each task's details, steps and closing. See [tasks](tasks.md).
     `&task=<id>` opens one.
 - **Calendar** (`&tab=planned`; Planned until schema 144, Upcoming until Design A; see [tasks](tasks.md#since-schema-144-tasks-with-a-lifetime)): a week of what agents did and will do on their own; its **List** is the earlier Planned list, what agents will do on their own,
-  from a "Now" line on. See [shared agent schedules](shared-agent-schedules.md).
+  from a "Now" line on: triggers, follow-ups and booked task runs (no schedules since
+  schema 147).
 - **History** (`&tab=history`): filters in one row (period, agent, person, where,
   type, status) plus search; the period's totals as one line, where **N need a look**
   sets the status filter; a timeline grouped by day with **Show older**. In a wide
@@ -192,7 +196,8 @@ and admins; with My agents, the agents they own):
   working on my last request: …"); a stopped request carries nothing. Request details
   list what was added and whether the agent read it. At most 20 per request, 2,000
   characters each; never on a finished request.
-- **Routines from Chat** (T3): for something that repeats, the agent calls
+- **Routines from Chat** (T3, retired: since schema 144 agents create repeating tasks, and
+  since schema 147 old proposals no longer show): for something that repeats, the agent calls
   `propose_schedule {name, instructions, first_in_minutes, every_minutes?}` (every hour to
   every 30 days, or once; at most three per request). It shows under the agent's reply
   ("Routine: Monday sales summary · Every week, first Mon 9:00") and is saved only when

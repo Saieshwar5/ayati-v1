@@ -93,26 +93,6 @@ pub(super) async fn scopes(
     );
     Ok(json!(scopes))
 }
-pub(super) async fn panel_schedule(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<bool> {
-    if !query(
-        db,
-        "SELECT to_regclass('relay_home_schedule_bindings') IS NOT NULL AS ready",
-        vec![],
-    )
-    .await?
-    .unwrap()
-    .try_get::<bool>("", "ready")?
-    {
-        return Ok(false);
-    }
-    Ok(query(
-        db,
-        "SELECT schedule FROM relay_home_schedule_bindings WHERE workspace=$1 AND schedule=$2",
-        vec![w.into(), id.into()],
-    )
-    .await?
-    .is_some())
-}
 impl PgStore {
     pub(crate) async fn home_maintenance_tool(&self, job: &Job, tool: &str) -> Result<()> {
         if active(&self.db, job).await?.is_some() {

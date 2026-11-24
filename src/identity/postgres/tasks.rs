@@ -1,7 +1,7 @@
 //! Tasks (people-and-agents-first, Phase 2): a task is a promise with an outcome.
 //!
 //! The platform opens an automatic task when a request changes a real system,
-//! waits for someone, or starts from a schedule or event; it closes with that
+//! waits for someone, or starts from an event; it closes with that
 //! request. An agent opens a commitment with `create_task` when it promises
 //! something that outlives its reply, attaches later work with `attach_to_task`
 //! and closes it with `close_task`. A person can turn a request into a task.
@@ -16,6 +16,9 @@ use serde_json::json;
 mod change_tests;
 #[path = "task_changes.rs"]
 pub(crate) mod changes;
+#[cfg(test)]
+#[path = "schedules_to_tasks_tests.rs"]
+mod conversion_tests;
 #[cfg(test)]
 #[path = "task_lifetimes_tests.rs"]
 pub(in crate::identity::postgres) mod lifetime_tests;
@@ -110,7 +113,7 @@ pub(super) async fn available(db: &impl ConnectionTrait) -> Result<bool> {
 }
 
 /// Open an automatic task for `job` unless it already works towards one. Called in
-/// the same transaction as the write, question, hand-off, schedule run or event
+/// the same transaction as the write, question, hand-off or event
 /// that makes it a task. A Home panel refresh is a panel update, never a task.
 pub(super) async fn ensure_automatic(
     tx: &DatabaseTransaction,
@@ -124,8 +127,6 @@ pub(super) async fn ensure_automatic(
         tx,
         "SELECT j.task,EXISTS(SELECT 1 FROM relay_home_update_runs hu WHERE hu.workspace=j.workspace AND hu.reply=j.reply) AS panel,
           COALESCE(
-           (SELECT s.name FROM relay_schedule_occurrences o JOIN relay_agent_schedules s ON s.workspace=o.workspace AND s.id=o.schedule
-             WHERE o.workspace=j.workspace AND o.reply=j.reply),
            (SELECT t.source_definition->>'name' FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id
              WHERE d.workspace=j.workspace AND d.reply=j.reply),
            (SELECT m.content FROM relay_chat_messages m WHERE m.workspace=j.workspace AND m.id=j.request_message),
@@ -160,6 +161,30 @@ pub(super) async fn ensure_automatic(
     )
     .await?;
     Ok(())
+}
+
+/// A repeating task Cuckoo makes for `person` when they turn something on (an
+/// agent's weekly review): it works in its own new work room and shows only in
+/// Activity. Its first run is booked at `first_ms`. Returns the task's id.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn create_repeating(
+    tx: &DatabaseTransaction,
+    w: &str,
+    agent: &str,
+    person: &str,
+    title: &str,
+    instructions: &str,
+    rule: &rules::Rule,
+    first_ms: i64,
+) -> Result<String> {
+    let room = super::work_rooms::open(tx, w, title, "Runs of a task", person, agent).await?;
+    let id = uuid::Uuid::new_v4().to_string();
+    execute(tx, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,created_by,instructions,repeat,anchor_ms)
+        VALUES($1,$2,$3,'commitment','person',$4,$5,$6,$5,$7,$8,$9)",
+        vec![w.into(), id.clone().into(), agent.into(), title.into(), person.into(), room.into(), instructions.into(),
+            serde_json::to_value(rule)?.into(), first_ms.into()]).await?;
+    runs::book_run(tx, w, &id, first_ms).await?;
+    Ok(id)
 }
 
 /// A task the agent of `job` may work on: its own, for the same person or in the

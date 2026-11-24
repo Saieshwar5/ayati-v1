@@ -76,4 +76,6 @@ next starts.
 6. Leftovers removed; docs and the full suites.
 
 Built: step 1 (schema 145); step 2 (schema 146, `m20261124_000146_panel_intervals`):
-panel intervals run on the panel's own update queue and panel schedules are paused.
+panel intervals run on the panel's own update queue and panel schedules are paused;
+step 3 (schema 147, `m20261124_000147_schedules_to_tasks`): every other schedule is a task,
+and the schedule engine, API, proposals and screens are removed.

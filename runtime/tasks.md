@@ -1,5 +1,48 @@
 # Tasks (schema 58; lifetimes, schema 144)
 
+## Since schema 147: schedules are tasks
+
+Built 2026-11-24, step 3 of [one system](../designs/agent-tasks/one-system.md) (decision
+4). Migration `m20261124_000147_schedules_to_tasks` made every schedule that is not a Home
+panel update (`relay_home_schedule_bindings`; schema 146 moved those to the panel's queue)
+a commitment task with `origin='schedule'`:
+
+- **What it keeps.** Title = name; `instructions` = content; for = its person; the agent;
+  `timezone` = its zone; `anchor_ms` = its first run; `schedule` = the old id; `runs` = its
+  number of runs; its created time.
+- **Its rule**, from the interval: whole weeks → weekly on the first run's local weekday
+  and time; whole days → daily at that time; whole hours that divide a day → hourly
+  `from` the same minute (every 2 hours from 09:30 → `from` 01:30); anything else → a
+  minute rule with the exact period (it may exceed 1,440 minutes; Cuckoo reads and shows
+  it, "Every 36 hours", though an agent can still only give 15 to 1,440). One-time: no rule.
+- **Where it runs and posts** (the channel rule): with a post target, `chat` = that
+  conversation and `room` = its work room (opened if it never ran); without one, `chat` =
+  its work room and `room` empty, so it shows only in Activity. Each run's result is
+  posted as before; a run that answers `NO_CHANGE` posts nothing.
+- **State.** Enabled: its next run booked at the old `next_ms` (`repeat`, or `follow_up`
+  for a one-time one, whose brief now carries the instructions). Paused: a paused task
+  ("Paused before it became a task."). Blocked: paused with the schedule's reason.
+  Completed: done.
+- **Earlier runs** are linked to the task (`relay_chat_jobs.task`; an automatic task left
+  with no requests is deleted). Activity › Calendar shows them as runs of the task;
+  request details name the task (`schedule.task`). `relay_schedule_occurrences` and run
+  receipts stay readable.
+- **The schedule row** gets `task` and is marked `state='completed'`, `next_ms` empty,
+  `detail='Moved to a task.'`; nothing runs schedules any more.
+- **Weekly reviews** (Activity › Insights) are tasks: turning one on makes a weekly task
+  "Weekly review" for that person in its own work room (`relay_review_routines.task`);
+  off pauses it, on resumes it.
+- **Posting rights.** A task's posts need its person to be allowed to ask the agent there,
+  not to look after the agent (triggers still need that).
+
+Removed: the schedule dispatcher, the schedule create/details/state/runs API (the
+agent's conversations for posting moved to `GET …/agent-profiles/{a}/post-targets`),
+schedule proposals in Chat and their cards, schedule items in Needs fixing, Coming up and
+Planned, the schedule half of New automation (At a time now opens Chat) and the agent
+page's schedule list. Checks: PostgreSQL `tasks::conversion_tests` (each kind of schedule
+converted, panel schedules left, old runs linked, the next run through the task engine
+in its room posting to its old target), `work_rooms::tests`, `getting_better` weekly review.
+
 ## Since schema 144: tasks with a lifetime
 
 Built 2026-11-24 from [designs/agent-tasks](../designs/agent-tasks/README.md). The rule:
@@ -10,8 +53,8 @@ Built 2026-11-24 from [designs/agent-tasks](../designs/agent-tasks/README.md). T
   immediately, with no confirmation card; the agent says what it will do, when it runs
   next and what ends it. `change_task` changes the title, `done_when`, the rule, the
   first run, the end date or the run count, or pauses and resumes it. Agents may also
-  create such a task on their own and say so. `propose_schedule` is retired: drafts
-  proposed before schema 144 can still be saved or dismissed under their reply.
+  create such a task on their own and say so. `propose_schedule` is retired; since schema
+  147 drafts proposed before schema 144 no longer show.
 - **The rule** (`relay_tasks.repeat`): `unit` hour, day, week or month; `every`; `at`
   (local `HH:MM`); `days` (ISO weekdays) for weeks; `day_of_month` (1–31, -1 for the
   last day; past a short month's end it runs on its last day) for months; `from`/`to`
@@ -51,14 +94,14 @@ People:
   and, for the person it is for, **Undo** (cancels it).
 - **Activity › Calendar** (replaces Planned): a week of runs in the workspace's time zone,
   past (done, failed, no change, skipped, missed) and planned (every booked run and the
-  rule's later runs, schedules' later runs); triggers and paused tasks beside it. **List**
-  keeps Planned's list with Pause and Resume for schedules and triggers; old
-  `tab=upcoming` links open it.
+  rule's later runs; since schema 147 a converted schedule's earlier runs as its task's runs);
+  triggers and paused tasks beside it. **List** keeps Planned's list for triggers,
+  follow-ups and booked runs; old `tab=upcoming` links open it.
 - **Task details**: the rule as one sentence, next run, runs so far, each run with what came
   of it, the agent's notes, **Pause** or **Resume**, **Skip next run** and **End task**, for
   the person it is for, the agent's owners and admins. Changes are asked for in chat.
-- **Agent page › On its own**: its open tasks that run on their own, then its schedules and
-  triggers, and a link to the Calendar.
+- **Agent page › On its own**: its open tasks that run on their own (converted schedules
+  among them), then its triggers, and a link to the Calendar.
 
 API: `GET …/activity/calendar?from&to&scope` (six weeks at most), `POST
 …/activity/tasks/{id}/pause {paused}`, `POST …/activity/tasks/{id}/skip`, `GET/POST
@@ -74,7 +117,7 @@ the line under the reply); guest `task_schema`; web `tests/agent-tasks.test.mjs`
 Not built: conditions Cuckoo checks itself in a connected app (the agent checks
 `done_when` at each run), reading an action back to confirm "done", a spending limit per
 task (spending isn't recorded per request while the model gateway is off), briefs and
-alerts outside the app, moving schedules and event triggers into tasks, a time zone per
+alerts outside the app, moving event triggers into tasks (schedules moved in schema 147), a time zone per
 agent, and runs with a real model.
 
 The sections below describe the original increment.

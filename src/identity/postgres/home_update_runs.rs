@@ -26,68 +26,6 @@ pub(super) async fn bind(db: &impl ConnectionTrait, w: &str, panel: &str, job: &
     intervals::book(db, w, panel, true).await?;
     living::claim_direct(db, w, panel, &job.reply).await
 }
-pub(super) async fn schedule_authority(
-    tx: &DatabaseTransaction,
-    user: &User,
-    w: &str,
-    sid: &str,
-) -> Result<()> {
-    let row = query(
-        tx,
-        "SELECT panel FROM relay_home_schedule_bindings WHERE workspace=$1 AND schedule=$2",
-        vec![w.into(), sid.into()],
-    )
-    .await?
-    .context("Panel routine unavailable")?;
-    let p =
-        super::home_maintenance::owned(tx, user, w, &row.try_get::<String>("", "panel")?).await?;
-    ensure!(
-        p["maintenance"]["enabled"] == true && p["maintenance"]["schedule"] == sid,
-        "Panel routine was replaced or paused"
-    );
-    super::home_maintenance::authorized(tx, user, w, &p).await
-}
-pub(super) async fn schedule_ready(tx: &DatabaseTransaction, w: &str, sid: &str) -> Result<bool> {
-    if !super::home_update_access::panel_schedule(tx, w, sid).await? {
-        return Ok(true);
-    }
-    let Some(row)=query(tx,"SELECT p.id,p.owner_id FROM relay_home_panels p JOIN relay_home_maintenance u ON u.workspace=p.workspace AND u.panel=p.id WHERE u.workspace=$1 AND u.schedule=$2 AND u.enabled",vec![w.into(),sid.into()]).await? else {return Ok(false)};
-    let person = User {
-        id: row.try_get("", "owner_id")?,
-        email: String::new(),
-        display_name: None,
-    };
-    let panel: String = row.try_get("", "id")?;
-    let p = super::home_maintenance::owned(tx, &person, w, &panel).await?;
-    if let Err(error) = super::home_maintenance::authorized(tx, &person, w, &p).await {
-        if error.is::<sea_orm::DbErr>() {
-            return Err(error);
-        }
-        execute(tx,"UPDATE relay_agent_schedules SET state='blocked',revision=revision+1,detail='Panel source or agreement changed. Review its updates on Home.' WHERE workspace=$1 AND id=$2",vec![w.into(),sid.into()]).await?;
-        return Ok(false);
-    }
-    Ok(unfinished(tx, w, &panel).await?.is_none())
-}
-pub(super) async fn bind_schedule(
-    db: &impl ConnectionTrait,
-    w: &str,
-    sid: &str,
-    job: &Job,
-) -> Result<()> {
-    if !super::home_update_access::panel_schedule(db, w, sid).await? {
-        return Ok(());
-    }
-    if let Some(r) = query(
-        db,
-        "SELECT panel FROM relay_home_schedule_bindings WHERE workspace=$1 AND schedule=$2",
-        vec![w.into(), sid.into()],
-    )
-    .await?
-    {
-        bind(db, w, &r.try_get::<String>("", "panel")?, job).await?;
-    }
-    Ok(())
-}
 impl PgStore {
     pub(crate) async fn update_home_panel(
         &self,

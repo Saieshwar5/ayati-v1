@@ -1,7 +1,9 @@
-//! Activity › Upcoming: the people who look after an agent see what it will do on its
-//! own; a schedule posting in a conversation is seen only by people in it.
-use crate::identity::postgres::automation_tests::{schedule, setup};
-use crate::identity::postgres::tests::{chat, join, user};
+//! Activity › Calendar › List: the people who look after an agent, and the person a
+//! task is for, see the runs it booked. Schedules became tasks in schema 147 and
+//! are never listed as schedules.
+use crate::identity::postgres::automation_tests::setup;
+use crate::identity::postgres::execute;
+use crate::identity::postgres::tests::{join, user};
 use serde_json::Value;
 
 fn titles(page: &Value, kind: &str) -> Vec<String> {
@@ -16,12 +18,12 @@ fn titles(page: &Value, kind: &str) -> Vec<String> {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn upcoming_lists_what_runs_on_its_own_for_the_people_who_may_see_it() {
-    let (db, owner, w, _, agent) = setup().await;
+async fn upcoming_lists_booked_task_runs_for_the_people_who_may_see_them() {
+    let (db, owner, w, c, agent) = setup().await;
     let admin = user(&db, "upcoming-admin").await;
     let member = user(&db, "upcoming-member").await;
     join(&db, &owner, &w, &admin, "Member").await;
-    crate::identity::postgres::execute(
+    execute(
         &db.db,
         "UPDATE relay_members SET role='Admin' WHERE workspace=$1 AND user_id=$2",
         vec![w.clone().into(), admin.id.clone().into()],
@@ -30,66 +32,26 @@ async fn upcoming_lists_what_runs_on_its_own_for_the_people_who_may_see_it() {
     .unwrap();
     join(&db, &owner, &w, &member, "Member").await;
 
-    let mut open = schedule("unused", Some(86_400));
-    open.chat = None;
-    open.name = "Morning stock check".into();
-    db.save_schedule(&owner, &w, &agent, &open).await.unwrap();
-    // Posts in the owner's own conversation with the agent, which the admin isn't in.
-    let private_chat = chat(&db, &owner, &w, vec![], vec![agent.clone()]).await;
-    let mut private = schedule(&private_chat, None);
-    private.name = "Private summary".into();
-    db.save_schedule(&owner, &w, &agent, &private)
-        .await
-        .unwrap();
-    let paused = db
-        .change_schedule(
-            &owner,
-            &w,
-            &agent,
-            &private.id,
-            &crate::identity::automations::model::Change {
-                request: uuid::Uuid::new_v4().to_string(),
-                revision: 1,
-                enabled: false,
-            },
-        )
-        .await
-        .unwrap();
-    assert_eq!(paused["state"], "paused");
+    let task = uuid::Uuid::new_v4().to_string();
+    execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,repeat,anchor_ms) VALUES($1,$2,$3,'commitment','schedule','Morning stock check',$4,$5,'{\"unit\":\"day\",\"at\":\"09:00\"}',1)",
+        vec![w.clone().into(), task.clone().into(), agent.clone().into(), owner.id.clone().into(), c.clone().into()]).await.unwrap();
+    execute(&db.db, "INSERT INTO relay_task_wakeups(workspace,id,task,due_ms,kind) VALUES($1,$2,$3,(extract(epoch FROM clock_timestamp())*1000)::bigint+3600000,'repeat')",
+        vec![w.clone().into(), uuid::Uuid::new_v4().to_string().into(), task.clone().into()]).await.unwrap();
+    // A schedule row left from before schema 147 is never listed.
+    execute(&db.db, "INSERT INTO relay_agent_schedules(workspace,id,agent,principal,chat,name,content,first_ms,interval_seconds,timezone,request_hash,next_ms) VALUES($1,$2,$3,$4,NULL,'Old schedule','Old',$5,86400,'Asia/Kolkata',$2,$5)",
+        vec![w.clone().into(), uuid::Uuid::new_v4().to_string().into(), agent.clone().into(), owner.id.clone().into(), (crate::identity::now() * 1000 + 60000).into()]).await.unwrap();
 
     let mine = db.activity_upcoming(&owner, &w, None).await.unwrap();
-    let mut listed = titles(&mine, "schedule");
-    listed.sort();
-    assert_eq!(
-        listed,
-        vec!["Morning stock check", "Private summary"],
-        "a paused one still shows"
-    );
-    let private_row = mine["items"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|i| i["title"] == "Private summary")
-        .unwrap();
-    assert_eq!(private_row["state"], "paused");
-    assert_eq!(private_row["own"], true);
-
+    assert_eq!(titles(&mine, "follow_up"), vec!["Morning stock check"]);
+    assert!(titles(&mine, "schedule").is_empty());
     let theirs = db.activity_upcoming(&admin, &w, Some("all")).await.unwrap();
-    assert_eq!(
-        titles(&theirs, "schedule"),
-        vec!["Morning stock check"],
-        "a schedule posting where the admin isn't stays private"
-    );
-    assert_eq!(
-        theirs["items"][0]["own"], false,
-        "only its person resumes it"
-    );
+    assert_eq!(titles(&theirs, "follow_up"), vec!["Morning stock check"]);
     let narrowed = db
         .activity_upcoming(&admin, &w, Some("mine"))
         .await
         .unwrap();
     assert!(
-        titles(&narrowed, "schedule").is_empty(),
+        narrowed["items"].as_array().unwrap().is_empty(),
         "My agents: only agents the admin manages"
     );
     let outsider = db.activity_upcoming(&member, &w, None).await.unwrap();

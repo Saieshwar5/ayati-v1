@@ -123,7 +123,7 @@ test('the Calendar shows a week in India time, what has no time beside it, and k
     assert.notEqual(next, first, 'the next week asks for its own window');
     await update(() => button('List').click());
     await settle(update);
-    assert.ok(reads.some(path => path.includes('/activity/upcoming')), 'the list keeps Pause and Resume for schedules');
+    assert.ok(reads.some(path => path.includes('/activity/upcoming')), 'the list keeps Pause for triggers and follow-ups');
   }, { url: `http://localhost/w/${w}/?view=activity&tab=planned`, fetch: async path => {
     reads.push(path);
     if (path.endsWith('/session')) return response(session);

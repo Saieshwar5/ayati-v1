@@ -113,25 +113,32 @@ async fn goals_reviews_and_measures_follow_the_agents_work() {
     assert_eq!(agent["tasks"], 1);
     assert_eq!(agent["open"], 1);
     assert!(agent["requests"].as_i64().unwrap() >= 1);
-    // Weekly review: a weekly routine the manager can turn off again.
+    // Weekly review: a weekly task in its own room the manager can turn off again.
     let on = db
         .set_weekly_review(&owner, &w, &job.agent, true)
         .await
         .unwrap();
-    let interval: i64 = query(
+    let task = on["task"].as_str().unwrap().to_string();
+    let made = query(
         &db.db,
-        "SELECT interval_seconds FROM relay_agent_schedules WHERE id=$1",
-        vec![on["schedule"].as_str().unwrap().into()],
+        "SELECT t.repeat->>'unit' AS unit,t.instructions LIKE 'Write your weekly review%' AS review,c.work,
+          (SELECT k.due_ms FROM relay_task_wakeups k WHERE k.task=t.id AND k.state='pending')-(extract(epoch FROM clock_timestamp())*1000)::bigint AS wait
+         FROM relay_tasks t JOIN relay_chats c ON c.workspace=t.workspace AND c.id=t.chat WHERE t.id=$1",
+        vec![task.clone().into()],
     )
     .await
     .unwrap()
-    .unwrap()
-    .try_get("", "interval_seconds")
     .unwrap();
-    assert_eq!(interval, 604_800);
+    assert_eq!(made.try_get::<String>("", "unit").unwrap(), "week");
+    assert!(
+        made.try_get::<bool>("", "review").unwrap() && made.try_get::<bool>("", "work").unwrap()
+    );
+    let wait = made.try_get::<i64>("", "wait").unwrap();
+    assert!((604_700_000..=604_800_000).contains(&wait), "{wait}");
+    let weekly = db.activity_review(&owner, &w, 30, None).await.unwrap()["weekly"][0].clone();
     assert_eq!(
-        db.activity_review(&owner, &w, 30, None).await.unwrap()["weekly"][0]["enabled"],
-        true
+        (weekly["enabled"].clone(), weekly["task"].clone()),
+        (json!(true), json!(task))
     );
     db.set_weekly_review(&owner, &w, &job.agent, false)
         .await
@@ -139,6 +146,16 @@ async fn goals_reviews_and_measures_follow_the_agents_work() {
     assert_eq!(
         db.activity_review(&owner, &w, 30, None).await.unwrap()["weekly"][0]["enabled"],
         false
+    );
+    // On again: the same task resumes.
+    let again = db
+        .set_weekly_review(&owner, &w, &job.agent, true)
+        .await
+        .unwrap();
+    assert_eq!(again["task"], task.as_str());
+    assert_eq!(
+        db.activity_review(&owner, &w, 30, None).await.unwrap()["weekly"][0]["enabled"],
+        true
     );
     // Someone who only talks to the agent sees nothing to review and can't set goals.
     let member = user(&db, "better-viewer").await;

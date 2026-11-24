@@ -70,10 +70,6 @@ pub(super) fn routes() -> Router<Shared> {
             "/api/identity/workspaces/{w}/activity/tasks/{id}/steer",
             post(steer_task),
         )
-        .route(
-            "/api/identity/workspaces/{w}/activity/routine-proposals/{id}",
-            post(decide_routine),
-        )
         .merge(super::activity_review::routes())
 }
 #[derive(Deserialize)]
@@ -105,25 +101,6 @@ async fn steer_task(
     let user = identity(&app, &headers).await?;
     Ok(Json(
         app.store.steer_task(&user, &w, &id, &input.text).await?,
-    ))
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RoutineDecision {
-    save: bool,
-}
-/// Save or dismiss a routine an agent proposed in Chat (the person who asked).
-async fn decide_routine(
-    State(app): State<Shared>,
-    RoutePath((w, id)): RoutePath<(String, String)>,
-    headers: HeaderMap,
-    Json(input): Json<RoutineDecision>,
-) -> ApiResult<Json<Value>> {
-    let user = identity(&app, &headers).await?;
-    Ok(Json(
-        app.store
-            .decide_schedule_draft(&user, &w, &id, input.save)
-            .await?,
     ))
 }
 /// Coming up: stop a booked follow-up (the person it's for, the agent's owner, admins).

@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until } from './fixtures/polling.mjs';
+import { dueTask, startedRun, startedRuns } from './fixtures/due_task.mjs';
 
 // One web controller and one work controller share a database and nothing else
 // (runtime/controller-roles.md). The provider is scripted; no paid model is used.
@@ -75,18 +75,13 @@ test('a web controller and a work controller share work through the database alo
   await reader.cancel();
   app.pass('Web streams a reply live although another process produced it');
 
-  // A schedule created through web fires on work, the only scheduler.
-  const dueOnce = async (name, first_ms) => {
-    const id = randomUUID();
-    await app.request(`${path}/agent-profiles/${app.profile.id}/schedules`, app.cookie, { id, chat, name,
-      content: 'Report once', first_ms, interval_seconds: 3600, timezone: 'UTC' });
-    return id;
-  };
-  const occurrences = id => app.sql(`SELECT count(*) FROM relay_schedule_occurrences WHERE schedule='${id}'`);
+  // A task run that comes due starts on work, the only scheduler (schedules became
+  // tasks in schema 147).
+  const dueOnce = async (name, dueMs) => (await dueTask(app, { chat, name, dueMs })).task;
   const schedule = await dueOnce('Split check', Date.now() + 2500);
-  await until(() => occurrences(schedule) === '1', 'Schedule did not fire', 20000);
-  await completed({ reply: app.sql(`SELECT reply FROM relay_schedule_occurrences WHERE schedule='${schedule}'`) });
-  app.pass('A schedule saved through web fires once on the work controller');
+  await until(() => startedRuns(app, schedule) === '1', 'The task run did not start', 20000);
+  await completed({ reply: startedRun(app, schedule) });
+  app.pass('A task run that comes due starts once on the work controller');
 
   // Work is lost mid-reply: web keeps serving, and a replacement finishes the reply.
   app.provider.setHeld(true);
@@ -106,15 +101,15 @@ test('a web controller and a work controller share work through the database alo
   assert.equal(app.sql(`SELECT count(*) FROM relay_worker_assignments WHERE reply='${held.reply}' AND outcome='complete'`), '1');
   app.pass('A replacement work controller finishes the interrupted reply once and runs what waited');
 
-  // Web is lost: work keeps running schedules; web returns and shows the result.
+  // Web is lost: work keeps running tasks; web returns and shows the result.
   const unattended = await dueOnce('While web is down', Date.now() + 4000);
   await app.stopApi();
-  await until(() => occurrences(unattended) === '1', 'Schedule did not fire without web', 25000);
-  const ran = { reply: app.sql(`SELECT reply FROM relay_schedule_occurrences WHERE schedule='${unattended}'`) };
+  await until(() => startedRuns(app, unattended) === '1', 'The task run did not start without web', 25000);
+  const ran = { reply: startedRun(app, unattended) };
   await completed(ran);
   await app.startApi();
   assert.equal((await app.request('/api/identity/session', app.cookie)).value.user.id.length > 0, true);
-  app.pass('Without a web controller, the work controller still runs schedules to completion');
+  app.pass('Without a web controller, the work controller still runs task runs to completion');
 
   await app.stop(executor); await app.stop(work.record);
 });

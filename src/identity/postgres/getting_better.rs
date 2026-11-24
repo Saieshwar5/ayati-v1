@@ -11,7 +11,7 @@
 //!   than the admin's rule; it's shown on the Tools tab and can be undone there.
 //! - **Goals** per agent (name, target, unit, week or month) with progress and risk
 //!   the agent reports (`my_goals`, `update_goal`).
-//! - **Weekly review:** a weekly routine in which the agent writes what it did, what
+//! - **Weekly review:** a weekly task in which the agent writes what it did, what
 //!   went wrong, what it learned and one suggested change (`write_review`).
 use super::super::super::*;
 use crate::identity::chat::model::Job;
@@ -23,6 +23,8 @@ pub(in crate::identity::postgres) mod migration;
 #[cfg(test)]
 #[path = "getting_better_tests.rs"]
 mod tests;
+#[path = "getting_better_weekly.rs"]
+mod weekly;
 
 /// The agents this person can fix: $1 workspace, $2 person, $3 admin, $4 scope.
 const FIXERS: &str =
@@ -107,8 +109,6 @@ fn line(text: &str, max: usize, what: &str) -> Result<String> {
     Ok(text.to_string())
 }
 
-const REVIEW: &str = "Write your weekly review for your owner. Look back over the last seven days of your requests and tasks, then call write_review once: done (what you finished), went_wrong (what failed or needed a person, and why), learned (what you'd do differently) and, if useful, suggestion (one change to your instructions or skills for a manager to approve). Plain, short sentences; no new work.";
-
 impl PgStore {
     /// Activity → Review: measures, rule suggestions, goals and weekly reviews.
     pub(crate) async fn activity_review(
@@ -171,8 +171,7 @@ impl PgStore {
               'learned',r.learned,'suggestion',r.suggestion,'at',r.created_ms,'request',r.job) AS data
             FROM relay_agent_reviews r JOIN f ON f.id=r.agent WHERE r.workspace=$1 AND r.created_ms>{NOW}-$5::bigint*86400000
             ORDER BY r.created_ms DESC LIMIT 30"), args()).await?;
-        let weekly = json_rows(&tx, &format!("{FIXERS} SELECT jsonb_build_object('agent',f.id,'enabled',s.state='enabled','schedule',s.id,'next_ms',s.next_ms) AS data
-            FROM relay_review_routines rr JOIN f ON f.id=rr.agent JOIN relay_agent_schedules s ON s.workspace=rr.workspace AND s.id=rr.schedule WHERE rr.workspace=$1"), args()[..4].to_vec()).await?;
+        let weekly = weekly::list(&tx, &args()[..4]).await?;
         tx.commit().await?;
         Ok(
             json!({"available": true, "days": days, "agents": agents, "people": people, "suggestions": suggestions, "goals": goals, "reviews": reviews, "weekly": weekly}),
@@ -311,71 +310,6 @@ impl PgStore {
         audit(&tx, &user.id, Some(w), "agent_goal_archived", id).await?;
         tx.commit().await?;
         Ok(())
-    }
-
-    /// Weekly review on or off: a weekly routine for the agent, run as the person
-    /// who turned it on, in its own work room.
-    pub(crate) async fn set_weekly_review(
-        &self,
-        user: &User,
-        w: &str,
-        agent: &str,
-        enabled: bool,
-    ) -> Result<Value> {
-        let tx = self.workspace_tx(w).await?;
-        ensure!(
-            available(&tx).await?,
-            "Weekly reviews need the latest workspace database"
-        );
-        self.fixer(&tx, user, w, agent).await?;
-        let current = query(&tx, "SELECT s.id,s.revision,s.state FROM relay_review_routines rr JOIN relay_agent_schedules s ON s.workspace=rr.workspace AND s.id=rr.schedule WHERE rr.workspace=$1 AND rr.agent=$2",
-            vec![w.into(), agent.into()]).await?;
-        tx.commit().await?;
-        if let Some(row) = current {
-            let id: String = row.try_get("", "id")?;
-            let state: String = row.try_get("", "state")?;
-            if (state == "enabled") != enabled {
-                self.change_schedule(
-                    user,
-                    w,
-                    agent,
-                    &id,
-                    &crate::identity::automations::model::Change {
-                        request: uuid::Uuid::new_v4().to_string(),
-                        revision: row.try_get("", "revision")?,
-                        enabled,
-                    },
-                )
-                .await?;
-            }
-            return Ok(json!({"schedule": id, "enabled": enabled}));
-        }
-        ensure!(enabled, "Weekly review is already off");
-        let zone = query(
-            &self.db,
-            "SELECT to_jsonb(w)->>'timezone' AS tz FROM relay_workspaces w WHERE id=$1",
-            vec![w.into()],
-        )
-        .await?
-        .and_then(|r| r.try_get::<Option<String>>("", "tz").ok().flatten())
-        .unwrap_or_else(|| "UTC".into());
-        let id = uuid::Uuid::new_v4().to_string();
-        let schedule = crate::identity::automations::model::Schedule {
-            id: id.clone(),
-            chat: None,
-            name: "Weekly review".into(),
-            content: REVIEW.into(),
-            first_ms: (now() + 7 * 86400) * 1000,
-            interval_seconds: Some(7 * 86400),
-            timezone: zone,
-            memory: None,
-        };
-        self.save_schedule(user, w, agent, &schedule).await?;
-        let tx = self.workspace_tx(w).await?;
-        execute(&tx, "INSERT INTO relay_review_routines(workspace,agent,schedule) VALUES($1,$2,$3) ON CONFLICT(workspace,agent) DO UPDATE SET schedule=excluded.schedule",
-            vec![w.into(), agent.into(), id.clone().into()]).await?;
-        tx.commit().await?;
-        Ok(json!({"schedule": id, "enabled": true}))
     }
 
     /// Home (HP7): questions this person keeps asking an agent, which a panel could

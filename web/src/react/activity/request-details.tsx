@@ -4,7 +4,6 @@ import './activity.css';
 import { Button, Dialog } from '../ui';
 import { errorMessage, useMutation } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
-import { cadence, changeSchedule } from '../agents/automation/model';
 import { conversationUrl, dayLabel, clock, loadDetails, makeTask, retryRequest, status, stopRequest, taskLabels, taskUrl, where, type Details, steerRequest } from './model';
 import { openAgentChat } from '../chat/direct-conversation';
 import { workspaceSession } from '../../workspace-context';
@@ -30,12 +29,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
   const data = state.data;
   const shown = data && status(data);
   const stop = (item: Details) => void mutation.run(async () => { await stopRequest(item); mutation.setStatus('Stop requested.'); setVersion(v => v + 1); });
-  const pause = (item: Details) => void mutation.run(async () => {
-    const schedule = item.schedule!;
-    await changeSchedule(schedule.agent, schedule.id, { request: crypto.randomUUID(), revision: schedule.revision, enabled: false });
-    mutation.setStatus('Schedule paused. Resume it on the agent\'s Automations tab.'); setVersion(v => v + 1);
-  });
-  // A run in its schedule's own room has no conversation to open.
+  // A run in its own work room has no conversation to open.
   const room = Boolean(data?.schedule?.room || data?.trigger?.room);
   const me = workspaceSession?.user?.id;
   const failed = data?.state === 'failed' || data?.state === 'interrupted';
@@ -61,7 +55,7 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
       <dl className="activity-facts">
         <dt>Agent</dt><dd>{data.agent_name}</dd>
         {data.schedule ? <>
-          <dt>Started by</dt><dd>Schedule · {data.schedule.name} · {cadence(data.schedule.interval_seconds)}</dd>
+          <dt>Started by</dt><dd>Schedule · {data.schedule.name}{data.schedule.task ? <> · now <a href={taskUrl(data.schedule.task)}>a task</a></> : ''}</dd>
           <dt>Set up by</dt><dd>{data.requester_name ?? 'Former member'}</dd>
           <dt>Results</dt><dd>{data.schedule.post_to ? `Activity, and a summary in ${data.schedule.post_to}` : 'Activity only'}
             {data.schedule.posted === 'posted' && ' · Posted'}{data.schedule.posted === 'skipped' && ` · Not posted: ${data.schedule.post_reason ?? ''}`}</dd>
@@ -102,7 +96,6 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
         send={text => steerRequest(data.id, text)} sent={() => setVersion(v => v + 1)} />}
       <div className="activity-detail-actions">
         {data.can_cancel && <Button disabled={mutation.busy} onClick={() => stop(data)}>Stop request</Button>}
-        {data.schedule?.state === 'enabled' && <Button disabled={mutation.busy} onClick={() => pause(data)}>Pause schedule</Button>}
         {canRetry && <Button primary disabled={mutation.busy} onClick={() => retry(data)}>Retry</Button>}
         {failed && unsure && <p className="ui-help">An action here may or may not have happened. Check it before asking again.</p>}
         {!data.task && !data.panel && <Button disabled={mutation.busy} onClick={() => toTask(data)}>Make this a task</Button>}

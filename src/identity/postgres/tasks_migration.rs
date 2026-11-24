@@ -64,3 +64,26 @@ impl MigrationTrait for TaskRooms {
         ))
     }
 }
+
+/// Schema 147: every schedule that is not a Home panel update becomes a task and
+/// no longer runs as a schedule (designs/agent-tasks/one-system.md, decision 4).
+pub(crate) struct SchedulesToTasks;
+impl MigrationName for SchedulesToTasks {
+    fn name(&self) -> &str {
+        "m20261124_000147_schedules_to_tasks"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for SchedulesToTasks {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("schedules_to_tasks.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Schedules become tasks in a forward migration".into(),
+        ))
+    }
+}

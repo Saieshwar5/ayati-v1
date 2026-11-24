@@ -1,10 +1,11 @@
 //! Activity › Calendar and the workspace calendar (designs/agent-tasks). The
 //! calendar shows, for a window of at most six weeks, the runs agents made (done,
 //! failed, no change, skipped, missed) and the runs they will make: every booked
-//! run, the later runs of each repeating task's rule, and later runs of schedules.
-//! Event triggers and paused tasks have no time and are listed beside it. It shows
-//! what Activity › Planned showed: the tasks of agents the person looks after and
-//! the ones they asked for, and schedules and triggers that post where they can read.
+//! run and the later runs of each repeating task's rule. A schedule's runs from
+//! before schema 147 show as runs of the task it became. Event triggers and paused
+//! tasks have no time and are listed beside it. It shows the tasks of agents the
+//! person looks after and the ones they asked for, and triggers that post where
+//! they can read.
 use super::activity::now::fixing::{FIXERS, exists};
 use super::tasks::rules::{Rule, next_due};
 use super::*;
@@ -12,7 +13,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 const WINDOW_MS: i64 = 42 * 86_400_000;
-/// Later runs drawn per repeating task or schedule.
+/// Later runs drawn per repeating task.
 const PER_TASK: usize = 60;
 const POSTS_VISIBLY: &str = "(x.principal=$2 OR EXISTS(SELECT 1 FROM relay_chats c WHERE c.workspace=x.workspace AND c.id=x.chat
   AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2))))";
@@ -125,32 +126,17 @@ impl PgStore {
                 WHERE t.workspace=$1 AND t.outcome IS NULL AND t.paused_ms IS NOT NULL AND {MY_TASK} AND $5::bigint>0 AND $6::bigint>0
                 ORDER BY t.paused_ms DESC LIMIT 50"), args()).await?);
         }
-        let mine = "(x.agent IN (SELECT id FROM f) OR x.principal=$2)";
-        let no_panels = "NOT EXISTS(SELECT 1 FROM relay_home_schedule_bindings b WHERE b.workspace=x.workspace AND b.schedule=x.id)";
-        items.extend(json_rows(&tx, &format!("{FIXERS} SELECT jsonb_build_object('kind','schedule_run','schedule',x.id,'title',x.name,'agent',x.agent,'agent_name',a.name,'at',o.due_ms,
-              'state',CASE m.state WHEN 'complete' THEN 'done' WHEN 'cancelled' THEN 'cancelled' WHEN 'queued' THEN 'working' ELSE 'failed' END,'reply',o.reply) AS data
-            FROM relay_schedule_occurrences o JOIN relay_agent_schedules x ON x.workspace=o.workspace AND x.id=o.schedule
-            JOIN relay_shared_agents a ON a.workspace=x.workspace AND a.id=x.agent JOIN relay_chat_messages m ON m.workspace=o.workspace AND m.id=o.reply
-            WHERE o.workspace=$1 AND o.due_ms>=$5 AND o.due_ms<$6 AND {mine} AND (x.chat IS NULL OR {POSTS_VISIBLY}) AND {no_panels}
-            ORDER BY o.due_ms LIMIT 300"), args()).await?);
-        let schedules = rows(&tx, &format!("{FIXERS} SELECT x.id,x.name,x.agent,a.name AS agent_name,x.next_ms,x.interval_seconds
-            FROM relay_agent_schedules x JOIN relay_shared_agents a ON a.workspace=x.workspace AND a.id=x.agent
-            WHERE x.workspace=$1 AND x.state='enabled' AND x.next_ms<$6 AND {mine} AND (x.chat IS NULL OR {POSTS_VISIBLY}) AND {no_panels} AND $5::bigint>0
-            ORDER BY x.next_ms LIMIT 100"), args()).await?;
-        for row in schedules {
-            let mut due: i64 = row.try_get("", "next_ms")?;
-            let every: Option<i64> = row.try_get("", "interval_seconds")?;
-            for _ in 0..PER_TASK {
-                if due >= from && due < to {
-                    items.push(json!({"kind": "schedule", "schedule": row.try_get::<String>("", "id")?, "title": row.try_get::<String>("", "name")?,
-                        "agent": row.try_get::<String>("", "agent")?, "agent_name": row.try_get::<String>("", "agent_name")?, "at": due}));
-                }
-                match every {
-                    Some(seconds) if due + seconds * 1000 < to => due += seconds * 1000,
-                    _ => break,
-                }
-            }
+        // A schedule's runs from before schema 147, as runs of the task it became.
+        if super::tasks::wakeups::rooms(&tx).await? {
+            items.extend(json_rows(&tx, &format!("{FIXERS} SELECT jsonb_build_object('kind','run','task',t.id,'title',t.title,'agent',t.agent,'agent_name',a.name,'at',o.due_ms,
+                  'state',CASE m.state WHEN 'complete' THEN 'done' WHEN 'cancelled' THEN 'cancelled' WHEN 'queued' THEN 'working' WHEN 'running' THEN 'working' ELSE 'failed' END,
+                  'detail','','reply',o.reply) AS data
+                FROM relay_schedule_occurrences o JOIN relay_tasks t ON t.workspace=o.workspace AND t.schedule=o.schedule
+                JOIN relay_shared_agents a ON a.workspace=t.workspace AND a.id=t.agent JOIN relay_chat_messages m ON m.workspace=o.workspace AND m.id=o.reply
+                WHERE o.workspace=$1 AND o.due_ms>=$5 AND o.due_ms<$6 AND {MY_TASK}
+                ORDER BY o.due_ms LIMIT 300"), args()).await?);
         }
+        let mine = "(x.agent IN (SELECT id FROM f) OR x.principal=$2)";
         untimed.extend(json_rows(&tx, &format!("{FIXERS} SELECT jsonb_build_object('kind','trigger','trigger',x.id,'agent',x.agent,'agent_name',a.name,
               'title',COALESCE(x.input->>'name',x.source_definition->>'name'),'detail',x.source_definition->>'name') AS data
             FROM relay_event_triggers x JOIN relay_shared_agents a ON a.workspace=x.workspace AND a.id=x.agent

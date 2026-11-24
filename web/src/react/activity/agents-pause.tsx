@@ -77,7 +77,7 @@ export function PauseAgentsControl({ changed }: { changed?: () => void }) {
           {mutation.busy ? 'Pausing…' : 'Pause all agents'}</Button></>}>
       <p>Every agent stops at once. {stopping === 0 ? 'No requests are running or waiting right now.'
         : `${stopping} ${stopping === 1 ? 'request that is' : 'requests that are'} running or waiting will be stopped and won’t restart on their own.`}</p>
-      <p>Until an admin resumes, no agent takes new requests, schedules skip their runs and events from connected tools are not handled. Agents paused on their own stay paused after you resume.</p>
+      <p>Until an admin resumes, no agent takes new requests, tasks wait to run and events from connected tools are not handled. Agents paused on their own stay paused after you resume.</p>
       <label className="ui-field">Reason <small>everyone in the workspace sees it</small>
         <input maxLength={300} value={note} placeholder="For example: wrong emails going out" onChange={event => setNote(event.target.value)} /></label>
     </Dialog>}

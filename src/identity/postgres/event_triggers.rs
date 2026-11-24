@@ -18,7 +18,7 @@ pub(super) async fn choice(
 ) -> Result<Value> {
     source.available()?;
     let account=query(db,"SELECT c.definition->>'account' AS account,c.definition->>'name' AS account_name FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.connection=$3 AND r.operation=$4 AND r.mode='allow'",vec![w.into(),agent.into(),source.connection.clone().into(),source.read_operation.clone().into()]).await?.context("The agent needs this read action set to Allow on its Tools tab first")?;
-    super::automation_access::run_authority(db, user, w, agent, None, None).await?;
+    super::automation_access::run_authority(db, user, w, agent, None).await?;
     let (conversations, authority) = destinations(db, user, w, agent, source).await?;
     ensure!(
         !authority.is_null(),
@@ -341,8 +341,7 @@ pub(super) async fn insert(
     hash: &str,
 ) -> Result<()> {
     source.available()?;
-    super::automation_access::run_authority(tx, user, w, agent, None, input.chat.as_deref())
-        .await?;
+    super::automation_access::run_authority(tx, user, w, agent, input.chat.as_deref()).await?;
     ensure!(
         versions(tx, user, w, agent, input.chat.as_deref(), source).await?
             == super::event_access::expected(input),

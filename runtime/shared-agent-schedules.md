@@ -1,9 +1,18 @@
 # Shared agent schedules
 
+> **Since schema 147 schedules are tasks and no longer run.** The migration
+> `m20261124_000147_schedules_to_tasks` turned every schedule that was not a Home
+> panel update into a commitment task ([tasks](tasks.md#since-schema-147-schedules-are-tasks)):
+> it keeps running in its own work room, posts where it posted, and its earlier runs
+> stay readable as runs of that task. The schedule engine, its API, the schedule
+> form and schedule proposals in Chat are gone; a schedule row is kept only as
+> history (`state='completed'`, `detail='Moved to a task.'`, `task` = its task).
+> Home panel intervals moved to the panel's own queue in schema 146. The rest of this
+> page is history.
+>
 > **Since schema 144** repeating work asked for in chat is a task with a lifetime
 > ([tasks](tasks.md#since-schema-144-tasks-with-a-lifetime)): the agent creates it at once
-> and Cuckoo books its runs. Schedules below keep running and still drive personal Home
-> panel updates; Activity › Calendar shows both.
+> and Cuckoo books its runs.
 
 ## Since schema 56: runs happen in Activity, not in Chat
 

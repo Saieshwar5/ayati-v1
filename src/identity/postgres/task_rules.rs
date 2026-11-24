@@ -169,6 +169,8 @@ impl Rule {
         let every = self.every.unwrap_or(1).max(1);
         let at = format!(" at {}", shown(self.at.as_deref().unwrap_or("09:00")));
         let base = match self.unit.as_str() {
+            // Converted schedules may have periods of whole hours past a day.
+            "minute" if every % 60 == 0 && every >= 120 => format!("Every {} hours", every / 60),
             "minute" => format!("Every {every} minutes"),
             "hour" => {
                 let head = if every == 1 {
@@ -303,6 +305,12 @@ mod tests {
             rule.validate().unwrap();
             assert_eq!(rule.sentence(), sentence);
         }
+        // A schedule converted in schema 147 may keep a period past a day; it is read
+        // and shown, though an agent can't give one.
+        let long = rule(json!({"unit":"minute","every":2160}));
+        assert!(long.validate().is_err());
+        assert_eq!(long.sentence(), "Every 36 hours");
+        assert_eq!(long.period_ms(), 2160 * 60_000);
     }
 
     #[test]

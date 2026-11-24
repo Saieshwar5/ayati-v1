@@ -105,7 +105,7 @@ async fn check(
         .context("This app doesn't offer that event")?;
     let read = triggers::read_operation(&account.server, &account.definition)
         .context("This account offers no read action, so its events can't start an agent")?;
-    super::super::automation_access::run_authority(tx, user, w, agent, None, input.chat.as_deref())
+    super::super::automation_access::run_authority(tx, user, w, agent, input.chat.as_deref())
         .await?;
     let probe = source_for(
         w,

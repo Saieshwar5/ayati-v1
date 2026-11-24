@@ -78,7 +78,7 @@ pub(super) async fn start(
     data: &Value,
 ) -> Result<()> {
     let agent = data["agent"].as_str().context("Missing agent")?;
-    super::automation_access::run_authority(tx, user, w, agent, None, post_to(data)).await
+    super::automation_access::run_authority(tx, user, w, agent, post_to(data)).await
 }
 pub(super) fn principal(data: &Value) -> Result<User> {
     Ok(User {

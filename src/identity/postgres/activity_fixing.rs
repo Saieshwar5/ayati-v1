@@ -42,8 +42,6 @@ fn causes() -> Vec<(&'static str, String)> {
           JOIN relay_chat_jobs j ON j.workspace=$1 AND j.payload->>'agent'=f.id AND j.created_ms>{NOW}-86400000
           JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply AND m.state IN ('failed','interrupted')
           GROUP BY f.id,f.name HAVING count(*)>=2")),
-        ("schedule", "SELECT f.id,f.name,s.id,s.name||CASE WHEN s.detail<>'' THEN ': '||s.detail ELSE '' END,s.checked_ms FROM f
-          JOIN relay_agent_schedules s ON s.workspace=$1 AND s.agent=f.id AND s.state='blocked'".into()),
         ("trigger", "SELECT f.id,f.name,t.id,COALESCE(t.input->>'name','Event trigger')||CASE WHEN COALESCE(t.detail,'')<>'' THEN ': '||t.detail ELSE '' END,0::bigint FROM f
           JOIN relay_event_triggers t ON t.workspace=$1 AND t.agent=f.id AND t.state='blocked'".into()),
         ("waiting", format!("SELECT f.id,f.name,q.reply,left(q.specification->>'title',140),q.created_ms FROM f
@@ -184,12 +182,6 @@ pub(in crate::identity::postgres) async fn groups(
                 json!({"kind": "request", "label": "How to fix it", "ref": items[0]["ref"]}),
                 items,
             )),
-            "schedule" => out.push(group(
-                cause,
-                format!("{} stopped", plural(items.len(), "routine", "routines")),
-                json!({"kind": "agent", "label": "Review routines", "ref": items[0]["agent"]}),
-                items,
-            )),
             "trigger" => out.push(group(
                 cause,
                 format!(
@@ -264,7 +256,7 @@ fn group(cause: &str, title: String, fix: Value, items: Vec<Value>) -> Value {
     json!({"cause": cause, "title": title, "fix": fix, "agents": agents, "count": items.len(), "items": items.into_iter().take(20).collect::<Vec<_>>()})
 }
 
-/// What runs or wakes in the next 24 hours: routines, follow-ups and due tasks.
+/// What runs or wakes in the next 24 hours: task runs, follow-ups and due tasks.
 pub(in crate::identity::postgres) async fn coming_up(
     tx: &DatabaseTransaction,
     user: &User,
@@ -281,13 +273,7 @@ pub(in crate::identity::postgres) async fn coming_up(
         ]
     };
     let soon = format!("BETWEEN {NOW} AND {NOW}+86400000");
-    let mut items = json_rows(tx, &format!("{FIXERS} SELECT jsonb_build_object('kind','routine','id',s.id,'agent',s.agent,'agent_name',a.name,
-          'title',s.name,'at',s.next_ms,'revision',s.revision,'can_pause',true) AS data
-        FROM relay_agent_schedules s JOIN relay_shared_agents a ON a.workspace=s.workspace AND a.id=s.agent
-        WHERE s.workspace=$1 AND s.state='enabled' AND s.next_ms {soon}
-          AND NOT EXISTS(SELECT 1 FROM relay_home_schedule_bindings b WHERE b.workspace=s.workspace AND b.schedule=s.id)
-          AND (s.agent IN (SELECT id FROM f) OR s.principal=$2)
-        ORDER BY s.next_ms LIMIT 50"), args()).await?;
+    let mut items = Vec::new();
     if exists(tx, "relay_task_wakeups").await? {
         items.extend(json_rows(tx, &format!("{FIXERS} SELECT jsonb_build_object('kind',CASE WHEN k.id IS NULL THEN 'due' ELSE 'follow_up' END,'id',t.id,'agent',t.agent,'agent_name',a.name,
               'title',t.title,'at',COALESCE(k.due_ms,t.due_ms),'can_pause',k.id IS NOT NULL) AS data

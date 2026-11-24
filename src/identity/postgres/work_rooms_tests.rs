@@ -1,13 +1,9 @@
-//! Work rooms: a schedule runs in its own room, never in a conversation; it may
-//! post one short result message where its person chose.
-use super::super::{
-    automation_tests::{schedule, setup},
-    tests::*,
-    *,
-};
+//! Work rooms: a task that runs on its own works in its own room, never in a
+//! conversation; it may post one short result message where it was asked for.
+use super::super::{automation_tests::setup, tests::*, *};
 use serde_json::json;
 
-/// Scheduled runs wait for the worker pool; a test takes the oldest one directly.
+/// Task runs wait for the worker pool; a test takes the oldest one directly.
 async fn claim(db: &PgStore) -> crate::identity::chat::model::Job {
     let claim = uuid::Uuid::new_v4().to_string();
     let row = query(&db.db, "UPDATE relay_chat_jobs SET state='running',claim=$1,attempts=1,lease_until=floor(extract(epoch FROM clock_timestamp()))::bigint+300
@@ -22,35 +18,54 @@ async fn messages(db: &PgStore, w: &str, chat: &str) -> Vec<Value> {
         vec![w.into(), chat.into()]).await.unwrap()
 }
 
-#[tokio::test]
-#[ignore = "requires disposable PostgreSQL"]
-async fn a_schedule_runs_in_its_own_room_and_never_in_a_conversation() {
-    let (db, owner, w, c, a) = setup().await;
-    let mut input = schedule(&c, Some(3600));
-    input.chat = None;
-    db.save_schedule(&owner, &w, &a, &input).await.unwrap();
-    let before = messages(&db, &w, &c).await;
-    assert_eq!(db.dispatch_schedules_at(input.first_ms).await.unwrap(), 1);
-    let room = query(
+/// A repeating task of `owner` with agent `a`, working in a new work room and
+/// posting to `post_to` if given, with a run due now. Returns the task and room.
+async fn task_in_room(
+    db: &PgStore,
+    w: &str,
+    owner: &User,
+    a: &str,
+    post_to: Option<&str>,
+) -> (String, String) {
+    let tx = db.db.begin().await.unwrap();
+    let room = super::open(&tx, w, "Delivery review", "Runs of a task", &owner.id, a)
+        .await
+        .unwrap();
+    tx.commit().await.unwrap();
+    let task = uuid::Uuid::new_v4().to_string();
+    execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,room,repeat,anchor_ms,instructions) VALUES($1,$2,$3,'commitment','schedule','Delivery review',$4,$5,$6,'{\"unit\":\"hour\"}',1,'Review delivery exceptions.')",
+        vec![w.into(), task.clone().into(), a.into(), owner.id.clone().into(), post_to.unwrap_or(&room).into(), post_to.map(|_| room.clone()).into()]).await.unwrap();
+    due(db, &task).await;
+    (task, room)
+}
+async fn due(db: &PgStore, task: &str) {
+    execute(
         &db.db,
-        "SELECT room FROM relay_agent_schedules WHERE id=$1",
-        vec![input.id.clone().into()],
+        "UPDATE relay_task_wakeups SET state='cancelled' WHERE task=$1 AND state='pending'",
+        vec![task.into()],
     )
     .await
-    .unwrap()
-    .unwrap()
-    .try_get::<String>("", "room")
     .unwrap();
+    execute(&db.db, "INSERT INTO relay_task_wakeups(workspace,id,task,due_ms,kind) SELECT workspace,$2,id,(extract(epoch FROM clock_timestamp())*1000)::bigint-1000,'repeat' FROM relay_tasks WHERE id=$1",
+        vec![task.into(), uuid::Uuid::new_v4().to_string().into()]).await.unwrap();
+}
+async fn post(db: &PgStore, reply: &str) -> Value {
+    json_rows(&db.db, "SELECT jsonb_build_object('state',state,'reason',reason) AS data FROM relay_run_posts WHERE reply=$1", vec![reply.into()])
+        .await.unwrap().pop().unwrap_or(Value::Null)
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_task_runs_in_its_own_room_and_never_in_a_conversation() {
+    let (db, owner, w, c, a) = setup().await;
+    let before = messages(&db, &w, &c).await;
+    let (task, room) = task_in_room(&db, &w, &owner, &a, None).await;
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 1);
     let shape = json_rows(&db.db, "SELECT jsonb_build_object('kind',c.kind,'work',c.work,'visibility',c.visibility,'people',(SELECT jsonb_agg(user_id) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id),'agents',(SELECT jsonb_agg(agent) FROM relay_chat_agents x WHERE x.workspace=c.workspace AND x.chat=c.id)) AS data FROM relay_chats c WHERE c.id=$1",
         vec![room.clone().into()]).await.unwrap().remove(0);
     assert_eq!(
         shape,
         json!({"kind":"direct","work":true,"visibility":"private","people":[owner.id],"agents":[a]})
-    );
-    assert_eq!(
-        messages(&db, &w, &c).await,
-        before,
-        "the conversation gets nothing"
     );
     let listed = db.chats(&owner, &w).await.unwrap();
     assert!(
@@ -70,6 +85,10 @@ async fn a_schedule_runs_in_its_own_room_and_never_in_a_conversation() {
 
     let job = claim(&db).await;
     assert_eq!(job.chat, room);
+    assert!(
+        job.prompt
+            .contains("What to do each run: Review delivery exceptions.")
+    );
     db.chat_finish(&job, "Two deliveries are late.", "complete")
         .await
         .unwrap();
@@ -78,34 +97,22 @@ async fn a_schedule_runs_in_its_own_room_and_never_in_a_conversation() {
         before,
         "Activity only: nothing is posted"
     );
-    let details = db.activity_request(&owner, &w, &job.reply).await.unwrap();
-    assert_eq!(
-        (
-            details["schedule"]["name"].as_str(),
-            details["schedule"]["post_to"].is_null()
-        ),
-        (Some("Delivery review"), true)
-    );
+    assert!(post(&db, &job.reply).await.is_null());
 
     // The next run uses the same room: its memory of earlier runs.
-    assert_eq!(
-        db.dispatch_schedules_at(input.first_ms + 3_600_000)
-            .await
-            .unwrap(),
-        1
-    );
+    due(&db, &task).await;
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 1);
     assert_eq!(claim(&db).await.chat, room);
 }
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn a_schedule_posts_one_short_result_where_its_person_chose_while_they_still_may() {
+async fn a_task_posts_one_short_result_where_it_was_asked_for_while_its_person_still_may() {
     let (db, owner, w, c, a) = setup().await;
-    let input = schedule(&c, Some(3600));
-    db.save_schedule(&owner, &w, &a, &input).await.unwrap();
-    assert_eq!(db.dispatch_schedules_at(input.first_ms).await.unwrap(), 1);
+    let (task, room) = task_in_room(&db, &w, &owner, &a, Some(&c)).await;
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 1);
     let job = claim(&db).await;
-    assert_ne!(job.chat, c, "the run itself is not in the conversation");
+    assert_eq!(job.chat, room, "the run itself is not in the conversation");
     let long = "Late deliveries: ".to_string() + &"order ".repeat(120);
     db.chat_finish(&job, &long, "complete").await.unwrap();
     let posted = messages(&db, &w, &c).await;
@@ -124,23 +131,12 @@ async fn a_schedule_posts_one_short_result_where_its_person_chose_while_they_sti
         text.chars().count() < 500,
         "one short message, not the whole result"
     );
-    let details = db.activity_request(&owner, &w, &job.reply).await.unwrap();
-    assert_eq!(
-        (
-            details["schedule"]["posted"].as_str(),
-            details["schedule"]["post_to"].as_str()
-        ),
-        (Some("posted"), Some("Operations"))
-    );
+    assert_eq!(post(&db, &job.reply).await["state"], "posted");
 
     // The agent leaves the conversation while a run is working: the run
-    // finishes, its post is skipped and Activity says why.
-    assert_eq!(
-        db.dispatch_schedules_at(input.first_ms + 3_600_000)
-            .await
-            .unwrap(),
-        1
-    );
+    // finishes, its post is skipped and the reason is kept.
+    due(&db, &task).await;
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 1);
     let next = claim(&db).await;
     execute(
         &db.db,
@@ -154,28 +150,12 @@ async fn a_schedule_posts_one_short_result_where_its_person_chose_while_they_sti
         .await
         .unwrap();
     assert_eq!(messages(&db, &w, &c).await.len(), count);
-    let details = db.activity_request(&owner, &w, &next.reply).await.unwrap();
-    assert_eq!(details["schedule"]["posted"], "skipped");
+    let skipped = post(&db, &next.reply).await;
+    assert_eq!(skipped["state"], "skipped");
     assert!(
-        details["schedule"]["post_reason"]
+        skipped["reason"]
             .as_str()
             .unwrap()
             .contains("can no longer post")
     );
-    // And the schedule stops for review rather than quietly running without its post.
-    assert_eq!(
-        db.dispatch_schedules_at(input.first_ms + 7_200_000)
-            .await
-            .unwrap(),
-        0
-    );
-    let stopped = query(
-        &db.db,
-        "SELECT state FROM relay_agent_schedules WHERE id=$1",
-        vec![input.id.clone().into()],
-    )
-    .await
-    .unwrap()
-    .unwrap();
-    assert_eq!(stopped.try_get::<String>("", "state").unwrap(), "blocked");
 }

@@ -3,12 +3,11 @@
 //! gap holds it back. Panels that used a schedule keep their next update time.
 use super::super::super::activity::Filters;
 use super::super::super::home_maintenance_tests::{
-    agreement, claim, due_now, observed, panel, refresh, setup, setup_on,
+    agreement, claim, due_now, observed, panel, refresh, setup, setup_on, update,
 };
 use super::super::super::tests::message;
 use super::super::super::*;
 use sea_orm_migration::MigratorTrait;
-use serde_json::json;
 
 async fn wanted(db: &PgStore, panel: &str) -> Value {
     query(
@@ -230,9 +229,21 @@ async fn schema_146_moves_a_scheduled_panel_onto_its_queue_and_its_schedule_stop
     )
     .await
     .unwrap();
-    // One scheduled update ran before the upgrade.
-    assert_eq!(db.dispatch_schedules_at(first_ms).await.unwrap(), 1);
+    // One update ran before the upgrade, and the schedule moved on to its next run
+    // as the schema 145 dispatcher left it.
+    let accepted = db
+        .update_home_panel(&owner, &w, &p.id, &update(1))
+        .await
+        .unwrap();
+    execute(
+        &db.db,
+        "UPDATE relay_agent_schedules SET next_ms=$2 WHERE id=$1",
+        vec![sid.clone().into(), (first_ms + 60_000).into()],
+    )
+    .await
+    .unwrap();
     let old = runs(&db, &p.id).await;
+    assert_eq!(old[0]["reply"], accepted["reply"]);
     assert_eq!(old.len(), 1);
     finish(&db, &w, old[0]["reply"].as_str().unwrap(), &read, "7").await;
     let next_ms = first_ms + 60_000;
@@ -269,15 +280,15 @@ async fn schema_146_moves_a_scheduled_panel_onto_its_queue_and_its_schedule_stop
     .unwrap()
     .unwrap();
     assert_eq!(schedule.try_get::<String>("", "state").unwrap(), "paused");
-    assert_eq!(
-        db.dispatch_schedules_at(next_ms + 600_000).await.unwrap(),
-        0
-    );
     assert_eq!(runs(&db, &p.id).await.len(), 1);
     assert_eq!(
-        db.schedules(&owner, &w, &first.agent).await.unwrap()["schedules"],
-        json!([]),
-        "panel schedules stay out of the agent's list"
+        count(
+            &db,
+            &format!("SELECT count(*) AS n FROM relay_tasks WHERE schedule='{sid}'")
+        )
+        .await,
+        0,
+        "a panel's schedule never becomes a task (schema 147)"
     );
 
     // When due, the panel's queue runs it and books the next one.

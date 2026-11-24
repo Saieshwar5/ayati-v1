@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { Button, Dialog } from '../../ui';
 import { useMutation, useResource } from '../../requests';
-import { loadSchedules } from '../automation/model';
+import { loadPostTargets } from '../automation/event-model';
 import { MemoryChoice, ResultsChoice, memoryLabels, type Memory } from '../automation/results-and-memory';
 import { createSystemAutomation, loadSystemEvents, validField, validType, type ResultField, type System, type SystemAutomation } from './model';
 
@@ -15,7 +15,7 @@ export function SystemAutomationDialog({ agent, agentName, system, close, saved 
 }) {
   const loadTypes = useCallback(() => loadSystemEvents(agent, system.id), [agent, system.id]);
   const types = useResource(loadTypes);
-  const loadPlaces = useCallback(() => loadSchedules(agent), [agent]);
+  const loadPlaces = useCallback(() => loadPostTargets(agent), [agent]);
   const places = useResource(loadPlaces);
   const [type, setType] = useState('');
   const known = types.data?.types.find(t => t.type === type);

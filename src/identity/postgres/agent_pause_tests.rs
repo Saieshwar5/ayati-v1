@@ -1,4 +1,4 @@
-use super::super::super::automation_tests::{schedule, setup, state};
+use super::super::super::automation_tests::setup;
 use super::super::super::tests::{fixture, join, message, user, workspace};
 use super::*;
 
@@ -167,32 +167,27 @@ async fn pausing_stops_all_work_and_refuses_new_work_until_an_admin_resumes() {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn a_schedule_due_while_paused_skips_that_run_and_stays_on() {
+async fn a_task_run_due_while_paused_waits_and_runs_after_resuming() {
     let (db, owner, w, c, agent) = setup().await;
-    let daily = schedule(&c, Some(86400));
-    let once = schedule(&c, None);
-    db.save_schedule(&owner, &w, &agent, &daily).await.unwrap();
-    db.save_schedule(&owner, &w, &agent, &once).await.unwrap();
+    let task = uuid::Uuid::new_v4().to_string();
+    execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,repeat,anchor_ms) VALUES($1,$2,$3,'commitment','agent','Daily stock check',$4,$5,'{\"unit\":\"day\",\"at\":\"09:00\"}',1)",
+        vec![w.clone().into(), task.clone().into(), agent.clone().into(), owner.id.clone().into(), c.clone().into()]).await.unwrap();
+    execute(&db.db, "INSERT INTO relay_task_wakeups(workspace,id,task,due_ms,kind) VALUES($1,$2,$3,(extract(epoch FROM clock_timestamp())*1000)::bigint,'repeat')",
+        vec![w.clone().into(), uuid::Uuid::new_v4().to_string().into(), task.clone().into()]).await.unwrap();
     db.pause_agents(&owner, &w, &PauseInput::default())
         .await
         .unwrap();
-    assert_eq!(db.dispatch_schedules_at(daily.first_ms).await.unwrap(), 0);
-    let skipped = state(&db, &w, &daily.id).await;
-    assert_eq!(skipped["state"], "enabled");
-    assert_eq!(skipped["next_ms"], daily.first_ms + 86_400_000);
-    assert_eq!(
-        skipped["detail"],
-        "The last run was skipped because all agents were paused."
-    );
-    // A one-off can't skip to a later time: it waits for its person.
-    let missed = state(&db, &w, &once.id).await;
-    assert_eq!(
-        (missed["state"].clone(), missed["next_ms"].clone()),
-        ("blocked".into(), once.first_ms.into())
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 0);
+    let waiting = query(&db.db, "SELECT state,detail,due_ms>(extract(epoch FROM clock_timestamp())*1000)::bigint AS later FROM relay_task_wakeups WHERE task=$1",
+        vec![task.clone().into()]).await.unwrap().unwrap();
+    assert_eq!(waiting.try_get::<String>("", "state").unwrap(), "pending");
+    assert!(
+        waiting.try_get::<bool>("", "later").unwrap(),
+        "tried again later"
     );
     assert_eq!(
-        missed["detail"],
-        "Missed because all agents were paused. Resume it to run it again."
+        waiting.try_get::<String>("", "detail").unwrap(),
+        "Agents are paused or busy; trying again in five minutes."
     );
     let jobs: i64 = query(
         &db.db,
@@ -205,12 +200,8 @@ async fn a_schedule_due_while_paused_skips_that_run_and_stays_on() {
     .try_get("", "n")
     .unwrap();
     assert_eq!(jobs, 0, "nothing ran while paused");
-    // After resuming, the daily schedule runs at its next time as usual.
+    // After resuming, the run starts when it is tried again.
     db.resume_agents(&owner, &w).await.unwrap();
-    assert_eq!(
-        db.dispatch_schedules_at(daily.first_ms + 86_400_000)
-            .await
-            .unwrap(),
-        1
-    );
+    execute(&db.db, "UPDATE relay_task_wakeups SET due_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE task=$1", vec![task.into()]).await.unwrap();
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 1);
 }

@@ -1,23 +1,14 @@
-//! Atomic schedule occurrence admission. Execution remains in the ordinary worker pool.
-use super::automation_access::{principal, record, run_authority};
+//! When the scheduler loop must look again. Schedules became tasks in schema 147;
+//! task runs and follow-ups are wake-ups of tasks (task_wakeups.rs).
 use super::*;
-use crate::identity::{automations::model::due, chat::model::NewMessage};
-pub(super) async fn cancel_unstarted(tx: &DatabaseTransaction, w: &str, id: &str) -> Result<()> {
-    let replies=rows(tx,"UPDATE relay_chat_jobs j SET state='finished',lease_until=0,finished_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE j.workspace=$1 AND j.state='queued' AND j.run_cycle=0 AND j.attempts=0 AND EXISTS(SELECT 1 FROM relay_schedule_occurrences o WHERE o.workspace=j.workspace AND o.schedule=$2 AND o.reply=j.reply) RETURNING j.reply",vec![w.into(),id.into()]).await?;
-    for row in replies {
-        execute(tx,"UPDATE relay_chat_messages SET state='cancelled',content='Scheduled request cancelled because its routine was paused.' WHERE workspace=$1 AND id=$2 AND state='queued'",vec![w.into(),row.try_get::<String>("","reply")?.into()]).await?;
-    }
-    Ok(())
-}
 impl PgStore {
-    /// How long until the scheduler next has something due: a schedule, a
+    /// How long until the scheduler next has something due: a task run or
     /// follow-up, a panel update or a helper's wait deadline; None when nothing
     /// is. Work already due but held back (its last run unfinished, a full
     /// queue) is not counted: finishing that work is announced (schema 97).
     pub(crate) async fn next_admission_in(&self) -> Result<Option<Duration>> {
         let wait = query(&self.db, "WITH now AS (SELECT (extract(epoch FROM clock_timestamp())*1000)::bigint AS ms)
             SELECT LEAST(
-             (SELECT min(next_ms) FROM relay_agent_schedules,now WHERE state='enabled' AND next_ms>now.ms),
              (SELECT min(due_ms) FROM relay_task_wakeups,now WHERE state='pending' AND due_ms>now.ms),
              (SELECT min(due_ms) FROM relay_home_update_wanted,now WHERE due_ms>now.ms),
              (SELECT min(expires_ms) FROM relay_agent_handoffs,now WHERE state='pending' AND expires_ms>now.ms)
@@ -25,160 +16,5 @@ impl PgStore {
             .context("Due time unavailable")?
             .try_get::<Option<i64>>("", "wait")?;
         Ok(wait.map(|ms| Duration::from_millis(ms.max(0) as u64)))
-    }
-    pub(crate) async fn dispatch_schedules(&self) -> Result<usize> {
-        let now_ms: i64 = query(
-            &self.db,
-            "SELECT (extract(epoch FROM clock_timestamp())*1000)::bigint AS now",
-            vec![],
-        )
-        .await?
-        .unwrap()
-        .try_get("", "now")?;
-        self.dispatch_schedules_at(now_ms).await
-    }
-    pub(crate) async fn dispatch_schedules_at(&self, now_ms: i64) -> Result<usize> {
-        if !self.pooled {
-            return Ok(0);
-        }
-        let candidates=rows(&self.db,"SELECT s.workspace,s.agent,s.id FROM relay_agent_schedules s WHERE s.state='enabled' AND s.next_ms<=$1 AND NOT EXISTS(SELECT 1 FROM relay_schedule_occurrences o JOIN relay_chat_jobs j ON j.workspace=o.workspace AND j.reply=o.reply WHERE o.workspace=s.workspace AND o.schedule=s.id AND j.state<>'finished') ORDER BY s.checked_ms,s.next_ms,s.created_ms,s.id LIMIT 20",vec![now_ms.into()]).await?;
-        let mut admitted = 0;
-        for row in candidates {
-            admitted += usize::from(
-                self.dispatch_schedule(
-                    &row.try_get::<String>("", "workspace")?,
-                    &row.try_get::<String>("", "agent")?,
-                    &row.try_get::<String>("", "id")?,
-                    now_ms,
-                )
-                .await?,
-            );
-        }
-        Ok(admitted)
-    }
-    async fn dispatch_schedule(&self, w: &str, agent: &str, id: &str, now_ms: i64) -> Result<bool> {
-        let tx = self.workspace_tx(w).await?;
-        let data = record(&tx, w, agent, id).await?;
-        if data["state"] != "enabled" || data["next_ms"].as_i64().is_none_or(|next| next > now_ms) {
-            tx.commit().await?;
-            return Ok(false);
-        }
-        execute(
-            &tx,
-            "UPDATE relay_agent_schedules SET checked_ms=$3 WHERE workspace=$1 AND id=$2",
-            vec![w.into(), id.into(), now_ms.into()],
-        )
-        .await?;
-        let person = principal(&data)?;
-        if !super::home_update_runs::schedule_ready(&tx, w, id).await? {
-            tx.commit().await?;
-            return Ok(false);
-        }
-        let panel = super::home_update_access::panel_schedule(&tx, w, id).await?;
-        if let Err(error) = if panel {
-            Ok(())
-        } else {
-            run_authority(&tx, &person, w, agent, Some(id), data["chat"].as_str()).await
-        } {
-            if error.is::<sea_orm::DbErr>() {
-                return Err(error);
-            }
-            execute(&tx,"UPDATE relay_agent_schedules SET state='blocked',revision=revision+1,detail='Routine access or destination changed. The original person must review and resume.' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
-            tx.commit().await?;
-            return Ok(false);
-        }
-        if query(&tx,"SELECT o.reply FROM relay_schedule_occurrences o JOIN relay_chat_jobs j ON j.workspace=o.workspace AND j.reply=o.reply WHERE o.workspace=$1 AND o.schedule=$2 AND j.state<>'finished' LIMIT 1",vec![w.into(),id.into()]).await?.is_some() {
-            tx.commit().await?;return Ok(false);
-        }
-        let first = data["first_ms"].as_i64().context("Missing first run")?;
-        let (at, next) = due(first, data["interval_seconds"].as_i64(), now_ms);
-        ensure!(
-            at >= data["next_ms"].as_i64().unwrap(),
-            "Routine timing moved backwards"
-        );
-        let mut input = NewMessage {
-            reply_to: None,
-            id: uuid::Uuid::new_v4().to_string(),
-            content: format!(
-                "Scheduled work · {}\n{}",
-                data["name"].as_str().unwrap(),
-                data["content"].as_str().unwrap()
-            ),
-            agent: Some(agent.into()),
-            agents: vec![],
-            thread: None,
-            attachments: vec![],
-        };
-        // A personal Home panel update keeps its own source; every other
-        // schedule runs in its own work room, never in a conversation.
-        // The room opens inside the intake, so a refused run leaves no room.
-        let intake = tx.begin().await?;
-        let target = if panel {
-            data["chat"]
-                .as_str()
-                .context("Missing panel source")?
-                .to_owned()
-        } else if let Some((room, thread)) = super::assistants::run_place(
-            &intake,
-            w,
-            agent,
-            &person.id,
-            &format!("schedule:{id}"),
-            &format!("Schedule: {}", data["name"].as_str().unwrap_or("Schedule")),
-        )
-        .await?
-        {
-            // An assistant has one room: the run is a thread there (schema 127).
-            input.thread = Some(thread);
-            room
-        } else {
-            super::work_rooms::room(&intake, w, &data).await?
-        };
-        let job = match self
-            .background_in(&intake, &person, w, &target, &input)
-            .await
-        {
-            Ok(job) => {
-                intake.commit().await?;
-                job.context("New scheduled request was not accepted")?
-            }
-            Err(error) => {
-                intake.rollback().await?;
-                if error.is::<crate::identity::chat::model::AgentsPaused>() {
-                    // Skip this run rather than replay it on resume; a one-off waits
-                    // for its person to run it again, as after any other block.
-                    execute(&tx,"UPDATE relay_agent_schedules SET next_ms=COALESCE($3,next_ms),state=CASE WHEN $3::bigint IS NULL THEN 'blocked' ELSE 'enabled' END,revision=revision+CASE WHEN $3::bigint IS NULL THEN 1 ELSE 0 END,detail=CASE WHEN $3::bigint IS NULL THEN 'Missed because all agents were paused. Resume it to run it again.' ELSE 'The last run was skipped because all agents were paused.' END WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),next.into()]).await?;
-                    tx.commit().await?;
-                    return Ok(false);
-                }
-                if error.is::<crate::identity::chat::model::QueueFull>()
-                    || error.is::<crate::identity::chat::model::BackgroundQueueFull>()
-                {
-                    execute(&tx,"UPDATE relay_agent_schedules SET detail='Waiting for background queue capacity. The due occurrence remains saved.' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
-                    tx.commit().await?;
-                    return Ok(false);
-                }
-                if error.is::<sea_orm::DbErr>() {
-                    return Err(error);
-                }
-                execute(&tx,"UPDATE relay_agent_schedules SET state='blocked',revision=revision+1,detail='Saved task references are no longer accepted in the destination. Review the instructions and current access.' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
-                tx.commit().await?;
-                return Ok(false);
-            }
-        };
-        execute(&tx,"INSERT INTO relay_schedule_occurrences(workspace,schedule,due_ms,message,reply) VALUES($1,$2,$3,$4,$5)",vec![w.into(),id.into(),at.into(),input.id.into(),job.reply.clone().into()]).await?;
-        execute(&tx,"UPDATE relay_agent_schedules SET next_ms=$3,state=CASE WHEN $3::bigint IS NULL THEN 'completed' ELSE 'enabled' END,revision=revision+CASE WHEN $3::bigint IS NULL THEN 1 ELSE 0 END,detail='' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),next.into()]).await?;
-        super::home_update_runs::bind_schedule(&tx, w, id, &job).await?;
-        super::tasks::ensure_automatic(&tx, &job, "schedule").await?;
-        audit(
-            &tx,
-            &person.id,
-            Some(w),
-            "agent_schedule_occurrence",
-            &format!("{id}/{at}/{}", job.reply),
-        )
-        .await?;
-        tx.commit().await?;
-        Ok(true)
     }
 }

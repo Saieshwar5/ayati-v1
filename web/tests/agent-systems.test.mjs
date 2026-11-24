@@ -205,7 +205,7 @@ test('a system automation saves its type, fields, memory and result fields as on
           return response({ id: 'a', state: 'enabled' });
         }
         if (path.endsWith('/events')) return response({ events_on: true, address: 'x', recent: [], types: [{ type: 'exam.result_published', count: 1, last_ms: 1, fields: ['exam', 'scores'] }] });
-        if (path.includes('/schedules')) return response({ schedules: [], conversations: [], more_conversations: false, execution_available: true });
+        if (path.includes('/post-targets')) return response({ conversations: [], more_conversations: false, execution_available: true });
         return response({});
       },
     },

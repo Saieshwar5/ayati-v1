@@ -56,8 +56,6 @@ mod automation_migration;
 #[cfg(test)]
 mod automation_migration_tests;
 #[cfg(test)]
-mod automation_scope_tests;
-#[cfg(test)]
 mod automation_tests;
 mod automations;
 mod channel_approval_migration;

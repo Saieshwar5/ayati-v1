@@ -17,7 +17,7 @@ configuration and database names remain. See [Cuckoo branding](runtime/cuckoo-br
 
 | Process | Command | Owns |
 | --- | --- | --- |
-| Controller | `ayati identity` | Sign-in, workspaces, Chat, approvals, schedules, events and all PostgreSQL access |
+| Controller | `ayati identity` | Sign-in, workspaces, Chat, approvals, tasks, events and all PostgreSQL access |
 | Executor | `ayati executor` | Bounded prepared Goose slots that receive scoped assignments from the controller |
 | Migration job | `ayati workspace-db migrate` | Explicit PostgreSQL schema changes; never run on API startup |
 | Operator CLI | `ayati admin` | [Cuckoo Control](runtime/cuckoo-control.md) from a terminal: the same actions and change log as the console at `/control` |
@@ -79,8 +79,8 @@ Main product contracts:
 - [Web search](runtime/web-search.md): agents search the web and read pages through
   Cuckoo's own tools, answered by interchangeable search services and cited under
   the answer.
-- [Workspace Library](runtime/library.md),
-  [shared schedules](runtime/shared-agent-schedules.md) and
+- [Workspace Library](runtime/library.md), [tasks](runtime/tasks.md) (schedules became
+  tasks in schema 147; [shared schedules](runtime/shared-agent-schedules.md) is history) and
   [shared events](runtime/shared-agent-events.md).
 - [Versioned conversation context](runtime/versioned-conversation-context.md).
 - [Cuckoo Control](runtime/cuckoo-control.md): the operator console and `ayati admin`:

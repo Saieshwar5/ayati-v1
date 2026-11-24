@@ -11,7 +11,6 @@ pub(super) async fn hydrate(
     super::approval_delivery::hydrate(tx, user, workspace, messages).await?;
     super::question_views::hydrate(tx, user, workspace, messages).await?;
     super::tasks::views::hydrate(tx, workspace, messages).await?;
-    super::activity::now::steering::hydrate(tx, workspace, messages).await?;
     super::assistants::setup::chat::hydrate(tx, user, workspace, messages).await?;
     let ids = messages
         .iter()
