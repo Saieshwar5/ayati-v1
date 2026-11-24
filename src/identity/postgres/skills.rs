@@ -53,8 +53,9 @@ async fn visible(
     change: bool,
 ) -> Result<Value> {
     let admin = role(tx, w, user).await? == "Admin";
-    let row = query(tx, "SELECT jsonb_build_object('id',id,'name',name,'description',description,'owner_id',owner_id,'shared',shared,'version',version) AS data
-        FROM relay_skills WHERE workspace=$1 AND id=$2 FOR UPDATE", vec![w.into(), id.into()]).await?.context("Skill unavailable")?;
+    let row = query(tx, "SELECT jsonb_build_object('id',id,'name',name,'description',description,'owner_id',owner_id,'shared',shared,'version',version,
+          'created_by_agent',(SELECT a.name FROM relay_shared_agents a WHERE a.workspace=s.workspace AND a.id=to_jsonb(s)->>'created_by_agent')) AS data
+        FROM relay_skills s WHERE workspace=$1 AND id=$2 FOR UPDATE OF s", vec![w.into(), id.into()]).await?.context("Skill unavailable")?;
     let skill: Value = row.try_get("", "data")?;
     let own = skill["owner_id"] == user;
     ensure!(skill["shared"] == true || own || admin, "Skill unavailable");
@@ -72,6 +73,7 @@ async fn visible(
 }
 
 const LIST: &str = "SELECT jsonb_build_object('id',s.id,'name',s.name,'description',s.description,'shared',s.shared,
+    'created_by_agent',(SELECT a.name FROM relay_shared_agents a WHERE a.workspace=s.workspace AND a.id=to_jsonb(s)->>'created_by_agent'),
     'owner_id',s.owner_id,'owner_name',COALESCE(u.display_name,u.email,'Former member'),'version',s.version,
     'license',v.license,'has_scripts',v.has_scripts,'updated_ms',v.created_ms,'files',jsonb_array_length(v.files),
     'agents',(SELECT COALESCE(jsonb_agg(a.name ORDER BY a.name),'[]'::jsonb) FROM relay_agent_skills x
@@ -113,7 +115,8 @@ impl PgStore {
         let wanted = version.unwrap_or(skill["version"].as_i64().unwrap_or(1) as i32);
         let current = query(&tx, "SELECT files,license,has_scripts,hash FROM relay_skill_versions WHERE workspace=$1 AND skill=$2 AND version=$3",
             vec![w.into(), id.into(), wanted.into()]).await?.context("Version unavailable")?;
-        let versions = json_rows(&tx, "SELECT jsonb_build_object('version',v.version,'hash',v.hash,'author',COALESCE(u.display_name,u.email,'Former member'),'created_ms',v.created_ms) AS data
+        let versions = json_rows(&tx, "SELECT jsonb_build_object('version',v.version,'hash',v.hash,'author',COALESCE(u.display_name,u.email,'Former member'),'created_ms',v.created_ms,
+            'agent',(SELECT a.name FROM relay_shared_agents a WHERE a.workspace=v.workspace AND a.id=to_jsonb(v)->>'agent')) AS data
             FROM relay_skill_versions v LEFT JOIN relay_users u ON u.id=v.author WHERE v.workspace=$1 AND v.skill=$2 ORDER BY v.version DESC LIMIT 50",
             vec![w.into(), id.into()]).await?;
         tx.commit().await?;
@@ -393,7 +396,7 @@ impl PgStore {
     }
 }
 
-async fn insert_version(
+pub(super) async fn insert_version(
     tx: &DatabaseTransaction,
     w: &str,
     id: &str,

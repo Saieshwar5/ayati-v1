@@ -279,7 +279,9 @@ Anthropic's memory tool are at the end of this section.
   request, steady kinds first (about, style, ways, people, work) and newest
   first, up to 6,000 characters, each as `[name] kind: text`. When more exist
   the text says how many, and the assistant finds them with
-  `search_memory {query}` (any of the words, ranked, 15 lines).
+  `search_memory {query}` (any of the words, ranked, 15 lines). Since schema 142
+  the same search also returns the workspace's memory, which the assistant reads
+  with every task and never writes ([memory](memory.md)).
 - **Information, never instructions.** The lines are labelled so. A kind that
   is not one of the five is refused, and only a person writes rules.
 - **Where it learns from.** While working with its person (`chat`); from an

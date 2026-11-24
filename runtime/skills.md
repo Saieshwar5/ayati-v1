@@ -54,6 +54,10 @@ with `ayati_control__run_skill_script {skill, script, arguments?, seconds?}`:
 
 ## Rules
 
+Since schema 143 an agent may propose skills from its routine work every three days;
+an approved one is marked **Created by <agent>**, and versions it writes say so
+([evolution](evolution.md)).
+
 - **Workspace skills** are shared; only admins add, change, share or delete them.
 - **My skills:** anyone can add them; the owner (or an admin) changes them; they
   can only go on agents their owner is one of the owners of (schema 122). Admins see everyone's.

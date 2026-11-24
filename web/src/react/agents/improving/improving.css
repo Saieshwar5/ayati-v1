@@ -1,0 +1,31 @@
+/* Agents that improve (schema 143): flat groups on the shared surface; changes are
+   said in words beside the numbers, never by colour alone. */
+.improving { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.improving-group { display: flex; flex-direction: column; gap: 10px; }
+.improving-group h4 { margin: 0; font-size: 14px; }
+.improving-group > summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.improving-week { width: 100%; border-collapse: collapse; font-size: 13px; }
+.improving-week caption { text-align: left; color: var(--muted); font-size: 12px; padding-bottom: 6px; }
+.improving-week th, .improving-week td { text-align: left; padding: 6px 10px 6px 0; border-top: 1px solid var(--border); font-weight: 400; vertical-align: top; }
+.improving-week thead th { border-top: 0; color: var(--muted); font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.improving-week td { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.improving-week small { color: var(--muted); font-size: 11.5px; }
+.improving-better { color: var(--success); font-weight: 600; }
+.improving-worse { color: var(--danger); font-weight: 600; }
+.improving-made { display: inline-block; color: var(--working); background: color-mix(in srgb, var(--working) 12%, transparent); border-radius: 6px; padding: 1px 7px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.improving-proposal { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--border-panel); border-radius: 12px; min-width: 0; }
+.improving-proposal header p, .improving-proposal h4, .improving-proposal p, .improving-proposal h5 { margin: 0; }
+.improving-proposal h5 { font-size: 13px; margin-bottom: 4px; }
+.improving-evidence, .improving-rehearsals, .improving-list, .improving-reviews { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.improving-evidence li { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 9px; background: var(--soft); overflow-wrap: anywhere; }
+.improving-evidence small, .improving-rehearsals small, .improving-list small { color: var(--muted); font-size: 12px; }
+.improving-rehearsals li { display: flex; flex-wrap: wrap; gap: 4px 12px; justify-content: space-between; }
+.improving-draft { margin: 0; padding: 10px 12px; border-radius: 9px; background: var(--soft); font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+.improving-proposal textarea { width: 100%; box-sizing: border-box; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.improving-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.improving-list li { display: flex; flex-direction: column; gap: 2px; padding: 8px 0; border-top: 1px solid var(--border); }
+.improving-list li:first-child { border-top: 0; }
+.improving-reviews li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); }
+.improving-reviews li:first-child { border-top: 0; }
+.improving-reviews time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.improving-reviews span { overflow-wrap: anywhere; }

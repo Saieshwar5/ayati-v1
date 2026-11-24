@@ -7,7 +7,7 @@ one sidebar with two groups.
 | Group | Members | Admins |
 | --- | --- | --- |
 | You | Profile, Preferences | Profile, Preferences |
-| Workspace | This workspace, Agent rules (read-only), Usage (their own) | General, People, Apps, Agent rules, Usage, Audit log |
+| Workspace | This workspace, Agent rules (read-only), Usage (their own) | General, People, Apps, Agent rules, Memory, Usage, Audit log |
 
 **Redesign of 2026-11-21** (`designs/settings-redesign/`). The page ids in links did
 not change; three pages were renamed and two removed:
@@ -32,6 +32,11 @@ not change; three pages were renamed and two removed:
   shows on a person's profile card.
 - **Saving:** typed text shows an "Unsaved changes" bar; switches and choices save
   when they change.
+
+**Memory** (`section=memory`, admins, schema 142) is the workspace's memory: what
+agents learned about the business, with what waits for an answer, topics, the
+nightly tidy-up's changes and what agents looked for and did not find
+([memory](memory.md)).
 
 The sections below describe each page's behaviour and still apply, with those names.
 

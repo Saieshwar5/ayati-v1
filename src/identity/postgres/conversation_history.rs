@@ -4,7 +4,6 @@ use crate::identity::chat::model::Job;
 use serde::Deserialize;
 use serde_json::json;
 
-const SCAN_LIMIT: i64 = 256;
 const RESULT_LIMIT: usize = 20;
 const READ_CHARACTERS: i64 = 4000;
 
@@ -14,6 +13,24 @@ pub(crate) struct Search {
     query: String,
     #[serde(default)]
     before: Option<i64>,
+    /// Only messages by this author ID.
+    #[serde(default)]
+    from: Option<String>,
+    /// Only messages on or after, and on or before, these dates (YYYY-MM-DD).
+    #[serde(default)]
+    since: Option<String>,
+    #[serde(default)]
+    until: Option<String>,
+}
+
+/// The words of a query, lower case, at most eight.
+fn words(query: &str) -> Vec<String> {
+    query
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .take(8)
+        .map(str::to_lowercase)
+        .collect()
 }
 
 #[derive(Deserialize)]
@@ -79,6 +96,10 @@ const AUTHOR: &str = "jsonb_build_object('id',m.author,'kind',m.kind,
     'display_name',CASE WHEN m.kind='agent' THEN a.name ELSE u.display_name END)";
 
 impl PgStore {
+    /// Searches the task's conversation by words over all of its eligible
+    /// history, with the message index: every word first, newest first, paged
+    /// with `before`; when nothing has every word, the best matches with any.
+    /// A query with no words scans recent history literally, as before.
     pub(crate) async fn search_conversation_history(
         &self,
         job: &Job,
@@ -86,60 +107,123 @@ impl PgStore {
     ) -> Result<Value> {
         ensure!(input.query.len() <= 256, "Search query exceeds 256 bytes");
         ensure!(input.before.is_none_or(|v| v > 0), "Invalid history cursor");
+        let date = |d: &Option<String>| -> Result<Option<i64>> {
+            d.as_deref()
+                .filter(|d| !d.is_empty())
+                .map(|d| {
+                    super::memory::notes::day_start_ms(d)
+                        .map(|ms| ms / 1000)
+                        .context("Dates are written YYYY-MM-DD")
+                })
+                .transpose()
+        };
+        let since = date(&input.since)?;
+        let until = date(&input.until)?.map(|day| day + 86_400);
         let tx = self.workspace_tx(&job.workspace).await?;
         let scope = scope(&tx, job).await?;
         let before = input.before.unwrap_or(scope.before).min(scope.before);
         let exclusions = super::conversation_context::source_exclusions(&tx).await?;
-        let sql = format!(
-            "WITH candidates AS MATERIALIZED (
-                SELECT m.id,m.workspace,m.author,m.kind,m.at,m.thread,m.content,m.sequence
-                FROM relay_chat_messages m WHERE {FILTER}{exclusions}
-                ORDER BY m.sequence DESC LIMIT {SCAN_LIMIT}
-             ), matches AS (
-                SELECT * FROM candidates m WHERE $6='' OR position(lower($6) in lower(m.content))>0
-                ORDER BY sequence DESC LIMIT 21
-             ) SELECT jsonb_build_object(
-                'scanned',(SELECT count(*) FROM candidates),
-                'scan_before',(SELECT min(sequence) FROM candidates),
-                'messages',COALESCE((SELECT jsonb_agg(jsonb_build_object(
-                    'id',m.id,'sequence',m.sequence,'author',{AUTHOR},'at',m.at,'thread',m.thread,
-                    'excerpt',substring(m.content FROM greatest(position(lower($6) in lower(m.content))-120,1) FOR 600),
-                    'characters',char_length(m.content)) ORDER BY m.sequence DESC)
-                    FROM matches m {AUTHOR_JOINS}), '[]'::jsonb)) AS data"
-        );
-        let result: Value = query(
-            &tx,
-            &sql,
-            vec![
+        let trimmed = input.query.trim();
+        let words = words(trimmed);
+        let narrow = "AND ($7::text IS NULL OR m.author=$7) AND ($8::bigint IS NULL OR m.at>=$8) AND ($9::bigint IS NULL OR m.at<$9)";
+        let first = words.first().cloned().unwrap_or_else(|| trimmed.to_owned());
+        let shape = |order: &str, limit: usize, matched: &str| {
+            format!(
+                "WITH matches AS (
+                    SELECT m.id,m.workspace,m.author,m.kind,m.at,m.thread,m.content,m.sequence FROM relay_chat_messages m
+                    WHERE {FILTER}{exclusions} {narrow} AND {matched} ORDER BY {order} LIMIT {limit}
+                 ) SELECT jsonb_build_object('scanned',(SELECT count(*) FROM matches),'scan_before',NULL,
+                    'messages',COALESCE((SELECT jsonb_agg(jsonb_build_object(
+                        'id',m.id,'sequence',m.sequence,'author',{AUTHOR},'at',m.at,'thread',m.thread,
+                        'excerpt',substring(m.content FROM greatest(position(lower($10) in lower(m.content))-120,1) FOR 600),
+                        'characters',char_length(m.content)) ORDER BY m.sequence DESC)
+                        FROM matches m {AUTHOR_JOINS}), '[]'::jsonb)) AS data"
+            )
+        };
+        let run = |sql: String, words: String| {
+            let args: Vec<sea_orm::Value> = vec![
                 job.workspace.clone().into(),
                 job.chat.clone().into(),
                 before.into(),
                 scope.joined.into(),
-                scope.thread.into(),
-                input.query.trim().into(),
-            ],
-        )
-        .await?
-        .context("History scan unavailable")?
-        .try_get("", "data")?;
+                scope.thread.clone().into(),
+                words.into(),
+                input.from.clone().filter(|f| !f.is_empty()).into(),
+                since.into(),
+                until.into(),
+                first.clone().into(),
+            ];
+            let tx = &tx;
+            async move {
+                let row = query(tx, &sql, args)
+                    .await?
+                    .context("History search unavailable")?;
+                Ok::<Value, anyhow::Error>(row.try_get("", "data")?)
+            }
+        };
+        let (result, matched) = if words.is_empty() && !trimmed.is_empty() {
+            // No words to index (punctuation, a symbol): scan recent history literally.
+            let sql = shape(
+                "m.sequence DESC",
+                RESULT_LIMIT + 1,
+                "$6<>'' AND position(lower($6) in lower(m.content))>0",
+            );
+            (run(sql, trimmed.to_owned()).await?, "literal")
+        } else if words.is_empty() {
+            (
+                run(
+                    shape("m.sequence DESC", RESULT_LIMIT + 1, "$6=''"),
+                    String::new(),
+                )
+                .await?,
+                "all",
+            )
+        } else {
+            let vector = "to_tsvector('simple',m.content) @@ to_tsquery('simple',$6)";
+            let all: Vec<String> = words.iter().map(|w| format!("{w}:*")).collect();
+            let found = run(
+                shape("m.sequence DESC", RESULT_LIMIT + 1, vector),
+                all.join(" & "),
+            )
+            .await?;
+            if found["messages"].as_array().is_some_and(|m| !m.is_empty()) || words.len() == 1 {
+                (found, "all words")
+            } else {
+                let order = "ts_rank(to_tsvector('simple',m.content),to_tsquery('simple',$6)) DESC,m.sequence DESC";
+                (
+                    run(shape(order, RESULT_LIMIT, vector), all.join(" | ")).await?,
+                    "any word",
+                )
+            }
+        };
         let mut messages = result["messages"]
             .as_array()
-            .context("Invalid history scan")?
+            .context("Invalid history search")?
             .clone();
-        let next = if messages.len() > RESULT_LIMIT {
+        let next = if messages.len() > RESULT_LIMIT && matched != "any word" {
             messages.truncate(RESULT_LIMIT);
             messages.last().and_then(|m| m["sequence"].as_i64())
-        } else if result["scanned"].as_i64() == Some(SCAN_LIMIT) {
-            result["scan_before"].as_i64()
         } else {
             None
         };
         messages.reverse();
+        let found = messages.len() as i64;
         let result = json!({"state":"available","conversation":job.chat,"messages":messages,
-            "next_before":next,"scanned":result["scanned"],"query":input.query.trim(),
-            "scope":"Current task conversation only; source-bearing replies are excluded. Display names are current profile values. Follow next_before to continue scanning older eligible history."});
+            "next_before":next,"matched":matched,"query":trimmed,
+            "scope":"Current task conversation only; source-bearing replies are excluded. Display names are current profile values. Follow next_before for older matches."});
         super::context_attempts::record_read(&tx, job, "search_conversation_history", &result)
             .await?;
+        if !trimmed.is_empty() {
+            super::memory::tools::record(
+                &tx,
+                job,
+                "searched_history",
+                Some(trimmed),
+                Some(found),
+                None,
+            )
+            .await?;
+        }
         tx.commit().await?;
         Ok(result)
     }

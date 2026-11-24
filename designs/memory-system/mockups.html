@@ -1,0 +1,313 @@
+<title>Cuckoo Memory System</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one long explainer on Cuckoo's grey canvas. Each section answers one question, with
+   the product's own white frames for screens. Purple (--working) marks what an agent did by
+   itself: a note it kept, a search it ran. */
+:root {
+  --surface: #ffffff; --canvas: #f3f4f5; --text: #22252a; --muted: #5f6670;
+  --border: #e5e7ea; --border-panel: #d1d6dd; --border-control: #aeb8c5;
+  --soft: #f7f8f9; --selection: #eef0f2; --accent: #22252a; --on-accent: #ffffff;
+  --warning: #945b10; --warning-bg: #fff3e2; --danger: #a42f35; --success: #26745c;
+  --working: #6257cf; --working-bg: #f2f1fc; --working-line: #cfcaf3;
+  --frame-shadow: 0 8px 24px rgb(23 33 43 / 10%);
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1c1f26; --canvas: #111318; --text: #f0f1f5; --muted: #abb1bf;
+    --border: #303540; --border-panel: #414956; --border-control: #697487;
+    --soft: #252a34; --selection: #303540; --accent: #f0f1f5; --on-accent: #20222a;
+    --warning: #efbc77; --warning-bg: #423222; --danger: #ffadaf; --success: #85c9a7;
+    --working: #afa5ff; --working-bg: #2a2845; --working-line: #4b4683;
+    --frame-shadow: 0 8px 24px rgb(0 0 0 / 32%);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1c1f26; --canvas: #111318; --text: #f0f1f5; --muted: #abb1bf;
+  --border: #303540; --border-panel: #414956; --border-control: #697487;
+  --soft: #252a34; --selection: #303540; --accent: #f0f1f5; --on-accent: #20222a;
+  --warning: #efbc77; --warning-bg: #423222; --danger: #ffadaf; --success: #85c9a7;
+  --working: #afa5ff; --working-bg: #2a2845; --working-line: #4b4683;
+  --frame-shadow: 0 8px 24px rgb(0 0 0 / 32%);
+}
+body { background: var(--canvas); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 72px; }
+.page { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 60px; }
+h1, h2, h3, h4, p, ul, ol { margin: 0; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; }
+h2 { font-size: 1.3rem; line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
+h3 { font-size: 1rem; line-height: 1.3; }
+h4 { font-size: .95rem; line-height: 1.3; }
+.lede { max-width: 64ch; color: var(--muted); font-size: 1.02rem; }
+strong { color: var(--text); font-weight: 600; }
+.eyebrow { font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.section { display: flex; flex-direction: column; gap: 24px; }
+.words { display: flex; flex-direction: column; gap: 10px; color: var(--muted); max-width: 64ch; }
+.words ul { padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+code { font: 500 .88em/1 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--selection); color: var(--text); padding: 2px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.step { display: grid; grid-template-columns: minmax(0, 290px) minmax(0, 1fr); gap: 32px; align-items: start; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.quad { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: stretch; }
+@media (max-width: 860px) { .step, .pair, .quad { grid-template-columns: minmax(0, 1fr); } .step { gap: 16px; } }
+.panel { background: var(--surface); border-radius: 18px; box-shadow: var(--frame-shadow); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.card ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: .92rem; }
+.card li { background: var(--soft); border-radius: 8px; padding: 6px 10px; overflow-wrap: anywhere; }
+.card .q { color: var(--muted); font-size: .9rem; }
+.card .never { color: var(--muted); font-size: .86rem; border-top: 1px solid var(--border); padding-top: 9px; margin-top: auto; }
+.tag { font-size: 10.5px; font-weight: 600; letter-spacing: .03em; border: 1px solid var(--border-control); color: var(--muted); border-radius: 5px; padding: 0 5px; white-space: nowrap; vertical-align: 1px; }
+.tag.new { border-color: var(--working-line); color: var(--working); background: var(--working-bg); }
+
+/* The map: boxes inside boxes */
+.map { display: grid; grid-template-columns: minmax(0, 1fr) 210px; gap: 16px; }
+@media (max-width: 860px) { .map { grid-template-columns: minmax(0, 1fr); } }
+.ws { border: 1.5px solid var(--border-control); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; background: var(--surface); }
+.ws > p, .ag > p, .hist p { color: var(--muted); font-size: .88rem; }
+.agents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 600px) { .agents { grid-template-columns: minmax(0, 1fr); } }
+.ag { border: 1px solid var(--border-panel); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--soft); }
+.shelfrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: .84rem; color: var(--muted); }
+.pill { background: var(--surface); border: 1px solid var(--border-panel); border-radius: 999px; padding: 2px 10px; font-size: .82rem; color: var(--text); white-space: nowrap; }
+.hist { border: 1.5px dashed var(--border-control); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 8px; }
+
+table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+th, td { text-align: left; padding: 9px 14px 9px 0; border-top: 1px solid var(--border); vertical-align: top; color: var(--muted); }
+th { border-top: 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+td:first-child { color: var(--text); font-weight: 600; }
+td.y { color: var(--text); } td.n { opacity: .75; }
+.scroll { overflow-x: auto; } .scroll table { min-width: 620px; }
+
+/* Screens */
+.frame { background: var(--surface); border-radius: 18px; box-shadow: var(--frame-shadow); overflow: hidden; font-size: 13.5px; line-height: 1.45; min-width: 0; }
+.body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.head h3 { font-size: 1.05rem; } .sub, .head p { color: var(--muted); font-size: 12.5px; }
+.act { display: flex; flex-direction: column; }
+.act div { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); align-items: baseline; }
+.act div:first-child { border-top: 0; }
+.act time { color: var(--muted); font-size: 12px; width: 40px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.act span { overflow-wrap: anywhere; min-width: 0; }
+.mem { color: var(--working); font-weight: 600; }
+.msgs { display: flex; flex-direction: column; gap: 12px; }
+.msg { display: flex; gap: 10px; min-width: 0; } .msg > div { min-width: 0; }
+.av { width: 30px; height: 30px; border-radius: 50%; background: var(--selection); display: grid; place-items: center; font-size: 11px; font-weight: 600; flex-shrink: 0; }
+.av.a { background: var(--working-bg); color: var(--working); }
+.who { font-weight: 600; font-size: 13px; } .who time { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 6px; }
+.bubble { box-shadow: 0 1px 3px rgb(23 33 43 / 12%); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; margin-top: 3px; }
+.kept { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 6px; font-size: 12.5px; color: var(--muted); }
+.kept u { text-decoration: underline; color: var(--text); font-weight: 600; }
+.rows { display: flex; flex-direction: column; }
+.r { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 16px; padding: 9px 0; border-top: 1px solid var(--border); align-items: baseline; }
+.r:first-child { border-top: 0; } .r .m { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.r p { min-width: 0; overflow-wrap: anywhere; }
+.knows { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 8px 14px; align-items: start; }
+.knows b { color: var(--muted); font-weight: 600; font-size: 12.5px; padding-top: 4px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips span { border: 1px solid var(--border-panel); border-radius: 9px; padding: 4px 10px; white-space: nowrap; }
+.chips span.new { border-color: var(--working); box-shadow: 0 0 0 1px var(--working); }
+.res { background: var(--soft); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.res div { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+.lab { font: 600 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--working); white-space: nowrap; }
+.given { list-style: none; padding: 0; display: flex; flex-direction: column; }
+.given li { display: flex; justify-content: space-between; gap: 16px; padding: 8px 0; border-top: 1px solid var(--border); }
+.given li:first-child { border-top: 0; } .given span { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.steps { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; counter-reset: n; }
+.steps li { counter-increment: n; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; padding: 14px 16px 14px 52px; position: relative; display: flex; flex-direction: column; gap: 4px; }
+.steps li::before { content: counter(n); position: absolute; left: 14px; top: 14px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 12.5px; font-weight: 600; }
+.steps span { color: var(--muted); font-size: .9rem; } .steps em { font-style: normal; font-size: .86rem; color: var(--text); }
+@media (max-width: 760px) { .steps { grid-template-columns: minmax(0, 1fr); } }
+.twocol ul { padding-left: 1.1em; display: flex; flex-direction: column; gap: 7px; color: var(--muted); font-size: .92rem; }
+</style>
+
+<div class="page">
+
+<header class="stack">
+  <p class="eyebrow">Design proposal · not built</p>
+  <h1>One memory system for the whole product</h1>
+  <p class="lede">Agents learn while they work. What they learn is kept at the level where it is <strong>useful and safe</strong>: the whole workspace, one agent's job, one channel, or one person. Every level uses the same engine. The rooms Cuckoo already has decide what an agent may read and write in each request.</p>
+</header>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">The map</p><h2>Four shelves of memory, and the real messages beside them</h2><p>Think of a company. Some things everyone knows. Some things one employee knows about their own job. Some things belong to one team's room. Some things are between an employee and one colleague. The memory has the same four levels.</p></div>
+  <div class="map">
+    <div class="ws">
+      <h3>Workspace memory <span class="tag new">NEW</span></h3>
+      <p>Facts about the business. Every agent reads it. Only admins open it.</p>
+      <div class="agents">
+        <div class="ag"><h4>Nova · Sales agent</h4>
+          <div class="shelfrow"><strong>Job shelf</strong> <span class="tag new">NEW</span> what Nova learned about its own work</div>
+          <div class="shelfrow"><strong>Rooms</strong> <span class="tag new">NEW</span> <span class="pill">#sales</span><span class="pill">#quotes</span></div>
+          <div class="shelfrow"><strong>People</strong> <span class="tag new">NEW</span> <span class="pill">Meera</span><span class="pill">Ravi</span><span class="pill">Arjun</span></div></div>
+        <div class="ag"><h4>Milo · Finance agent</h4>
+          <div class="shelfrow"><strong>Job shelf</strong> what Milo learned about its own work</div>
+          <div class="shelfrow"><strong>Rooms</strong> <span class="pill">#finance</span></div>
+          <div class="shelfrow"><strong>People</strong> <span class="pill">Meera</span><span class="pill">Priya</span></div></div>
+      </div>
+      <p>Nova's shelf for Meera and Milo's shelf for Meera are two separate shelves. Nothing moves between agents except through the workspace memory.</p>
+    </div>
+    <div class="hist">
+      <h3>Conversation history <span class="tag">EXISTS</span></h3>
+      <p>The real old messages of one conversation. Not memory: nothing is summarised or chosen. The agent searches it when someone asks what was said.</p>
+      <p>Search gets better in step 1.</p>
+    </div>
+  </div>
+  <p class="words">A personal assistant keeps its own memory of its person, as built. It will also read the workspace memory, and never write to it.</p>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">What goes where</p><h2>What each shelf remembers</h2><p>The engine is the same. The content is different, because each shelf answers a different question.</p></div>
+  <div class="quad">
+    <div class="card"><h3>Workspace memory</h3><p class="q">"What is true about this business, whoever asks?"</p>
+      <ul><li>Acme Traders pays 45 days after invoice.</li><li>Ravi approves any discount over 10%.</li><li>The price list is the "Prices 2026" sheet, updated on Mondays.</li><li>"The Friday report" means the weekly stock summary.</li></ul>
+      <p class="never"><strong>Never:</strong> private matters, secrets, live numbers such as stock or balances, rules for agents.</p></div>
+    <div class="card"><h3>Job shelf <span class="tag">ONE AGENT</span></h3><p class="q">"What have I learned about doing my own job?"</p>
+      <ul><li>The sheet update fails over 500 rows; send batches.</li><li>Quote templates are in the Sales folder.</li><li>I post the stock report in #ops every Monday.</li><li>Reminders sent before 11 am get answered the same day.</li></ul>
+      <p class="never"><strong>Never:</strong> anything about one person. Rules stay in Lessons, approved by a person.</p></div>
+    <div class="card"><h3>Room shelf <span class="tag">ONE AGENT · ONE CHANNEL</span></h3><p class="q">"What has this room settled?"</p>
+      <ul><li>#sales decided on 3 Nov to quote in rupees only.</li><li>This room wants numbers as a table.</li><li>The Diwali offer ended on 14 Nov.</li><li>Arjun handles returns questions here.</li></ul>
+      <p class="never"><strong>Never:</strong> used outside this room.</p></div>
+    <div class="card"><h3>Person shelf <span class="tag">ONE AGENT · ONE PERSON</span></h3><p class="q">"How do I work well with this person?"</p>
+      <ul><li>Meera wants short answers, in Hindi when she writes in Hindi.</li><li>Meera handles the Pune accounts.</li><li>She is waiting for the Northwind credit note.</li><li>She asks for the overdue list every Monday.</li></ul>
+      <p class="never"><strong>Never:</strong> used for anyone else or in a channel. She can read and remove it.</p></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">Writing</p><h2>Where a new note is filed</h2><p>The agent keeps a note with one tool, <code>remember</code>, and says who it is for. The server sets the limit. The agent can make the audience smaller, never wider.</p></div>
+  <div class="panel"><div class="scroll"><table>
+    <thead><tr><th>The agent chooses</th><th>It asks itself</th><th>Saved at once when</th><th>Otherwise</th></tr></thead>
+    <tbody>
+      <tr><td>here</td><td>Is this about this person or this room?</td><td>Always. It goes on the shelf of the conversation it is working in.</td><td>—</td></tr>
+      <tr><td>my job</td><td>Will I need this in every conversation?</td><td>It was learned in a public channel or from the agent's own tool result.</td><td>An owner approves it, under Lessons.</td></tr>
+      <tr><td>workspace</td><td>Would another agent need this?</td><td>It was learned where the whole workspace may see it.</td><td>An admin approves it, in Settings › Memory.</td></tr>
+    </tbody></table></div>
+    <p class="words">Anything read from email, the web or a connected app waits for a person before it can sit above "here". A schedule or trigger running by itself can only suggest.</p></div>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">Reading · the one rule</p><h2>A memory is used only where everyone who reads the answer could have seen where it was learned</h2><p>The server works this out from the running request. The agent cannot name another person or room, so it cannot ask for the wrong shelf.</p></div>
+  <div class="panel"><div class="scroll"><table>
+    <thead><tr><th>The request runs in</th><th>Workspace</th><th>Job shelf</th><th>Room shelf</th><th>Person shelf</th><th>History</th></tr></thead>
+    <tbody>
+      <tr><td>Meera's direct chat</td><td class="y">Yes</td><td class="y">Yes</td><td class="n">No</td><td class="y">Meera's only</td><td class="y">This chat</td></tr>
+      <tr><td>#sales</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">#sales only</td><td class="n">Nobody's</td><td class="y">#sales</td></tr>
+      <tr><td>A thread with an outside customer</td><td class="n">No</td><td class="n">No</td><td class="y">That thread's</td><td class="n">No</td><td class="y">That thread</td></tr>
+      <tr><td>A schedule's work room</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">That room's</td><td class="n">No</td><td class="y">That room</td></tr>
+      <tr><td>A person's own assistant</td><td class="y">Read only</td><td class="n">No</td><td class="n">No</td><td class="y">Its own memory of its person</td><td class="y">Its chat</td></tr>
+    </tbody></table></div>
+    <p class="words">A question in a channel that needs private memory moves to the asker's direct chat, with the "continue privately" step that exists today.</p></div>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">Finding</p><h2>How an agent decides where to look</h2><p>Mostly it does not have to decide. Three things do the work.</p></div>
+  <div class="pair">
+    <div class="panel"><h3>1. Given with every request</h3><p class="words">No search needed. The size is fixed, however large the memory grows.</p>
+      <ul class="given"><li>Workspace essentials <span>2,000 characters</span></li><li>The agent's job essentials <span>1,500</span></li><li>Top notes of this room or person <span>1,500</span></li><li>Up to 3 topic summaries that match the request <span>3,000</span></li></ul></div>
+    <div class="panel"><h3>2. One search, every allowed shelf</h3><p class="words"><code>search_memory</code> looks through all the shelves this request may read. Each line says where it comes from, so the agent never has to pick the right shelf.</p>
+      <div class="res"><span class="sub">search_memory "Acme payment" in Meera's chat</span>
+        <div><span class="lab">[workspace]</span><span>Acme Traders pays 45 days after invoice.</span></div>
+        <div><span class="lab">[this conversation]</span><span>Meera wants Acme reminders sent to Priya S.</span></div>
+        <div><span class="lab">[my job]</span><span>Acme's invoices need the PO number in the subject.</span></div></div></div>
+  </div>
+  <div class="panel"><h3>3. A short ladder in its instructions</h3><div class="scroll"><table>
+    <thead><tr><th>The agent needs</th><th>It looks in</th></tr></thead>
+    <tbody>
+      <tr><td>A lasting fact: who, how, what was decided</td><td>What it was given, then <code>search_memory</code></td></tr>
+      <tr><td>What was said, when, by whom, exact words</td><td><code>search_conversation_history</code></td></tr>
+      <tr><td>The text of a document or policy</td><td>The Library</td></tr>
+      <tr><td>A live number: stock, balance, order status</td><td>The connected app. Never memory.</td></tr>
+      <tr><td>Nothing found</td><td>It says so and asks. It never guesses.</td></tr>
+    </tbody></table></div>
+    <p class="words">When notes disagree, the closer one wins: person or room, then job, then workspace, unless an admin pinned the wider note. When a newer message disagrees with a note, the message wins and the agent ends the note.</p></div>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">Seeing it</p><h2>How we know it searched, and what it kept</h2><p>The server records every memory action against the request. Three places show it.</p></div>
+  <div class="step">
+    <div class="words"><h3>Activity › a request</h3><p>Every step with memory or history is a line, next to "Used skill". "Given", "searched" and "found" are exact, because the server does them.</p></div>
+    <div class="frame"><div class="body">
+      <div class="head"><p class="sub">Activity › Request</p><h3>When is Acme's invoice 2291 due?</h3><p>Milo · asked by Meera in her direct chat · today</p></div>
+      <div class="act">
+        <div><time>10:02</time><span><span class="mem">Given from memory:</span> 9 notes · 2 topics (Acme Traders, Invoice system)</span></div>
+        <div><time>10:02</time><span><span class="mem">Searched memory:</span> "Acme payment terms" · 3 found</span></div>
+        <div><time>10:02</time><span>Read invoice 2291 in the Invoice system</span></div>
+        <div><time>10:03</time><span><span class="mem">Searched this conversation:</span> "2291 reminder" · 1 found, from 14 Oct</span></div>
+        <div><time>10:03</time><span>Answered: "It is due on 9 December. Acme pays in 45 days."</span></div>
+        <div><time>10:03</time><span><span class="mem">Remembered for Meera:</span> She wants Acme reminders sent to Priya S.</span></div>
+      </div>
+    </div></div>
+  </div>
+  <div class="pair">
+    <div class="stack"><div class="words"><h3>In chat</h3><p>When an agent keeps something about a person or a room, a quiet line under its reply says so. One press undoes it.</p></div>
+      <div class="frame"><div class="body"><div class="msgs">
+        <div class="msg"><span class="av">ME</span><div><p class="who">Meera <time>10:01</time></p><p>When is Acme's 2291 due? And send their reminders to Priya from now on.</p></div></div>
+        <div class="msg"><span class="av a">Mi</span><div><p class="who">Milo <time>10:03</time></p><div class="bubble">It is due on 9 December. Acme pays in 45 days. I will send their reminders to Priya S.</div>
+          <p class="kept"><span class="mem">Remembered:</span> You want Acme reminders sent to Priya S. <u>Undo</u></p></div></div>
+      </div></div></div></div>
+    <div class="stack"><div class="words"><h3>Looked for, not found</h3><p>A list of what agents searched for and did not find, in Settings › Memory and on each agent. It tells people what to teach.</p></div>
+      <div class="frame"><div class="body"><div class="head"><p class="sub">Settings › Memory › Looked for, not found</p></div>
+        <div class="rows">
+          <div class="r"><p>"Northwind delivery days"</p><span class="m">Nova · 6 times this week</span></div>
+          <div class="r"><p>"who approves refunds"</p><span class="m">Tara, Milo · 4 times</span></div>
+          <div class="r"><p>"GST rate for services"</p><span class="m">Milo · 3 times</span></div>
+        </div></div></div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="step">
+    <div class="words"><p class="eyebrow">Screens that change</p><h2>The agent's page</h2><p>The <strong>Knows</strong> row gains two things. No new page.</p>
+      <ul><li><strong>Memory</strong> is the job shelf, for the agent's owners and admins.</li><li><strong>About you</strong> is the reader's own shelf. Today only an assistant has it; now every agent a person talks to has it.</li><li><strong>Lessons</strong> also lists notes the agent wants to file wider.</li></ul>
+      <p>Elsewhere: a new Settings › Memory page for admins, a "Memory here" section in Conversation context, and the hand-over summary when removing a person says their shelves are deleted.</p></div>
+    <div class="frame"><div class="body">
+      <div class="head"><h3>Milo</h3><p>Ready · Finance agent · owned by Ravi</p></div>
+      <div class="knows"><b>Knows</b><div class="chips"><span>Notes · 4</span><span>Documents · 2</span><span>Lessons · 1 to review</span><span class="new">Memory · 86</span><span class="new">About you · 7</span></div></div>
+      <div class="head"><h3>What Milo remembers about you</h3><p>Only used when you ask Milo, in your own chat. You can remove any line.</p></div>
+      <div class="rows">
+        <div class="r"><p>You want Acme reminders sent to Priya S.</p><span class="m">today · Remove</span></div>
+        <div class="r"><p>You handle the Pune accounts.</p><span class="m">12 Nov · Remove</span></div>
+        <div class="r"><p>You ask for the overdue list every Monday.</p><span class="m">3 Nov · Remove</span></div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">The work</p><h2>What changes and what is new</h2></div>
+  <div class="pair twocol">
+    <div class="panel"><h3>Existing things that change</h3><ul>
+      <li><strong>History search:</strong> today exact words in at most 256 messages; becomes ranked search over the whole conversation, with dates and author.</li>
+      <li><strong>What an agent is given:</strong> a Memory block is added, and the ladder in its instructions.</li>
+      <li><strong>Activity:</strong> memory and history lines on a request.</li>
+      <li><strong>Agent page and Conversation context:</strong> the additions above.</li>
+      <li><strong>Lessons review:</strong> also approves notes filed wider.</li>
+      <li><strong>Removing a person, narrowing a channel:</strong> also deletes or fences their shelves.</li></ul>
+      <p class="words"><strong>Stays as it is:</strong> assistant memory, notes and lessons, the room brief, skills, the Library.</p></div>
+    <div class="panel"><h3>New systems to build</h3><ul>
+      <li><strong>The memory store:</strong> one set of tables for all four shelves.</li>
+      <li><strong>The scope rule:</strong> one function that decides, from the running request, which shelves may be read and written.</li>
+      <li><strong>Three agent tools:</strong> remember, end a note, search memory.</li>
+      <li><strong>The record of memory use,</strong> which feeds Activity, strength and "Looked for, not found".</li>
+      <li><strong>The nightly tidy-up:</strong> merge, settle, summarise, fade, archive, delete.</li>
+      <li><strong>The approval queue</strong> for wider filing and outside sources.</li>
+      <li><strong>Settings › Memory</strong> and the two agent-page panels.</li></ul></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">Build order</p><h2>Six steps, each useful alone</h2><p>Strict from the first day: the boundaries and the record of every action. Simple at first, smarter with data: word search before meaning search, notes before summaries, fixed strength before fading.</p></div>
+  <ol class="steps">
+    <li><b>Better history search</b><span>The tools exist and the scope is already safe. It also adds the record every later step needs.</span><em>People see: the agent finds what they said months ago.</em></li>
+    <li><b>Room and person shelves</b><span>The store, the scope rule, remember and search, the Undo line, About you.</span><em>People see: the agent remembers how they like answers.</em></li>
+    <li><b>The job shelf</b><span>Notes for every conversation, with owner approval for anything from a private place.</span><em>Owners see: what their agent learned about its job.</em></li>
+    <li><b>Workspace memory</b><span>The widest audience, so it comes after the engine is proven on small ones.</span><em>Admins see: Settings › Memory.</em></li>
+    <li><b>The memory looks after itself</b><span>Strength, fading, merging, summaries, the Changes list with undo, search by meaning.</span><em>Admins see: Fading, Archive, Changes.</em></li>
+    <li><b>Measuring, and the later parts</b><span>Looked for not found, corrections after use, searching a person's channels from their direct chat.</span><em>Everyone sees: fewer repeated corrections.</em></li>
+  </ol>
+</section>
+
+</div>

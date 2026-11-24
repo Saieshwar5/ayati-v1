@@ -97,9 +97,9 @@ test('A refused leave keeps the dialog open with the reason',async()=>{
   } finally { refuseLeave=false; }
 });
 
-test('Admins see six workspace pages; Help and Billing are no longer pages',async()=>{
+test('Admins see seven workspace pages, Memory among them; Help and Billing are no longer pages',async()=>{
   await fixture('Admin',async({render,click,dom,reads})=>{
-    assert.deepEqual(sidebar(),[['You',['Profile','Preferences']],['Workspace',['General','People','Apps','Agent rules','Usage','Audit log']]]);
+    assert.deepEqual(sidebar(),[['You',['Profile','Preferences']],['Workspace',['General','People','Apps','Agent rules','Memory','Usage','Audit log']]]);
     await click([...document.querySelectorAll('.settings-group button')].find(item=>item.textContent==='People'));
     assert.match(dom.window.location.search,/view=settings&section=people/);
     await render(base+'&section=usage');

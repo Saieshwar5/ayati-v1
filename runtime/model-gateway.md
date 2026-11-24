@@ -14,7 +14,8 @@ the core-agent plan (CA3, draft decision D240). Built 2026-11-05. Off by default
 | Controller (voice notes) | `AYATI_TRANSCRIPTION_MODEL` (`provider:model`): speech-to-text for audio attachments through `/audio/transcriptions`, with keys from the same file ([voice transcription](voice-transcription.md)). |
 | Controller (skill writer) | `AYATI_SKILL_WRITER_MODEL` (`provider:model`): writes agents' ground rules and skills in the setup chat through `/chat/completions`, with keys from the same file and no tools ([skills](skills.md#written-in-chat)). |
 | Controller (working summaries) | `AYATI_CONTEXT_SUMMARY_MODEL` (`provider:model`): keeps long conversations' working summaries up to date through `/chat/completions`, with keys from the same file ([automatic summaries](versioned-conversation-context.md#automatic-summaries-schema-120)). |
-| Controller (lessons) | `AYATI_LEARNING_MODEL` (`provider:model`): proposes lessons from agents' work once a day through `/chat/completions`, with keys from the same file ([agents learn from their work](agent-learning.md)). |
+| Controller (lessons) | `AYATI_LEARNING_MODEL` (`provider:model`): proposes lessons from agents' work once a day through `/chat/completions`, with keys from the same file ([agents learn from their work](agent-learning.md)); also writes memory topic summaries and drafts and rehearses skills in three-day reviews ([evolution](evolution.md)). |
+| Controller (classifier) | `AYATI_CLASSIFIER_MODEL` (`provider:model`): small typed decisions with a confidence: answer outcomes, note checks, job types, skill coverage and rehearsal comparison ([evolution](evolution.md)). |
 | Executors | `AYATI_MODEL_GATEWAY=1`. Executors then **refuse** `OPENAI_API_KEY`, `FIREWORKS_API_KEY`, `OPENAI_HOST` and `OPENAI_BASE_PATH`. |
 
 The controller still refuses `OPENAI_API_KEY` and `FIREWORKS_API_KEY` in its

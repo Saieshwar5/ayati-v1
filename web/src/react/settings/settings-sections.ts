@@ -3,14 +3,15 @@
 // General, Connections → Apps, Company rules → Agent rules) and removed Help (now in
 // the account menu) and Billing. The ids in links did not change.
 export type Section = 'profile' | 'preferences' | 'this-workspace'
-  | 'workspace' | 'people' | 'connections' | 'company-rules' | 'usage' | 'audit-log';
+  | 'workspace' | 'people' | 'connections' | 'company-rules' | 'memory' | 'usage' | 'audit-log';
 
 export const labels: Record<Section, string> = {
   profile: 'Profile', preferences: 'Preferences', 'this-workspace': 'This workspace',
-  workspace: 'General', people: 'People', connections: 'Apps', 'company-rules': 'Agent rules', usage: 'Usage', 'audit-log': 'Audit log',
+  workspace: 'General', people: 'People', connections: 'Apps', 'company-rules': 'Agent rules', memory: 'Memory', usage: 'Usage', 'audit-log': 'Audit log',
 };
 export const personal: Section[] = ['profile', 'preferences'];
-export const adminWorkspace: Section[] = ['workspace', 'people', 'connections', 'company-rules', 'usage', 'audit-log'];
+// Memory (schema 142) is the workspace's memory, for admins only.
+export const adminWorkspace: Section[] = ['workspace', 'people', 'connections', 'company-rules', 'memory', 'usage', 'audit-log'];
 // Members see the model use made for them on Usage (MG2); admins see the workspace's.
 export const memberWorkspace: Section[] = ['this-workspace', 'company-rules', 'usage'];
 

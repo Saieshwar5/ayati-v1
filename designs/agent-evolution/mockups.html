@@ -1,0 +1,280 @@
+<title>Agents That Improve</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one storyboard on Cuckoo's grey canvas, screens in the product's white frame.
+   Purple (--working) marks only what an agent made or did by itself. */
+:root {
+  --surface: #ffffff; --canvas: #f3f4f5; --text: #22252a; --muted: #5f6670;
+  --border: #e5e7ea; --border-panel: #d1d6dd; --border-control: #aeb8c5;
+  --soft: #f7f8f9; --selection: #eef0f2; --accent: #22252a; --on-accent: #ffffff;
+  --warning: #945b10; --warning-bg: #fff3e2; --danger: #a42f35; --success: #26745c;
+  --working: #6257cf; --working-bg: #f2f1fc; --working-line: #cfcaf3;
+  --frame-shadow: 0 8px 24px rgb(23 33 43 / 10%);
+  --font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1c1f26; --canvas: #111318; --text: #f0f1f5; --muted: #abb1bf;
+    --border: #303540; --border-panel: #414956; --border-control: #697487;
+    --soft: #252a34; --selection: #303540; --accent: #f0f1f5; --on-accent: #20222a;
+    --warning: #efbc77; --warning-bg: #423222; --danger: #ffadaf; --success: #85c9a7;
+    --working: #afa5ff; --working-bg: #2a2845; --working-line: #4b4683;
+    --frame-shadow: 0 8px 24px rgb(0 0 0 / 32%);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1c1f26; --canvas: #111318; --text: #f0f1f5; --muted: #abb1bf;
+  --border: #303540; --border-panel: #414956; --border-control: #697487;
+  --soft: #252a34; --selection: #303540; --accent: #f0f1f5; --on-accent: #20222a;
+  --warning: #efbc77; --warning-bg: #423222; --danger: #ffadaf; --success: #85c9a7;
+  --working: #afa5ff; --working-bg: #2a2845; --working-line: #4b4683;
+  --frame-shadow: 0 8px 24px rgb(0 0 0 / 32%);
+}
+body { background: var(--canvas); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 72px; }
+.page { max-width: 1080px; margin: 0 auto; display: flex; flex-direction: column; gap: 60px; }
+h1, h2, h3, h4, p, ul, ol { margin: 0; }
+h1 { font-size: clamp(1.7rem, 4vw, 2.3rem); line-height: 1.15; letter-spacing: -.02em; text-wrap: balance; }
+h2 { font-size: 1.3rem; line-height: 1.25; letter-spacing: -.01em; text-wrap: balance; }
+h3 { font-size: 1rem; line-height: 1.3; }
+h4 { font-size: .92rem; }
+.lede { max-width: 64ch; color: var(--muted); font-size: 1.02rem; }
+strong { color: var(--text); font-weight: 600; }
+.eyebrow { font-size: .72rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+.section { display: flex; flex-direction: column; gap: 24px; }
+.words { display: flex; flex-direction: column; gap: 10px; color: var(--muted); max-width: 64ch; }
+.words ul { padding-left: 1.2em; display: flex; flex-direction: column; gap: 6px; }
+code { font: 500 .88em/1 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--selection); color: var(--text); padding: 2px 5px; border-radius: 5px; overflow-wrap: anywhere; }
+.step { display: grid; grid-template-columns: minmax(0, 290px) minmax(0, 1fr); gap: 32px; align-items: start; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .step, .pair { grid-template-columns: minmax(0, 1fr); } .step { gap: 16px; } }
+.panel { background: var(--surface); border-radius: 18px; box-shadow: var(--frame-shadow); padding: 24px; display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.frame { background: var(--surface); border-radius: 18px; box-shadow: var(--frame-shadow); overflow: hidden; font-size: 13.5px; line-height: 1.45; min-width: 0; }
+.body { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.sub, .meta { color: var(--muted); font-size: 12.5px; }
+.made { display: inline-flex; align-items: center; gap: 5px; color: var(--working); background: var(--working-bg); border-radius: 6px; padding: 1px 7px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.badge { font-size: 11px; font-weight: 600; border-radius: 6px; padding: 1px 7px; background: var(--selection); color: var(--text); white-space: nowrap; }
+.badge.warn { background: var(--warning-bg); color: var(--warning); }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 9px; font-size: 12.5px; font-weight: 600; border: 1px solid var(--border-control); background: var(--surface); color: var(--text); white-space: nowrap; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.loop { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; }
+.loop li { flex: 1 1 130px; min-width: 0; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.loop li.new { border-color: var(--working-line); background: var(--working-bg); }
+.loop b { font-size: .92rem; } .loop span { color: var(--muted); font-size: .84rem; }
+.timeline { list-style: none; padding: 0; display: flex; flex-direction: column; }
+.timeline li { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 4px 14px; padding: 10px 0; border-top: 1px solid var(--border); }
+.timeline li:first-child { border-top: 0; }
+.timeline time { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.timeline p { overflow-wrap: anywhere; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { text-align: left; padding: 7px 12px 7px 0; border-top: 1px solid var(--border); vertical-align: top; color: var(--muted); }
+th { border-top: 0; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; font-weight: 600; white-space: nowrap; }
+td:first-child { color: var(--text); }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.good { color: var(--success); font-weight: 600; } .bad { color: var(--danger); font-weight: 600; }
+.scroll { overflow-x: auto; }
+.card { border: 1px solid var(--border-panel); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.quote { background: var(--soft); border-radius: 9px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.quote small { color: var(--muted); font-size: 12px; }
+pre { margin: 0; background: var(--soft); border-radius: 9px; padding: 10px 12px; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); }
+.rehearse { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rehearse li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.act { display: flex; flex-direction: column; }
+.act div { display: flex; gap: 10px; padding: 8px 0; border-top: 1px solid var(--border); align-items: baseline; }
+.act div:first-child { border-top: 0; }
+.act time { color: var(--muted); font-size: 12px; width: 40px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.act span { min-width: 0; overflow-wrap: anywhere; }
+.mem { color: var(--working); font-weight: 600; }
+.flow { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; counter-reset: n; }
+.flow li { counter-increment: n; background: var(--surface); border: 1px solid var(--border-panel); border-radius: 14px; padding: 14px 16px 14px 52px; position: relative; display: flex; flex-direction: column; gap: 4px; }
+.flow li::before { content: counter(n); position: absolute; left: 14px; top: 14px; width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 12.5px; font-weight: 600; }
+.flow span { color: var(--muted); font-size: .9rem; }
+@media (max-width: 760px) { .flow { grid-template-columns: minmax(0, 1fr); } }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips span { border: 1px solid var(--border-panel); border-radius: 9px; padding: 4px 10px; white-space: nowrap; }
+</style>
+
+<div class="page">
+
+<header class="stack">
+  <p class="eyebrow">Design proposal · not built</p>
+  <h1>Agents that get better on their own</h1>
+  <p class="lede">Every answer gets an outcome. Every three days each agent looks at its routine work and, where it has no skill for a job it keeps doing, writes one, tries it on past requests and proposes it. People approve it, and the skill says <strong>Created by Nova</strong> forever. Each week shows in numbers whether the agents improved.</p>
+</header>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">The loop</p><h2>Seven steps, around and around</h2><p>The purple steps are new. The rest exist today.</p></div>
+  <ol class="loop">
+    <li><b>Work</b><span>Answers and tool runs</span></li>
+    <li class="new"><b>Signals</b><span>Each answer: accepted, corrected, followed up</span></li>
+    <li class="new"><b>Learn</b><span>Notes, job types, skill drafts</span></li>
+    <li class="new"><b>Check</b><span>Classifier, then rehearsal on past requests</span></li>
+    <li><b>Review</b><span>A person approves</span></li>
+    <li class="new"><b>Use</b><span>Notes chosen by meaning; new skills</span></li>
+    <li class="new"><b>Measure</b><span>The learning score each week</span></li>
+  </ol>
+</section>
+
+<section class="section">
+  <div class="step">
+    <div class="words"><p class="eyebrow">Screen 1 · agent page</p><h2>Improving: watch an agent evolve</h2>
+      <p>A new panel next to Recent work. Every three-day review is listed, <strong>including the ones that changed nothing</strong>, so you see the agent thinking about its own work.</p>
+      <ul><li>Job types it found and how they went.</li><li>Skills it created and improved, and their effect.</li><li>Its numbers this week against last week.</li></ul></div>
+    <div class="frame"><div class="body">
+      <div><p class="sub">Agents › Nova</p><h3>How Nova is improving</h3></div>
+      <div class="scroll"><table>
+        <thead><tr><th>This week</th><th>Now</th><th>Last week</th></tr></thead>
+        <tbody>
+          <tr><td>Answers corrected, per 100</td><td class="num good">3</td><td class="num">7</td></tr>
+          <tr><td>Answers accepted, per 100</td><td class="num good">81</td><td class="num">72</td></tr>
+          <tr><td>Searches that found nothing</td><td class="num good">4</td><td class="num">11</td></tr>
+          <tr><td>Steps per payment reminder</td><td class="num good">3</td><td class="num">7</td></tr>
+        </tbody></table></div>
+      <ol class="timeline">
+        <li><time>24 Nov</time><p><strong>Checked 41 requests in 6 job types.</strong> Proposed a new skill, <em>quote-repeat-order</em>, for 9 repeat-order quotes with no skill. <span class="badge warn">Waiting for you</span></p></li>
+        <li><time>21 Nov</time><p><strong>Checked 38 requests.</strong> Improved <em>payment-reminder</em> to version 2 after 3 corrections about who to copy. <span class="made">Improved by Nova</span> Approved by Ravi.</p></li>
+        <li><time>18 Nov</time><p><strong>Checked 35 requests in 5 job types.</strong> No new skill needed: each routine job already has one.</p></li>
+        <li><time>15 Nov</time><p><strong>Checked 44 requests.</strong> Created <em>payment-reminder</em> from 12 reminders on 6 days. <span class="made">Created by Nova</span> Approved by Ravi.</p></li>
+      </ol>
+    </div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="step">
+    <div class="words"><p class="eyebrow">Screen 2 · agent page › Lessons and skills</p><h2>A skill the agent proposes</h2>
+      <p>For the agent's owners and admins. Everything needed to decide is on one card:</p>
+      <ul><li><strong>Why:</strong> the job, how often, and that no skill covers it.</li>
+        <li><strong>Evidence:</strong> example requests, with text only from conversations you can open.</li>
+        <li><strong>Rehearsal:</strong> the draft tried on three past requests, nothing sent or changed.</li>
+        <li><strong>The draft</strong> itself, which you can edit before approving.</li></ul></div>
+    <div class="frame"><div class="body">
+      <div class="card">
+        <div><p class="sub">Proposed by Nova · 24 Nov review</p><h3>New skill: quote-repeat-order <span class="made">Created by Nova</span></h3></div>
+        <p><strong>Why:</strong> 9 requests in 30 days on 7 days asked for a quote for a repeat order. Nova has no skill for it and took 6 to 9 steps each time; 2 answers were corrected for using last year's prices.</p>
+        <div class="quote"><small>In #sales · 19 Nov · accepted</small>"Can you quote Acme the same 40 units as last month?"</div>
+        <div class="quote"><small>In a conversation you can't open · 12 Nov · corrected</small>Text not shown</div>
+        <h4>Rehearsal on three past requests</h4>
+        <ul class="rehearse">
+          <li><span>Acme, 40 units, 19 Nov</span><span class="good">Same as the real answer</span></li>
+          <li><span>Northwind, repeat of order 18, 14 Nov</span><span class="good">Better: used this year's price list</span></li>
+          <li><span>Pune store, 2 lines, 9 Nov</span><span class="good">Same as the real answer</span></li>
+        </ul>
+        <pre>---
+name: quote-repeat-order
+description: Use when someone asks for a quote that repeats an earlier order.
+---
+1. Find the earlier order in Shopify by customer and date.
+2. Read this year's prices from the "Prices 2026" sheet; never reuse old prices.
+3. Apply discounts only as company rules allow; over 10% asks Ravi's approval.
+4. Send the quote as a PDF attachment.
+5. If the earlier order is not found, ask which one they mean.</pre>
+        <p class="meta">Uses apps Nova already has: Shopify (read), Google Sheets (read), Gmail (send, asks first). Grants nothing new.</p>
+        <div class="btns"><span class="btn primary">Approve</span><span class="btn">Edit, then approve</span><span class="btn">Reject</span></div>
+      </div>
+    </div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="pair">
+    <div class="stack"><div class="words"><p class="eyebrow">Screen 3 · the skill</p><h2>It always says who made it, and whether it helped</h2></div>
+      <div class="frame"><div class="body">
+        <div><h3>payment-reminder <span class="made">Created by Nova</span></h3><p class="sub">On Nova · version 2</p></div>
+        <div class="scroll"><table>
+          <thead><tr><th>Version</th><th>Author</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>2 · 21 Nov</td><td>Nova, approved by Ravi</td><td>3 corrections: Acme reminders go to Priya, not accounts@</td></tr>
+            <tr><td>1 · 15 Nov</td><td>Nova, approved by Ravi</td><td>12 reminders on 6 days with no skill</td></tr>
+          </tbody></table></div>
+        <div class="scroll"><table>
+          <thead><tr><th>Payment reminders</th><th>Before</th><th>Since</th></tr></thead>
+          <tbody>
+            <tr><td>Corrected</td><td class="num">4 in 20</td><td class="num good">1 in 22</td></tr>
+            <tr><td>Steps each</td><td class="num">7</td><td class="num good">3</td></tr>
+          </tbody></table></div>
+      </div></div></div>
+    <div class="stack"><div class="words"><p class="eyebrow">Screen 4 · Activity › a request</p><h2>The outcome, and the skill it used</h2></div>
+      <div class="frame"><div class="body">
+        <div><p class="sub">Activity › Request</p><h3>Remind Acme about invoice 2291</h3><p class="sub">Nova · asked by Meera · today</p></div>
+        <div class="act">
+          <div><time>10:02</time><span>Used skill: payment-reminder (version 2, <span class="mem">created by Nova</span>)</span></div>
+          <div><time>10:02</time><span><span class="mem">Given from memory:</span> 6 notes, chosen for this request</span></div>
+          <div><time>10:03</time><span>Sent the reminder to Priya S. through Gmail</span></div>
+          <div><time>10:20</time><span><strong>Outcome: accepted.</strong> Meera replied "Perfect, thanks."</span></div>
+        </div>
+      </div></div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="step">
+    <div class="words"><p class="eyebrow">Screen 5 · Settings › Memory › Learning</p><h2>The workspace's week</h2>
+      <p>For admins. Numbers with last week beside them, never one made-up grade. The memory now finds disagreements and groups what agents could not find.</p></div>
+    <div class="frame"><div class="body">
+      <div class="scroll"><table>
+        <thead><tr><th>Your agents this week</th><th>Now</th><th>Last week</th></tr></thead>
+        <tbody>
+          <tr><td>Answers corrected, per 100</td><td class="num good">4</td><td class="num">6</td></tr>
+          <tr><td>The same question asked again</td><td class="num good">9</td><td class="num">15</td></tr>
+          <tr><td>Notes learned · confirmed</td><td class="num">62 · 18</td><td class="num">55 · 12</td></tr>
+          <tr><td>Skills created by agents · approved</td><td class="num">3 · 2</td><td class="num">1 · 1</td></tr>
+        </tbody></table></div>
+      <div class="card"><h4>Two notes disagree <span class="badge warn">Needs your answer</span></h4>
+        <div class="quote"><small>In memory since 12 Nov · used in 41 accepted answers</small>Acme Traders pays 45 days after invoice.</div>
+        <div class="quote"><small>Learned yesterday in #finance</small>Acme moved to 60-day terms from December.</div>
+        <div class="btns"><span class="btn primary">Keep the newer</span><span class="btn">Keep the older</span><span class="btn">Both wrong</span></div></div>
+      <div class="card"><h4>Looked for, not found, grouped</h4>
+        <div class="chips"><span>Refund approvals · 12 searches</span><span>Northwind delivery days · 6</span><span>GST on services · 3</span></div></div>
+    </div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">How the three-day review decides</p><h2>From routine work to a skill</h2></div>
+  <ol class="flow">
+    <li><b>Due?</b><span>72 hours since the last review and at least 10 new requests. Otherwise it waits.</span></li>
+    <li><b>Sort into job types</b><span>The last 30 days of requests, grouped by meaning and confirmed by the classifier.</span></li>
+    <li><b>Find routine work</b><span>A job done at least 5 times on 3 different days.</span></li>
+    <li><b>Is there a skill?</b><span>Covered, partly or not. Mostly accepted with no skill: draft one. A skill often corrected: draft a new version. A job gone for 60 days: suggest retiring.</span></li>
+    <li><b>Draft</b><span>Written from how the good runs went. Message text only from shared conversations; private chats give only job type and steps.</span></li>
+    <li><b>Check</b><span>No secrets, names, addresses, amounts or scripts; only apps it already has.</span></li>
+    <li><b>Rehearse</b><span>Tried on 3 past requests with no tools. Any "worse" drops the draft.</span></li>
+    <li><b>Propose, then measure</b><span>A person approves. After 14 days, before and after are compared.</span></li>
+  </ol>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">The classifier</p><h2>One small model, many small decisions</h2><p>Each question has fixed answers and a confidence. High confidence acts, the middle asks a person, low is dropped. Every answer is stored so it can be checked.</p></div>
+  <div class="panel"><div class="scroll"><table>
+    <thead><tr><th>Question</th><th>Answers</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td>How did the person take the answer?</td><td>accepted, corrected, follow-up, new topic</td><td>outcomes, note strength, skill effect</td></tr>
+      <tr><td>Same, contradicting or unrelated?</td><td>three choices</td><td>merging and ending notes</td></tr>
+      <tr><td>Does this note help this request?</td><td>score</td><td>choosing notes to give</td></tr>
+      <tr><td>Kind? Lasting? Private? An instruction?</td><td>fixed choices</td><td>checking every new note</td></tr>
+      <tr><td>Which job is this request?</td><td>its job types, or new</td><td>finding routine work</td></tr>
+      <tr><td>Does this skill cover this job?</td><td>yes, partly, no</td><td>deciding to create a skill</td></tr>
+      <tr><td>Did the rehearsal do as well?</td><td>better, same, worse</td><td>testing a draft</td></tr>
+    </tbody></table></div></div>
+</section>
+
+<section class="section">
+  <div class="words"><p class="eyebrow">Build order</p><h2>Seven steps, each useful alone</h2></div>
+  <ol class="flow">
+    <li><b>E1 · Classifier and meaning</b><span>The classifier service, embeddings, meaning search for memory.</span></li>
+    <li><b>E2 · Outcomes</b><span>Every answer gets an outcome; shown in Activity.</span></li>
+    <li><b>E3 · Memory learns from outcomes</b><span>Corrected answers hold their notes; checks on every new note; notes chosen by relevance.</span></li>
+    <li><b>E4 · Duplicates and contradictions</b><span>By meaning; grouped searches; room members see room notes; assistant memory joins the engine.</span></li>
+    <li><b>E5 · Job types</b><span>Each request sorted into the agent's jobs.</span></li>
+    <li><b>E6 · Skill reviews every three days</b><span>Drafts, rehearsal, proposals, "Created by Nova".</span></li>
+    <li><b>E7 · Measuring</b><span>The learning score; each skill's effect; retiring what doesn't help.</span></li>
+  </ol>
+</section>
+
+</div>
