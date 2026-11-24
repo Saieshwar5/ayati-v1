@@ -17,6 +17,11 @@ mod change_tests;
 #[path = "task_changes.rs"]
 pub(crate) mod changes;
 #[cfg(test)]
+#[path = "check_tasks_tests.rs"]
+mod check_tests;
+#[path = "task_checks.rs"]
+pub(crate) mod checks;
+#[cfg(test)]
 #[path = "schedules_to_tasks_tests.rs"]
 mod conversion_tests;
 #[cfg(test)]
@@ -408,6 +413,7 @@ impl PgStore {
             vec![job.workspace.clone().into(), input.task.clone().into(), input.outcome.clone().into(), result.into()]).await?;
         wakeups::cancel(&tx, &job.workspace, &input.task).await?;
         triggers::end_trigger(&tx, &job.workspace, &input.task, &job.requester).await?;
+        checks::ended(&tx, &job.workspace, &input.task).await?;
         tx.commit().await?;
         Ok(json!({"id": task["id"], "state": input.outcome}))
     }

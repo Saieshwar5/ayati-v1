@@ -293,6 +293,14 @@ impl PgStore {
                 super::triggers::ensure_resumable(&tx, w, &input.task).await?;
             }
         }
+        // A regular check (schema 149) is set on the assistant page.
+        ensure!(
+            (!timing.any() && instructions.is_none())
+                || super::checks::precheck(&tx, w, &input.task)
+                    .await?
+                    .is_none(),
+            "Regular checks are set on the assistant page (Regular checks): how often and the checklist"
+        );
         execute(&tx, "UPDATE relay_tasks SET title=COALESCE($3,title),done_when=COALESCE($4,done_when),kind='commitment' WHERE workspace=$1 AND id=$2",
             vec![w.into(), input.task.clone().into(), title.into(), done_when.clone().into()]).await?;
         if let Some(text) = &instructions {

@@ -190,6 +190,7 @@ impl PgStore {
         if trigger.is_some() {
             super::triggers::end_trigger(&tx, w, id, &user.id).await?;
         }
+        super::checks::ended(&tx, w, id).await?;
         tx.commit().await?;
         Ok(json!({"id": id, "outcome": outcome}))
     }

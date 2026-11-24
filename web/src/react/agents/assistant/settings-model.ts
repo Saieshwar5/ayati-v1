@@ -4,7 +4,9 @@ import { identityRequest, workspaceId } from '../../../workspace-context';
  * These belong to the signed-in member: nobody else, admins included, reads them. */
 export type AssistantSettings = { checks: boolean; every_minutes: number; checklist: string;
   /** Learn from their edits to drafts and from looking back at their chat. */
-  learn?: boolean; available?: boolean };
+  learn?: boolean; available?: boolean;
+  /** The regular check's task (schema 149): its next run, and paused when stopped on its task page. */
+  task?: { id: string; next_ms: number | null; next_text: string | null; paused: boolean } | null };
 const base = `/workspaces/${workspaceId}/assistant`;
 export const loadAssistantSettings = (signal?: AbortSignal) => identityRequest<AssistantSettings>(`${base}/settings`, undefined, signal);
 /** Saves the named fields and keeps the others, so each part of the page saves its own. */

@@ -110,3 +110,26 @@ impl MigrationTrait for TriggerTasks {
         ))
     }
 }
+
+/// Schema 149: an assistant's regular check becomes a task with a check in code
+/// before the model (designs/agent-tasks/one-system.md, decision 7).
+pub(crate) struct CheckTasks;
+impl MigrationName for CheckTasks {
+    fn name(&self) -> &str {
+        "m20261124_000149_check_tasks"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for CheckTasks {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("check_tasks.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Regular checks become tasks in a forward migration".into(),
+        ))
+    }
+}

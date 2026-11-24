@@ -5,7 +5,9 @@
 //! - **Regular checks**: when on, every few hours the controller looks, in
 //!   code, for direct messages and mentions its person has not been shown and
 //!   for their own checklist. Only when there is something does the assistant
-//!   run, in one "Regular check" thread in its room. Nothing new, no run.
+//!   run, in one "Regular check" thread in its room. Nothing new, no run. From
+//!   schema 149 the check is a task (`tasks::checks`); these settings keep the
+//!   panel's choices and save that task.
 //! - **Drafts**: from any conversation its person can read, they ask for a
 //!   reply. The assistant writes it in its own room; nothing is posted. Its
 //!   person edits and sends it themselves, as their own message.
@@ -17,8 +19,6 @@ use serde_json::json;
 #[cfg(test)]
 #[path = "assistant_ask_tests.rs"]
 mod ask_tests;
-#[path = "assistant_checks.rs"]
-mod checks;
 #[path = "assistant_learning.rs"]
 pub(crate) mod learning;
 #[cfg(test)]
@@ -60,14 +60,6 @@ pub(in crate::identity::postgres) async fn ready(db: &impl ConnectionTrait) -> R
     .await?
     .context("Missing schema check")?
     .try_get("", "ready")?)
-}
-
-fn person(id: &str) -> User {
-    User {
-        id: id.into(),
-        email: String::new(),
-        display_name: None,
-    }
 }
 
 async fn stored(db: &impl ConnectionTrait, w: &str, user: &str) -> Result<Value> {
@@ -159,7 +151,14 @@ impl PgStore {
         if !ready(&self.db).await? {
             return Ok(json!({"available":false}));
         }
-        stored(&self.db, w, &user.id).await
+        let mut data = stored(&self.db, w, &user.id).await?;
+        // Its check task's next run; a check paused on its task page shows as off.
+        let task = super::super::tasks::checks::state(&self.db, w, &user.id).await?;
+        if task["paused"] == true {
+            data["checks"] = json!(false);
+        }
+        data["task"] = task;
+        Ok(data)
     }
 
     pub async fn save_assistant_settings(
@@ -211,6 +210,10 @@ impl PgStore {
             ],
         )
         .await?;
+        // The regular check is a task (schema 149): the panel's choices change it.
+        if input.checks.is_some() || input.every_minutes.is_some() || input.checklist.is_some() {
+            super::super::tasks::checks::save(&tx, w, &user.id).await?;
+        }
         tx.commit().await?;
         Ok(())
     }

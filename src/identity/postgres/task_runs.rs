@@ -326,9 +326,26 @@ impl PgStore {
             return Ok(false);
         }
         let run = t.runs + 1;
-        let input = self
-            .run_request(&tx, w, &task, &rule, run, t.max_runs)
-            .await?;
+        // A regular check (schema 149) first looks in code; with nothing to look at
+        // the run is recorded as no change and the model is not called.
+        let mut check = match super::checks::precheck(&tx, w, &task).await?.as_deref() {
+            Some("messages") => Some(super::checks::messages(&tx, w, &task).await?),
+            _ => None,
+        };
+        let input = match check.as_mut() {
+            Some(found) => match found.input.take() {
+                Some(input) => input,
+                None => {
+                    super::checks::nothing_new(&tx, w, id, &task, found, now).await?;
+                    tx.commit().await?;
+                    return Ok(false);
+                }
+            },
+            None => {
+                self.run_request(&tx, w, &task, &rule, run, t.max_runs)
+                    .await?
+            }
+        };
         let Some((person, chat)) = super::wakeups::owner(&tx, w, &task).await? else {
             mark(&tx, w, id, "cancelled", "").await?;
             tx.commit().await?;
@@ -351,6 +368,9 @@ impl PgStore {
             )
             .await?;
             book_next(&tx, w, &task, now).await?;
+            if let Some(found) = &check {
+                super::checks::looked(&tx, w, found).await?;
+            }
         }
         tx.commit().await?;
         Ok(started)

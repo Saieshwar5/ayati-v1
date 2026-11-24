@@ -163,3 +163,16 @@ test('your assistant’s page holds what it remembers about you and its regular 
     assert.equal(reads.some(path => /\/assistant\/(settings|memories)$/.test(path)), false, 'the viewer’s own memory is never read for someone else’s assistant');
   }, { url, fetch: count(server([])) });
 });
+
+test('regular checks that are on show their task\'s next check and link to it (schema 149)', async () => {
+  const on = { checks: true, every_minutes: 120, checklist: '', learn: true, task: { id: 'check1', next_ms: Date.now() + 3600000, next_text: 'Tue 24 Nov, 18:00', paused: false } };
+  await reactFixture(async ({ render, update }) => {
+    await enter();
+    const { RegularChecks } = await import('../src/react/agents/assistant/regular-checks.tsx');
+    await render(() => createElement(RegularChecks, { name: 'Ayati' }));
+    await update(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    assert.match(document.body.textContent, /Next check Tue 24 Nov, 18:00/);
+    const link = [...document.querySelectorAll('a')].find(a => a.textContent === 'Open its task');
+    assert.ok(link.getAttribute('href').endsWith('task=check1'));
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session) : path.endsWith('/assistant/settings') ? response(on) : response({}) });
+});

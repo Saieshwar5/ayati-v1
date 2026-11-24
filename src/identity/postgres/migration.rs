@@ -156,6 +156,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::home_update_runs::intervals::migration::PanelIntervals),
             Box::new(super::tasks::migration::SchedulesToTasks),
             Box::new(super::tasks::migration::TriggerTasks),
+            Box::new(super::tasks::migration::CheckTasks),
         ]
     }
 }
