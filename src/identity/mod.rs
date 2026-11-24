@@ -29,6 +29,7 @@ mod library;
 mod live_metrics;
 mod login_state;
 mod member_profiles;
+mod memory_tidy;
 mod metrics;
 pub(crate) mod models;
 pub mod operator;

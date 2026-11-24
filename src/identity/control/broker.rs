@@ -185,9 +185,14 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             let input = serde_json::from_value(arguments)?;
             pg.remember_about_person(job, &input).await
         }
-        "search_memory" => {
+        "search_memory" => pg.search_memory_shelves(job, arguments).await,
+        "remember" => {
             let input = serde_json::from_value(arguments)?;
-            pg.search_memory(job, &input).await
+            pg.remember(job, &input).await
+        }
+        "end_memory" => {
+            let input = serde_json::from_value(arguments)?;
+            pg.end_memory(job, &input).await
         }
         "forget_memory" => {
             let input = serde_json::from_value(arguments)?;

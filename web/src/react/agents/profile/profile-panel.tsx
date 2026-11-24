@@ -3,6 +3,8 @@ import { Button } from '../../ui';
 import { useMutation } from '../../requests';
 import { AlwaysRead } from '../../library/always-read';
 import { AssistantMemory } from '../assistant/memory';
+import { AboutMe } from '../../memory/about-me';
+import { MemoryBrowser } from '../../memory/memory-browser';
 import { RegularChecks } from '../assistant/regular-checks';
 import { AutomationLauncher } from '../automation/launcher';
 import { ConnectionsTab } from '../connections-tab';
@@ -15,7 +17,7 @@ import { ProfileIcon } from './profile-parts';
 import type { ProfilePanel } from './profile-rows';
 
 const titles: Record<ProfilePanel['kind'], string> = {
-  assistant: 'Change with chat', notes: 'Notes', documents: 'Documents', lessons: 'Lessons from its work', memory: 'About you',
+  assistant: 'Change with chat', notes: 'Notes', documents: 'Documents', lessons: 'Lessons from its work', memory: 'About you', 'agent-memory': 'Memory', 'about-me': 'About you',
   app: 'Can use', connections: 'Can use', automations: 'On its own', checks: 'Regular checks', model: 'Model',
 };
 
@@ -37,6 +39,8 @@ export function ProfilePanelView({ agent, directory, panel, close, changed, save
     case 'documents': body = <AlwaysRead agent={agent} changed={changed} />; break;
     case 'lessons': body = <LearnedLessons agent={agent} saved={async () => { changed(); }} />; break;
     case 'memory': body = <AssistantMemory name={agent.name} />; break;
+    case 'agent-memory': body = <><p className="ui-help">What {agent.name} learned about its own work, and in the channels you can open. Notes about one person stay with that person.</p><MemoryBrowser agent={agent.id} /></>; break;
+    case 'about-me': body = <AboutMe agent={agent.id} name={agent.name} />; break;
     case 'app': body = <ConnectionsTab key={panel.id} agent={agent} directory={directory} saved={saved} focus={panel.focus} part={{ app: panel.id }} changed={changed} />; break;
     case 'connections': body = <ConnectionsTab key={panel.part ?? 'all'} agent={agent} directory={directory} saved={saved} part={panel.part} start={panel.start} changed={changed} />; break;
     case 'automations': body = <AutomationLauncher agent={agent} openChat={openChat} start={panel.start} changed={changed} />; break;

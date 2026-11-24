@@ -1,6 +1,7 @@
 # Workspace memory (proposal, 2026-11-24)
 
-**Status: proposal, not built.** Nothing here exists in code. Open
+**Status: built 2026-11-24** as part of [the memory system](../memory-system/README.md);
+see [`runtime/memory.md`](../../runtime/memory.md) for what exists. Open
 [`mockups.html`](mockups.html) for the screens and the diagrams.
 
 This is one level of [the memory system](../memory-system/README.md), which adds

@@ -25,6 +25,7 @@ pub(super) async fn start(app: &Shared) -> Result<Option<tokio::task::JoinHandle
         library::indexer::start(app.clone());
         context_compaction::start(app.clone());
         agent_learning::start(app.clone());
+        memory_tidy::start(app.clone());
         person_asks::start(app.clone());
         library::keeping::start(app.clone());
         computers::sleeper::start(app.clone());

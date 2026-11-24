@@ -3,6 +3,7 @@ mod computer_schema;
 pub mod control_mcp;
 mod history_schema;
 mod library_schema;
+mod memory_schema;
 pub mod panel_schema;
 mod people_schema;
 mod personal_panel_schema;

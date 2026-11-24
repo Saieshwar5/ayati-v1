@@ -476,7 +476,7 @@ on 2026-11-21 (`designs/settings-redesign/`).
   first and each page has "‹ Settings".
 - **Members:** Profile, Preferences, This workspace (which ends with Leave
   workspace), Agent rules (read-only) and Usage (their own).
-- **Admins:** General, People, Apps, Agent rules, Usage and Audit log.
+- **Admins:** General, People, Apps, Agent rules, Memory, Usage and Audit log.
 - **Not pages:** Help and feedback is a dialog in the account menu. Do not add a
   page, row or badge for something that is not built ("Coming later").
 - **Saving:** typed text shows the dark "Unsaved changes" bar (Discard, Save) at the

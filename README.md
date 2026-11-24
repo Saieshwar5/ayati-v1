@@ -62,6 +62,9 @@ Main product contracts:
   private chat.
 - [Agents learn from their work](runtime/agent-learning.md): once a day Cuckoo
   proposes lessons from shared conversations; maintainers approve them as notes.
+- [Memory](runtime/memory.md): agents keep notes as they work, for the workspace,
+  their job, one room or one person, and every request uses the ones its readers
+  may know; admins open the workspace's in Settings, a nightly tidy-up keeps it small.
 - [Your own computers](runtime/workspace-computers.md): admins add a machine the
   workspace runs and choose it on an agent's page; the Cuckoo Connector on it takes
   that agent's commands and files.

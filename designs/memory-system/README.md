@@ -1,8 +1,24 @@
 # The memory system (proposal, 2026-11-24)
 
-**Status: proposal, not built.** Open [`mockups.html`](mockups.html) for the
-pictures and screens, and [`implementation-plan.md`](implementation-plan.md) for
-the build steps. The workspace level was drawn first in
+**Status: built 2026-11-24**, all six steps, as described in
+[`runtime/memory.md`](../../runtime/memory.md). Open [`mockups.html`](mockups.html)
+for the pictures and screens, and [`implementation-plan.md`](implementation-plan.md)
+for the build steps.
+
+What differs from this proposal:
+
+- **Strength starts at 50** for every agent note (the tools can't tell a person's
+  words from the agent's own guess) and 90 for a person's. Use raises it only when a
+  search finds the note.
+- **Room notes in a channel** are seen by the agent's owners and admins who can open
+  the room, on the agent's page; people in the room don't get a view of them yet.
+- **Owners and admins get no page of person shelves**: those notes show only as
+  lines on requests they can already open in Activity. The person sees and removes
+  their own under About you.
+- **No "Remembered · Undo" line in chat** and no "Memory here" in the context
+  preview: the line is in Activity, and About you is where a person removes it.
+- **Search by meaning, contradiction checks, putting a corrected answer's notes on
+  hold and widening a direct-chat search to the person's channels** are not built. The workspace level was drawn first in
 [`../workspace-memory/`](../workspace-memory/README.md); where the two differ, this
 folder is newer.
 

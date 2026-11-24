@@ -51,7 +51,7 @@ test('each row shows the real things: skills, what it knows, apps with their sta
     await open(render);
     assert.equal(row('Does').querySelector('.profile-rules').textContent, settings.instructions);
     assert.deepEqual(chips('Does').slice(0, 1), ['refund-check']);
-    assert.deepEqual(chips('Knows').slice(0, 3), ['Notes 1', 'Documents 1', 'Lessons1 to review'], 'a forgotten note is not counted');
+    assert.deepEqual(chips('Knows').slice(0, 5), ['Notes 1', 'Documents 1', 'Lessons1 to review', 'Memory', 'About you'], 'a forgotten note is not counted');
     assert.deepEqual(chips('Can use').slice(0, 3), ['SShopify', 'GGmailNeeds reconnecting', 'Web search']);
     assert.ok(row('Can use').querySelector('.profile-chip .profile-dot.warn'), 'an app that needs signing in again has an amber dot');
     assert.match(row('On its own').querySelector('.profile-line').textContent, /Late orders · Every day/);

@@ -62,21 +62,64 @@ async fn history_search_retrieves_older_evidence_with_bounded_complete_paginatio
         .unwrap();
     assert!(!queued.prompt.contains("OLDEST_EVIDENCE"));
     let job = db.claim_job().await.unwrap().unwrap();
+    // Words are found across the whole conversation in one search, by the message index.
     let first = search(&db, &job, "oldest_evidence", None).await;
-    assert_eq!(first["messages"], json!([]));
-    assert_eq!(first["scanned"], 256);
-    let second = search(&db, &job, "oldest_evidence", first["next_before"].as_i64()).await;
-    assert_eq!(second["messages"].as_array().unwrap().len(), 1);
-    assert_eq!(second["messages"][0]["id"], old.id);
-    assert_eq!(second["messages"][0]["author"]["id"], owner.id);
-    assert_eq!(second["next_before"], Value::Null);
+    assert_eq!(first["messages"].as_array().unwrap().len(), 1);
+    assert_eq!(first["messages"][0]["id"], old.id);
+    assert_eq!(first["messages"][0]["author"]["id"], owner.id);
+    assert_eq!(first["matched"], "all words");
+    assert_eq!(first["next_before"], Value::Null);
+    // A word's start finds it; words not all in one message fall back to any of them.
+    let start = search(&db, &job, "deliv frid", None).await;
+    assert_eq!(start["messages"][0]["id"], old.id);
+    let any = search(&db, &job, "friday unheardofword", None).await;
+    assert_eq!(any["matched"], "any word");
+    assert_eq!(any["messages"][0]["id"], old.id);
     let exact = read(&db, &job, &old.id, 0).await;
     assert_eq!(exact["message"]["content"], old.content);
     assert_eq!(exact["next_offset"], Value::Null);
-    let literal = search(&db, &job, "%_", Some(i64::MAX)).await;
-    assert_eq!(literal["messages"], json!([]));
-    let literal = search(&db, &job, "%_", literal["next_before"].as_i64()).await;
+    // A query without words is matched literally, still over the whole conversation.
+    let literal = search(&db, &job, "%_", None).await;
+    assert_eq!(literal["matched"], "literal");
     assert_eq!(literal["messages"].as_array().unwrap().len(), 1);
+    // Narrowed by author and date.
+    let nobody = invoke(
+        &db,
+        &job,
+        "search_conversation_history",
+        json!({"query":"delivery","from":"someone-else"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(nobody["messages"], json!([]));
+    let later = invoke(
+        &db,
+        &job,
+        "search_conversation_history",
+        json!({"query":"delivery","since":"2999-01-01"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(later["messages"], json!([]));
+    assert!(
+        invoke(
+            &db,
+            &job,
+            "search_conversation_history",
+            json!({"query":"delivery","since":"last week"})
+        )
+        .await
+        .is_err()
+    );
+    // Each search with words is a line in Activity.
+    let lines = super::memory::given::steps(&db.db, &w, &job.reply)
+        .await
+        .unwrap();
+    assert!(
+        lines
+            .iter()
+            .any(|l| l["title"] == "Searched this conversation: \"oldest_evidence\" · 1 found")
+    );
     let mut before = None;
     let mut ids = std::collections::HashSet::new();
     for _ in 0..20 {

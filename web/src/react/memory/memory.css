@@ -1,0 +1,47 @@
+/* Memory (schema 142): flat rows on the shared surface; the waiting panel is the
+   Settings "Needs your answer" panel. Strength is five steps and a word. */
+.memory-browser { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.memory-facts { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0; color: var(--muted); font-size: 13px; }
+.memory-facts b { color: var(--text); font-variant-numeric: tabular-nums; }
+.memory-count { margin-left: 6px; font-variant-numeric: tabular-nums; opacity: .75; }
+.memory-needs { display: flex; flex-direction: column; gap: 10px; padding-bottom: 14px; }
+.memory-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.memory-search { display: flex; gap: 8px; flex: 1 1 260px; min-width: 0; }
+.memory-search input { flex: 1; min-width: 0; padding: 8px 12px; border: 0; border-radius: 10px; background: var(--soft); color: var(--text); font: inherit; }
+.memory-topic-filter { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; color: var(--muted); }
+.memory-list { list-style: none; margin: 0; padding: 0; }
+.memory-list > li { border-top: 1px solid var(--border); }
+.memory-list > li:first-child { border-top: 0; }
+.memory-note { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; padding: 12px 0; }
+.memory-note-text { min-width: 0; }
+.memory-note-text p { margin: 0; overflow-wrap: anywhere; }
+.memory-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 4px !important; color: var(--muted); font-size: 12px; }
+.memory-pinned { color: var(--text); }
+.memory-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.memory-actions .ui-button { min-height: 32px; font-size: 13px; }
+.memory-confirm { color: var(--danger); font-size: 13px; }
+.memory-strength { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; white-space: nowrap; }
+.memory-strength > span { display: inline-flex; gap: 2px; }
+.memory-strength i { width: 5px; height: 12px; border-radius: 2px; background: var(--border-panel); }
+.memory-strength i.on { background: var(--text); }
+.memory-topic { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; align-items: center; padding: 12px 0; }
+.memory-topic > .ui-button, .memory-summary-form { grid-column: 1 / -1; justify-self: start; }
+.memory-summary-form { width: 100%; }
+.memory-summary-form textarea { width: 100%; box-sizing: border-box; }
+.memory-topic-open { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 0; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.memory-topic-open span { color: var(--muted); overflow-wrap: anywhere; }
+.memory-topic-open small, .memory-change small { color: var(--muted); font-size: 12px; }
+.memory-topic-open:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 6px; }
+.memory-waiting { display: flex; flex-direction: column; gap: 8px; padding: 12px 0; border-top: 1px solid var(--border); }
+.memory-needs .memory-waiting:first-of-type { border-top: 0; }
+.memory-waiting h4 { margin: 0; font-size: 13px; }
+.memory-quote { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 8px 10px; border-radius: 9px; background: var(--soft); overflow-wrap: anywhere; }
+.memory-quote small { color: var(--muted); font-size: 12px; }
+.memory-change { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px 16px; padding: 10px 0; }
+.memory-change p { display: flex; flex-direction: column; gap: 2px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.memory-add { display: flex; flex-direction: column; gap: 10px; padding: 12px 0; }
+.memory-add-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.memory-add-row .ui-field { flex: 1 1 150px; min-width: 0; }
+@media (max-width: 600px) {
+  .memory-note, .memory-topic { grid-template-columns: minmax(0, 1fr); }
+}

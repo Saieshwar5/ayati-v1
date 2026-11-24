@@ -270,6 +270,7 @@ mod library_http_tests;
 #[cfg(test)]
 mod library_tests;
 mod login_flows;
+pub(crate) mod memory;
 pub(crate) mod message_search;
 #[cfg(test)]
 mod message_search_tests;
@@ -459,13 +460,11 @@ use audit_write::{audit, audit_with_summary};
 pub(crate) use company_apps::{AppDecision, AppRequest, CompanyApp};
 
 #[cfg(test)]
-pub(in crate::identity) mod tests;
-
+mod company_tests;
 #[cfg(test)]
 mod profile_tests;
-
 #[cfg(test)]
-mod company_tests;
+pub(in crate::identity) mod tests;
 
 #[cfg(test)]
 mod messaging_tests;

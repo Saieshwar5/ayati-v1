@@ -102,13 +102,17 @@ agent, requester and conversation from the authenticated running task. Supplying
 different scope in tool arguments is rejected. Each call rechecks the current
 claim/lease, membership, agent participation/grant and source authority.
 
-Search accepts a literal query of up to 256 bytes and an optional `before` cursor.
-It scans at most 256 eligible messages, returning at most 20 attributed excerpts
-of 600 characters each. Matching is case-insensitive, not semantic; `%` and `_`
-are ordinary characters. An empty query browses history. Returned messages are in
-chronological order. Follow `next_before` until null; an empty page with a cursor
-means older evidence remains unsearched. The requested cursor cannot extend past
-the original task's reply sequence, so later unrelated messages do not enter it.
+Search accepts a query of up to 256 bytes, an optional `before` cursor and, since
+schema 142, `from` (an author ID), `since` and `until` (dates). It searches the whole
+eligible conversation with the message word index of schema 92: messages with all
+the words, each also matching as a start, newest first, 20 attributed excerpts of
+600 characters a page; when none has every word, the 20 best matches with any word
+(`matched` says which). A query without words (only symbols) is matched literally,
+with `%` and `_` as ordinary characters. Matching is case-insensitive, not semantic.
+An empty query browses history. Returned messages are in chronological order.
+Follow `next_before` until null. The requested cursor cannot extend past the
+original task's reply sequence, so later unrelated messages do not enter it. Each
+search with words is a line on the request in Activity ([memory](memory.md)).
 
 Read accepts an eligible message UUID and optional zero-based character offset.
 It returns up to 4,000 Unicode characters and `next_offset` for the next chunk.
