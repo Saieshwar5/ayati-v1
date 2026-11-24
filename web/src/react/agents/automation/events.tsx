@@ -8,6 +8,7 @@ import { CreateEvent } from './event-create';
 import { CreateAppEvent } from './app-event-create';
 import { EventReview } from './event-review';
 import { loadEvents, type EventTrigger } from './event-model';
+import { taskUrl } from '../../activity/model';
 /** "When something happens": the agent's triggers. `start` opens a new one from
  * "New automation"; `finished` is told when that dialog closes. */
 export function EventTriggers({ agent, start = false, finished }: { agent: string; start?: boolean; finished?: () => void }) {
@@ -94,7 +95,10 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
           </p>
           <p>Set up by {t.principal_name}</p>
           {t.detail && <p role="status">{t.detail}</p>}
-          <Button onClick={() => show({ kind: 'review', trigger: t })}>Review trigger and runs</Button>
+          <div className="automation-tools">
+            <Button onClick={() => show({ kind: 'review', trigger: t })}>Review trigger and runs</Button>
+            {t.task && <a className="ui-button" href={taskUrl(t.task)}>Open its task</a>}
+          </div>
         </article>
       ))}
       {r.data && !r.data.triggers.length && <p className="ui-help">No triggers yet.</p>}

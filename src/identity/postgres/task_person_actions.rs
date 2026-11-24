@@ -1,6 +1,6 @@
 //! What a person does on a task's page (schema 144, designs/agent-tasks): pause
 //! or resume it, or skip its next run. The person it is for, the agent's owners
-//! and admins may.
+//! and admins may. Pausing an event trigger's task pauses the trigger (schema 148).
 use super::super::*;
 use super::changes::summary;
 use super::rules::next_due;
@@ -30,7 +30,9 @@ impl PgStore {
                 .clone()
                 .unwrap_or_else(|| "a person".into());
             pause(&tx, w, task, &format!("Paused by {name}.")).await?;
+            super::triggers::pause_trigger(&tx, w, task, &user.id).await?;
         } else {
+            super::triggers::ensure_resumable(&tx, w, task).await?;
             execute(&tx, "UPDATE relay_tasks SET paused_ms=NULL,paused_reason=NULL WHERE workspace=$1 AND id=$2", vec![w.into(), task.into()]).await?;
             book_next(&tx, w, task, now_ms(&tx).await?).await?;
         }

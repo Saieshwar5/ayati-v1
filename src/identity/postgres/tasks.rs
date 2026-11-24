@@ -35,6 +35,11 @@ pub(crate) mod runs;
 mod tests;
 #[path = "task_time.rs"]
 pub(crate) mod time;
+#[cfg(test)]
+#[path = "trigger_tasks_tests.rs"]
+mod trigger_tests;
+#[path = "task_triggers.rs"]
+pub(crate) mod triggers;
 #[path = "task_views.rs"]
 pub(super) mod views;
 #[path = "task_wakeups.rs"]
@@ -402,6 +407,7 @@ impl PgStore {
         execute(&tx, "UPDATE relay_tasks SET outcome=$3,result=$4,closed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",
             vec![job.workspace.clone().into(), input.task.clone().into(), input.outcome.clone().into(), result.into()]).await?;
         wakeups::cancel(&tx, &job.workspace, &input.task).await?;
+        triggers::end_trigger(&tx, &job.workspace, &input.task, &job.requester).await?;
         tx.commit().await?;
         Ok(json!({"id": task["id"], "state": input.outcome}))
     }

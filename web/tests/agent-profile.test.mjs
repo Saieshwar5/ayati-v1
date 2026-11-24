@@ -119,3 +119,21 @@ test('someone who cannot change the agent reads the same page: no ＋, no pencil
     assert.ok(reads.some(route => route.includes('/requests?scope=mine')), 'only their own requests are asked for');
   }, { url, fetch: server({ reads, editable: false }) });
 });
+
+test('an event trigger shows once in On its own, as its task (schema 148)', async () => {
+  const triggerTask = { ...task, id: 't2', title: 'New orders', origin: 'event', kind: 'commitment', repeats: false, status: 'open' };
+  const trigger = { id: 'e1', task: 't2', name: 'New orders', state: 'enabled', source_definition: { name: 'Order changed' }, memory: 'fresh', instructions: '', detail: '' };
+  const base = server();
+  await reactFixture(async ({ render }) => {
+    await open(render);
+    const lines = [...row('On its own').querySelectorAll('.profile-line')];
+    assert.equal(lines.length, 2, 'the trigger is not listed a second time');
+    const line = lines.find(node => node.textContent.includes('New orders'));
+    assert.match(line.textContent, /New orders · Order changed · for Ravi Kumar/);
+    assert.ok(line.getAttribute('href').endsWith('task=t2'));
+  }, { url, fetch: async path => {
+    if (path.includes('/activity/tasks')) return response({ items: [{ ...task, kind: 'commitment' }, triggerTask], more: false });
+    if (path.includes('/event-triggers')) return response({ triggers: [trigger], choices: [], apps: [], execution_available: true });
+    return base(path);
+  } });
+});

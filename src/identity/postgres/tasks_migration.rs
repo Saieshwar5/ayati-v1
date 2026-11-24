@@ -87,3 +87,26 @@ impl MigrationTrait for SchedulesToTasks {
         ))
     }
 }
+
+/// Schema 148: every event trigger gets a task; a delivered event starts a run of
+/// it (designs/agent-tasks/one-system.md, decision 6).
+pub(crate) struct TriggerTasks;
+impl MigrationName for TriggerTasks {
+    fn name(&self) -> &str {
+        "m20261124_000148_trigger_tasks"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for TriggerTasks {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("trigger_tasks.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Event triggers become tasks in a forward migration".into(),
+        ))
+    }
+}

@@ -3,6 +3,7 @@ import { Button, Dialog } from '../ui';
 import { AddNote } from './add-note';
 import { errorMessage, useMutation } from '../requests';
 import { workspaceUrl } from '../../workspace-context';
+import { agentSectionUrl } from '../agents/workspace-tabs';
 import { clock, closeTask, dayLabel, loadTask, pauseTask, runLabels, skipNextRun, status, steerTask, taskLabels, taskTone, waitingLabels, type TaskDetail } from './model';
 
 const when = (ms: number) => `${dayLabel(ms)} ${clock(ms)}`;
@@ -29,6 +30,10 @@ export function TaskDetails({ id, close }: { id: string; close: () => void }) {
   const open = data && !data.outcome && !['done', 'failed', 'cancelled'].includes(data.status);
   const life = data?.lifetime;
   const repeating = Boolean(life?.rule_text);
+  // An event trigger's task (schema 148) runs when its event arrives: it pauses and
+  // ends here, and resumes with its trigger on the agent's page.
+  const trigger = data?.trigger;
+  const standing = repeating || Boolean(trigger);
   const setPaused = (paused: boolean) => void mutation.run(async () => {
     await pauseTask(id, paused); mutation.setStatus(paused ? 'Task paused.' : 'Task resumed.'); setVersion(v => v + 1);
   });
@@ -40,12 +45,14 @@ export function TaskDetails({ id, close }: { id: string; close: () => void }) {
       <span className={`activity-status ${taskTone(data.status)}`}>{taskLabels[data.status]}
         {data.status === 'waiting' && data.waiting_on ? ` for ${waitingLabels[data.waiting_on]}` : ''}</span>
       {repeating && <p className="activity-task-rule">{life!.rule_text}</p>}
+      {trigger && <p className="activity-task-rule">When {trigger.source ?? 'its event'} sends an event</p>}
       {data.paused_reason && open && <p className="activity-fix" role="note"><strong>Paused:</strong> {data.paused_reason} Nothing runs until it is resumed.</p>}
       <dl className="activity-facts">
         <dt>Agent</dt><dd>{data.agent_name}</dd>
         <dt>For</dt><dd>{data.requester_name ?? 'Former member'}</dd>
         <dt>Where</dt><dd>{data.conversation_kind === 'direct' ? 'direct chat' : `#${data.conversation_name}`}</dd>
-        <dt>Started</dt><dd>{when(data.created_ms)}{data.kind === 'automatic' ? ' · tracked automatically' : data.origin === 'person' ? ' · made a task by a person' : data.origin === 'schedule' ? ' · was a schedule' : ' · promised by the agent'}</dd>
+        <dt>Started</dt><dd>{when(data.created_ms)}{data.kind === 'automatic' ? ' · tracked automatically' : data.origin === 'person' ? ' · made a task by a person' : data.origin === 'schedule' ? ' · was a schedule' : trigger ? ' · an event trigger' : ' · promised by the agent'}</dd>
+        {trigger && life && <><dt>Runs so far</dt><dd>{life.runs}</dd></>}
         {data.start_ms && <><dt>Starts</dt><dd>{when(data.start_ms)}</dd></>}
         {data.due_ms && <><dt>Due</dt><dd>{when(data.due_ms)}</dd></>}
         {repeating && life!.next_text && <><dt>Next run</dt><dd>{life!.next_text} · {life!.timezone === 'Asia/Kolkata' ? 'India time' : life!.timezone}</dd></>}
@@ -80,14 +87,18 @@ export function TaskDetails({ id, close }: { id: string; close: () => void }) {
         </li>;
       })}</ol>
       {['working', 'waiting'].includes(data.status) && <AddNote label="Add to this task" send={text => steerTask(id, text)} />}
+      {open && trigger && data.may_close && <p className="ui-help">Ending this task removes its trigger for good.</p>}
       {open && <div className="activity-detail-actions">
         {data.may_close && repeating && (life!.paused
           ? <Button primary disabled={mutation.busy} onClick={() => setPaused(false)}>Resume</Button>
           : <Button disabled={mutation.busy} onClick={() => setPaused(true)}>Pause</Button>)}
+        {data.may_close && trigger && (trigger.state === 'enabled'
+          ? <Button disabled={mutation.busy} onClick={() => setPaused(true)}>Pause</Button>
+          : <a className="ui-button" href={agentSectionUrl(data.agent, 'Automations')}>Resume on the agent's page</a>)}
         {data.may_close && repeating && !life!.paused && life!.next_ms && <Button disabled={mutation.busy} onClick={skip}>Skip next run</Button>}
-        {data.may_close && !repeating && <Button primary disabled={mutation.busy} onClick={() => finish('done', 'Marked done.')}>Mark done</Button>}
-        {data.may_close && <Button disabled={mutation.busy} onClick={() => finish('cancelled', repeating ? 'Task ended.' : 'Task cancelled.')}>{repeating ? 'End task' : 'Cancel task'}</Button>}
-        <Button disabled={mutation.busy} onClick={() => finish('not_task', 'Marked as not a task.')}>Not a task</Button>
+        {data.may_close && !standing && <Button primary disabled={mutation.busy} onClick={() => finish('done', 'Marked done.')}>Mark done</Button>}
+        {data.may_close && <Button disabled={mutation.busy} onClick={() => finish('cancelled', standing ? 'Task ended.' : 'Task cancelled.')}>{standing ? 'End task' : 'Cancel task'}</Button>}
+        {!trigger && <Button disabled={mutation.busy} onClick={() => finish('not_task', 'Marked as not a task.')}>Not a task</Button>}
       </div>}
     </section>}
   </Dialog>;

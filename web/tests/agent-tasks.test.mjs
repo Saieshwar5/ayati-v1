@@ -87,6 +87,41 @@ test('a repeating task shows its rule, runs and notes; Pause and Skip next each 
   } });
 });
 
+test('an event trigger task pauses here, resumes on the agent page and is ended, not marked done or "not a task"', async () => {
+  const writes = [];
+  let state = 'enabled';
+  const detail = () => ({ id: 't9', title: 'New orders', kind: 'commitment', origin: 'event', status: state === 'enabled' ? 'open' : 'paused', done_when: null,
+    waiting_on: null, agent: 'atlas', agent_name: 'Atlas', agent_avatar: null, requester: 'meera', requester_name: 'Meera Iyer', chat: 'c1', conversation_name: 'orders',
+    conversation_kind: 'public', created_ms: Date.now() - 86400000, start_ms: null, due_ms: null, closed_ms: null, outcome: null, result: null, steps: 2,
+    next_wakeup_ms: null, blocked_wakeup: null, may_close: true, requests: [], repeats: false, paused: state !== 'enabled',
+    lifetime: { rule_text: null, next_ms: null, next_text: null, timezone: 'Asia/Kolkata', runs: 2, max_runs: null, paused: state !== 'enabled' },
+    runs: [{ at: Date.now() - 3600000, kind: 'event', run: 2, detail: '', reply: 'r2', state: 'no_change' }], notes: [],
+    paused_reason: state === 'enabled' ? null : 'Paused by Meera Iyer.', trigger: { id: 'e1', state, detail: '', source: 'Order changed' } });
+  await reactFixture(async ({ render, update, button }) => {
+    await enter();
+    const { TaskDetails } = await import('../src/react/activity/task-details.tsx');
+    await render(TaskDetails, { id: 't9', close: () => {} });
+    await settle(update);
+    assert.match(document.querySelector('.activity-task-rule').textContent, /When Order changed sends an event/);
+    assert.match(document.querySelector('.activity-facts').textContent, /Runs so far2/);
+    assert.match(document.querySelector('.activity-steps li').textContent, /Run 2 · No change/);
+    assert.equal(button('Mark done'), undefined);
+    assert.equal(button('Not a task'), undefined, 'a trigger is ended, not dismissed');
+    assert.ok(button('End task'));
+    await update(() => button('Pause').click());
+    await settle(update);
+    assert.deepEqual(writes.find(x => x.path.endsWith('/tasks/t9/pause')).body, { paused: true });
+    assert.equal(button('Resume'), undefined, 'a trigger resumes where its access is reviewed');
+    const resume = [...document.querySelectorAll('a')].find(a => a.textContent === "Resume on the agent's page");
+    assert.match(resume.getAttribute('href'), /selected=atlas&section=automations/);
+  }, { url: `http://localhost/w/${w}/`, fetch: async (path, init) => {
+    if (path.endsWith('/session')) return response(session);
+    if (init?.method === 'POST') { writes.push({ path, body: JSON.parse(init.body) }); state = 'paused'; return response(detail().lifetime); }
+    if (path.endsWith('/activity/tasks/t9')) return response(detail());
+    return response({});
+  } });
+});
+
 test('the Calendar shows a week in India time, what has no time beside it, and keeps the list for old links', async () => {
   const reads = [];
   const ist = (local) => Date.parse(`${local}:00+05:30`);

@@ -180,7 +180,10 @@ export type TaskItem = TaskRef & {
   next_wakeup_ms?: number | null; blocked_wakeup?: string | null;
 };
 export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[];
-  lifetime?: TaskLifetime | null; runs?: TaskRun[]; notes?: { note: string; created_ms: number }[]; paused_reason?: string | null };
+  lifetime?: TaskLifetime | null; runs?: TaskRun[]; notes?: { note: string; created_ms: number }[]; paused_reason?: string | null;
+  /** The event trigger that wakes this task (schema 148); it resumes on the agent's page. */
+  trigger?: TaskTrigger | null };
+export type TaskTrigger = { id: string; state: 'enabled' | 'paused' | 'blocked' | 'removed'; detail: string; source: string | null };
 export const taskLabels: Record<TaskStatus, string> = {
   open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Follow-up set', late: 'Late', paused: 'Paused',
   done: 'Done', failed: 'Failed', cancelled: 'Cancelled', not_task: 'Not a task',

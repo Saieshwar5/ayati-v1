@@ -54,7 +54,8 @@ pub(super) async fn event_room(
 }
 
 /// What Activity shows about a run that came from an event trigger: the same
-/// shape as a schedule's `run_source`, plus the app and what it remembers.
+/// shape as a schedule's `run_source`, plus the app, what it remembers and its task
+/// (schema 148).
 pub(super) async fn run_source(
     db: &impl ConnectionTrait,
     w: &str,
@@ -65,7 +66,7 @@ pub(super) async fn run_source(
     }
     Ok(json_rows(db, "SELECT jsonb_build_object('id',t.id,'name',t.input->>'name','agent',t.agent,'state',t.state,'revision',t.revision,
             'principal',t.principal,'memory',t.memory,'source',t.source_definition->>'name','post_to',c.name,
-            'posted',p.state,'post_reason',p.reason,'room',d.room IS NOT NULL) AS data
+            'posted',p.state,'post_reason',p.reason,'room',d.room IS NOT NULL,'task',to_jsonb(t)->>'task') AS data
         FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id
         LEFT JOIN relay_chats c ON c.workspace=t.workspace AND c.id=t.chat
         LEFT JOIN relay_run_posts p ON p.workspace=d.workspace AND p.reply=d.reply

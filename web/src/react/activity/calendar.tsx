@@ -59,9 +59,9 @@ function Week({ scope, search, offset }: { scope: Scope; search: string; offset:
     {untimed.length > 0 && <section className="activity-untimed" aria-label="No fixed time">
       <h3>No fixed time</h3>
       <ul>{untimed.map(item => <li key={item.kind === 'trigger' ? `t.${item.trigger}` : `p.${item.task}`}>
-        {item.kind === 'trigger'
-          ? <a href={agentSectionUrl(item.agent, 'Automations')}><strong>{item.title}</strong></a>
-          : <a href={taskUrl(item.task)}><strong>{item.title}</strong></a>}
+        {item.task
+          ? <a href={taskUrl(item.task)}><strong>{item.title}</strong></a>
+          : <a href={agentSectionUrl(item.agent, 'Automations')}><strong>{item.title}</strong></a>}
         <small>{item.kind === 'trigger' ? 'When something happens' : 'Paused'} · {item.agent_name}{item.detail ? ` · ${item.detail}` : ''}</small>
       </li>)}</ul>
     </section>}

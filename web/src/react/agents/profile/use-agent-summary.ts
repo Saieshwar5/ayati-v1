@@ -18,8 +18,9 @@ export type AgentSummary = {
   lessons: { waiting: number; available: boolean };
   apps: ToolConnection[]; servers: ToolConnection[]; ownComputer?: OwnComputer; canAddComputer: boolean;
   triggers: EventTrigger[]; requests: AgentRequest[];
-  /** Its open tasks that run on their own: repeating, or with a run booked (designs/agent-tasks).
-   * Schedules became such tasks in schema 147. */
+  /** Its open tasks that run on their own: repeating, with a run booked, or woken by an
+   * event trigger (designs/agent-tasks). Schedules became such tasks in schema 147,
+   * triggers got one in schema 148. */
   tasks: TaskItem[];
 };
 
@@ -50,7 +51,8 @@ async function load(agent: Agent): Promise<AgentSummary> {
     ownComputer: ownComputerOf(own, agent.id), canAddComputer: Boolean(own?.can_change),
     triggers: events?.triggers ?? [],
     requests: requests?.requests ?? [],
-    tasks: (tasks?.items ?? []).filter(task => task.agent === agent.id && (task.repeats || task.next_wakeup_ms)),
+    tasks: (tasks?.items ?? []).filter(task => task.agent === agent.id
+      && (task.repeats || task.next_wakeup_ms || (task.kind === 'commitment' && task.origin === 'event'))),
   };
 }
 

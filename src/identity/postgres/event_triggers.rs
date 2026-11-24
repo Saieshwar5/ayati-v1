@@ -378,6 +378,8 @@ pub(super) async fn insert(
             .context("Choose where the results go")?;
         execute(tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),chat.into(),serde_json::to_value(input)?.into(),hash.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into()]).await?;
     }
+    // Its task, in the same transaction (schema 148).
+    super::tasks::triggers::create(tx, w, &input.id).await?;
     audit(
         tx,
         &user.id,
@@ -388,9 +390,8 @@ pub(super) async fn insert(
     .await
 }
 
-/// Removes a trigger for good. Its pending work is cancelled like a pause; a
-/// provider subscription no other trigger uses is marked removed in the same
-/// transaction, so a new trigger can never share a subscription being stopped.
+/// Removes a trigger for good, recording the change request. Its task ends too
+/// (schema 148).
 async fn remove(
     tx: DatabaseTransaction,
     user: &User,
@@ -399,9 +400,7 @@ async fn remove(
     input: &Change,
     payload: Value,
 ) -> Result<Value> {
-    execute(&tx,"UPDATE relay_event_triggers SET state='removed',revision=revision+1,detail='' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
-    super::event_dispatch::cancel_pending(&tx, w, id).await?;
-    execute(&tx,"UPDATE relay_connector_subscriptions s SET state='removed',detail='Its last event trigger was removed.',changed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE s.workspace=$1 AND s.state='active' AND s.id=(SELECT source FROM relay_event_triggers WHERE workspace=$1 AND id=$2) AND NOT EXISTS(SELECT 1 FROM relay_event_triggers t WHERE t.workspace=$1 AND t.source=s.id AND t.state<>'removed')",vec![w.into(),id.into()]).await?;
+    end(&tx, w, id).await?;
     let result = json!({"id":id,"state":"removed","revision":input.revision+1});
     execute(
         &tx,
@@ -419,4 +418,14 @@ async fn remove(
     audit(&tx, &user.id, Some(w), "agent_event_trigger_removed", id).await?;
     tx.commit().await?;
     Ok(result)
+}
+
+/// Ends trigger `id` for good. Its pending work is cancelled like a pause; a
+/// provider subscription no other trigger uses is marked removed in the same
+/// transaction, so a new trigger can never share a subscription being stopped.
+pub(super) async fn end(tx: &DatabaseTransaction, w: &str, id: &str) -> Result<()> {
+    execute(tx,"UPDATE relay_event_triggers SET state='removed',revision=revision+1,detail='' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
+    super::event_dispatch::cancel_pending(tx, w, id).await?;
+    execute(tx,"UPDATE relay_connector_subscriptions s SET state='removed',detail='Its last event trigger was removed.',changed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE s.workspace=$1 AND s.state='active' AND s.id=(SELECT source FROM relay_event_triggers WHERE workspace=$1 AND id=$2) AND NOT EXISTS(SELECT 1 FROM relay_event_triggers t WHERE t.workspace=$1 AND t.source=s.id AND t.state<>'removed')",vec![w.into(),id.into()]).await?;
+    Ok(())
 }

@@ -118,6 +118,15 @@ impl PgStore {
             .flatten()
             .into();
         }
+        // An event trigger's task (schema 148): what wakes it and the trigger's state.
+        if super::triggers::ready(&tx).await? {
+            task["trigger"] = query(&tx, "SELECT jsonb_build_object('id',x.id,'state',x.state,'detail',x.detail,'source',x.source_definition->>'name') AS data
+                FROM relay_event_triggers x WHERE x.workspace=$1 AND x.task=$2", vec![w.into(), id.into()])
+                .await?
+                .map(|r| r.try_get::<Value>("", "data"))
+                .transpose()?
+                .unwrap_or(Value::Null);
+        }
         tx.commit().await?;
         Ok(task)
     }
@@ -158,6 +167,13 @@ impl PgStore {
             outcome == "not_task" || row.try_get::<bool>("", "may_close")?,
             "Only the person it is for, the agent's owner or an admin can close this task"
         );
+        // Ending an event trigger's task removes the trigger (schema 148), which only
+        // the people who may close it can do.
+        let trigger = super::triggers::of_task(&tx, w, id).await?;
+        ensure!(
+            outcome != "not_task" || trigger.is_none(),
+            "This task runs an event trigger. End it instead to stop the trigger"
+        );
         execute(&tx, "UPDATE relay_tasks SET outcome=$3,result=$4,closed_by=$5,closed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",
             vec![w.into(), id.into(), outcome.into(), result.into(), user.id.clone().into()]).await?;
         let summary = format!(
@@ -171,6 +187,9 @@ impl PgStore {
         );
         audit_with_summary(&tx, &user.id, Some(w), "task_closed", id, &summary).await?;
         super::wakeups::cancel(&tx, w, id).await?;
+        if trigger.is_some() {
+            super::triggers::end_trigger(&tx, w, id, &user.id).await?;
+        }
         tx.commit().await?;
         Ok(json!({"id": id, "outcome": outcome}))
     }

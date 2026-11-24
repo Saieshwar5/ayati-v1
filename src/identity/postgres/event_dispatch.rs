@@ -8,6 +8,16 @@ pub(super) async fn cancel_pending(db: &impl ConnectionTrait, w: &str, id: &str)
     }
     Ok(())
 }
+/// What a run of a trigger's task (schema 148) is told about that task.
+fn task_line(trigger: &Value) -> String {
+    let Some(task) = trigger["task"].as_str() else {
+        return String::new();
+    };
+    format!(
+        "\nThis run belongs to your task \"{}\" (task {task}), which stays open for the trigger's later events. If there is nothing to do for this event and nothing to tell the person, reply with exactly NO_CHANGE and nothing else.",
+        trigger["input"]["name"].as_str().unwrap_or("Event")
+    )
+}
 pub(super) async fn invalidate_inaccessible(db: &DatabaseTransaction, w: &str) -> Result<()> {
     if !super::event_access::exists(db).await? {
         return Ok(());
@@ -125,10 +135,11 @@ impl PgStore {
             thread: None,
             attachments: vec![],
             content: format!(
-                "Connected event work · {}\n{}{}",
+                "Connected event work · {}\n{}{}{}",
                 data["input"]["name"].as_str().unwrap(),
                 data["input"]["instructions"].as_str().unwrap(),
-                super::systems::results::instruction(&tx, w, data["id"].as_str().unwrap()).await?
+                super::systems::results::instruction(&tx, w, data["id"].as_str().unwrap()).await?,
+                task_line(&data)
             ),
         };
         // Every run happens in a private work room (schema 115), never in a
@@ -206,7 +217,7 @@ impl PgStore {
                 return Ok(false);
             }
         };
-        execute(&tx,"UPDATE relay_event_deliveries SET state='accepted',message=$3,reply=$4 WHERE workspace=$1 AND id=$2 AND state='pending'",vec![w.into(),id.into(),input.id.into(),job.reply.clone().into()]).await?;
+        execute(&tx,"UPDATE relay_event_deliveries SET state='accepted',message=$3,reply=$4 WHERE workspace=$1 AND id=$2 AND state='pending'",vec![w.into(),id.into(),input.id.clone().into(),job.reply.clone().into()]).await?;
         if memory {
             execute(
                 &tx,
@@ -215,7 +226,13 @@ impl PgStore {
             )
             .await?;
         }
-        super::tasks::ensure_automatic(&tx, &job, "event").await?;
+        // The run belongs to the trigger's task (schema 148); before it, to an
+        // automatic task of its own.
+        if !super::tasks::triggers::start_run(&tx, &job, data["id"].as_str().unwrap(), &input.id)
+            .await?
+        {
+            super::tasks::ensure_automatic(&tx, &job, "event").await?;
+        }
         audit(
             &tx,
             data["principal"].as_str().unwrap(),

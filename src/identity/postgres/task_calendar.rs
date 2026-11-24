@@ -2,8 +2,9 @@
 //! calendar shows, for a window of at most six weeks, the runs agents made (done,
 //! failed, no change, skipped, missed) and the runs they will make: every booked
 //! run and the later runs of each repeating task's rule. A schedule's runs from
-//! before schema 147 show as runs of the task it became. Event triggers and paused
-//! tasks have no time and are listed beside it. It shows the tasks of agents the
+//! before schema 147 show as runs of the task it became, and an event trigger's
+//! runs as runs of its task (schema 148). Event triggers and paused tasks have no
+//! time and are listed beside it. It shows the tasks of agents the
 //! person looks after and the ones they asked for, and triggers that post where
 //! they can read.
 use super::activity::now::fixing::{FIXERS, exists};
@@ -137,7 +138,9 @@ impl PgStore {
                 ORDER BY o.due_ms LIMIT 300"), args()).await?);
         }
         let mine = "(x.agent IN (SELECT id FROM f) OR x.principal=$2)";
-        untimed.extend(json_rows(&tx, &format!("{FIXERS} SELECT jsonb_build_object('kind','trigger','trigger',x.id,'agent',x.agent,'agent_name',a.name,
+        // A trigger has no time: it is listed once, beside the calendar, linking to
+        // its task (schema 148), whose runs show above as the task's runs.
+        untimed.extend(json_rows(&tx, &format!("{FIXERS} SELECT jsonb_build_object('kind','trigger','trigger',x.id,'task',to_jsonb(x)->>'task','agent',x.agent,'agent_name',a.name,
               'title',COALESCE(x.input->>'name',x.source_definition->>'name'),'detail',x.source_definition->>'name') AS data
             FROM relay_event_triggers x JOIN relay_shared_agents a ON a.workspace=x.workspace AND a.id=x.agent
             WHERE x.workspace=$1 AND x.state='enabled' AND {mine} AND {POSTS_VISIBLY} AND $5::bigint>0 AND $6::bigint>0

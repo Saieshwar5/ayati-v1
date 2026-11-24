@@ -22,6 +22,8 @@ export type EventInput = Authority & {
   filter: Record<string, unknown>;
 };
 export type EventTrigger = EventInput & {
+  /** Its task (schema 148): a delivered event starts a run of it. */
+  task?: string | null;
   state: string;
   revision: number;
   detail: string;

@@ -279,6 +279,20 @@ impl PgStore {
         let task = agent_task(&tx, job, &input.task).await?;
         ensure!(task["outcome"].is_null(), "That task is already closed");
         let w = job.workspace.as_str();
+        // An event trigger's task runs when its event arrives, with its reviewed
+        // instructions (schema 148).
+        if super::triggers::of_task(&tx, w, &input.task)
+            .await?
+            .is_some()
+        {
+            ensure!(
+                !timing.any() && instructions.is_none(),
+                "This task runs when its event trigger fires, with the instructions reviewed on the agent's page. To change them, set up a new trigger there"
+            );
+            if input.paused == Some(false) {
+                super::triggers::ensure_resumable(&tx, w, &input.task).await?;
+            }
+        }
         execute(&tx, "UPDATE relay_tasks SET title=COALESCE($3,title),done_when=COALESCE($4,done_when),kind='commitment' WHERE workspace=$1 AND id=$2",
             vec![w.into(), input.task.clone().into(), title.into(), done_when.clone().into()]).await?;
         if let Some(text) = &instructions {
@@ -286,6 +300,7 @@ impl PgStore {
         }
         if input.paused == Some(true) {
             pause(&tx, w, &input.task, "Paused in chat.").await?;
+            super::triggers::pause_trigger(&tx, w, &input.task, &job.requester).await?;
         } else {
             if input.paused == Some(false) {
                 execute(&tx, "UPDATE relay_tasks SET paused_ms=NULL,paused_reason=NULL WHERE workspace=$1 AND id=$2", vec![w.into(), input.task.clone().into()]).await?;

@@ -292,8 +292,10 @@ impl PgStore {
         execute(tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{in_chat}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
         if allowed && state == "complete" {
             super::communications::outbox::complete(tx, job, content).await?;
-            super::work_rooms::post_result(tx, job, content).await?;
-            super::tasks::runs::after_finish(tx, job, content).await?;
+            // A run with nothing to report (NO_CHANGE) posts nowhere.
+            if !super::tasks::runs::after_finish(tx, job, content).await? {
+                super::work_rooms::post_result(tx, job, content).await?;
+            }
         }
         Ok(true)
     }

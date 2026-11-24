@@ -17,7 +17,14 @@ pub(super) struct Setup {
     pub input: Trigger,
 }
 pub(super) async fn setup() -> Setup {
-    let (db, owner, w, c, a) = super::automation_tests::setup().await;
+    setup_on(fixture().await).await
+}
+/// The same on `db`, which may be at an older schema (upgrade tests).
+pub(super) async fn setup_on(mut db: PgStore) -> Setup {
+    db.pooled = true;
+    let owner = user(&db, "schedule-author").await;
+    let w = workspace(&db, &owner).await;
+    let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let conn = uuid::Uuid::new_v4().to_string();
     let fp = "a".repeat(43);
     db.control_system(

@@ -8,7 +8,8 @@ export type CalendarRun = Base & { kind: 'run'; task: string; at: number; state:
 export type CalendarPlanned = Base & { kind: 'planned'; task: string; at: number; run_kind: 'repeat' | 'follow_up' | 'continue' };
 /** A schedule's runs from before schema 147 come as runs of the task it became. */
 export type CalendarItem = CalendarRun | CalendarPlanned;
-export type Untimed = Base & ({ kind: 'trigger'; trigger: string; detail: string | null } | { kind: 'paused'; task: string; detail: string | null });
+/** A trigger links to its task (schema 148), whose runs show as the task's runs. */
+export type Untimed = Base & ({ kind: 'trigger'; trigger: string; task: string | null; detail: string | null } | { kind: 'paused'; task: string; detail: string | null });
 export type CalendarData = { from: number; to: number; now: number; timezone: string; items: CalendarItem[]; untimed: Untimed[] };
 
 export const loadCalendar = (scope: Scope, from: number, to: number) =>
