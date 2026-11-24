@@ -1,10 +1,10 @@
 //! Timing and changes of a task with a lifetime (schema 144, designs/agent-tasks).
 //! People say it in chat and the agent does it: `create_task` with a rule starts a
 //! repeating task at once, `change_task` changes or pauses it, `task_note` leaves a
-//! line for the next run and `continue_later` splits a long job into parts. The
-//! person a task is for, the agent's owners and admins pause, resume or skip a run.
+//! line for the next run and `continue_later` splits a long job into parts. What a
+//! person does on the task page is in `task_person_actions.rs`.
 use super::super::*;
-use super::rules::{Rule, next_due};
+use super::rules::Rule;
 use super::runs::{book_next, book_run, cancel_runs, now_ms, pause};
 use super::time::{end_of_day_ms, local_ms};
 pub(crate) use super::time::{shown, workspace_zone};
@@ -380,74 +380,6 @@ impl PgStore {
             json!({"task": input.task, "state": "continuing", "part": pieces + 1, "due_ms": due,
             "message": "Saved. Reply in one line with what is done so far; the next part starts in about a minute."}),
         )
-    }
-
-    /// Pause or resume a task, for the person it's for, the agent's owners and admins.
-    pub(crate) async fn task_set_paused(
-        &self,
-        user: &User,
-        w: &str,
-        task: &str,
-        paused: bool,
-    ) -> Result<Value> {
-        let details = self.task_details(user, w, task).await?;
-        ensure!(
-            details["may_close"] == true,
-            "Only the person it's for, the agent's owners and admins can pause it"
-        );
-        let tx = self.workspace_tx(w).await?;
-        let open = query(&tx, "SELECT outcome IS NULL AS open FROM relay_tasks WHERE workspace=$1 AND id=$2 FOR UPDATE", vec![w.into(), task.into()])
-            .await?.context("Task unavailable")?.try_get::<bool>("", "open")?;
-        ensure!(open, "That task is already closed");
-        if paused {
-            let name = user
-                .display_name
-                .clone()
-                .unwrap_or_else(|| "a person".into());
-            pause(&tx, w, task, &format!("Paused by {name}.")).await?;
-        } else {
-            execute(&tx, "UPDATE relay_tasks SET paused_ms=NULL,paused_reason=NULL WHERE workspace=$1 AND id=$2", vec![w.into(), task.into()]).await?;
-            book_next(&tx, w, task, now_ms(&tx).await?).await?;
-        }
-        audit(
-            &tx,
-            &user.id,
-            Some(w),
-            if paused {
-                "task_paused"
-            } else {
-                "task_resumed"
-            },
-            task,
-        )
-        .await?;
-        let summary = summary(&tx, w, task).await?;
-        tx.commit().await?;
-        Ok(summary)
-    }
-
-    /// Skip the next run of a repeating task; the one after it is booked.
-    pub(crate) async fn task_skip_next(&self, user: &User, w: &str, task: &str) -> Result<Value> {
-        let details = self.task_details(user, w, task).await?;
-        ensure!(
-            details["may_close"] == true,
-            "Only the person it's for, the agent's owners and admins can skip a run"
-        );
-        let tx = self.workspace_tx(w).await?;
-        super::runs::timing(&tx, w, task).await?;
-        let next = query(&tx, "UPDATE relay_task_wakeups SET state='skipped',detail='Skipped by a person.' WHERE workspace=$1 AND task=$2 AND state='pending' AND kind='repeat' RETURNING due_ms",
-            vec![w.into(), task.into()]).await?.context("This task has no next run to skip")?.try_get::<i64>("", "due_ms")?;
-        let t = super::runs::timing(&tx, w, task).await?;
-        if let Some(rule) = &t.rule
-            && let Some(due) = next_due(&tx, w, rule, &t.zone, t.anchor_ms, next).await?
-            && t.until_ms.is_none_or(|u| due <= u)
-        {
-            book_run(&tx, w, task, due).await?;
-        }
-        audit(&tx, &user.id, Some(w), "task_run_skipped", task).await?;
-        let summary = summary(&tx, w, task).await?;
-        tx.commit().await?;
-        Ok(summary)
     }
 }
 

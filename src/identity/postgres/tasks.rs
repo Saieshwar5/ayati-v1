@@ -24,6 +24,8 @@ mod conversion_tests;
 pub(in crate::identity::postgres) mod lifetime_tests;
 #[path = "tasks_migration.rs"]
 pub(super) mod migration;
+#[path = "task_person_actions.rs"]
+mod person_actions;
 #[path = "task_rules.rs"]
 pub(crate) mod rules;
 #[path = "task_runs.rs"]
