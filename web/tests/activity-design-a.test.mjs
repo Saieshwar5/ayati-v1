@@ -45,7 +45,8 @@ function server({ member = true } = {}) {
     if (path.endsWith('/agent-profiles')) return response({ agents: [{ id: 'nova', name: 'Nova' }], role: 'Admin' });
     if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
     if (path.includes('/activity/review')) return response({ available: true, agents: [], people: [], suggestions: [], goals: [], reviews: [], weekly: [] });
-    if (path.includes('/activity/upcoming') || path.includes('/activity/tasks')) return response({ items: [], more: false });
+    if (path.includes('/activity/calendar')) return response({ from: 0, to: 0, now: Date.now(), timezone: 'Asia/Kolkata', items: [], untimed: [] });
+    if (path.includes('/activity/tasks')) return response({ items: [], more: false });
     if (path.includes('/agents/pause')) return response({ paused: false, since_ms: null, by: null, note: null, active: 1 });
     return response({});
   };

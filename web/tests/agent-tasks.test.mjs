@@ -122,7 +122,7 @@ test('an event trigger task pauses here, resumes on the agent page and is ended,
   } });
 });
 
-test('the Calendar shows a week in India time, what has no time beside it, and keeps the list for old links', async () => {
+test('the Calendar shows a week in India time and what has no time beside it', async () => {
   const reads = [];
   const ist = (local) => Date.parse(`${local}:00+05:30`);
   const start = (() => { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - (d.getDay() + 6) % 7); return d.getTime(); })();
@@ -156,15 +156,13 @@ test('the Calendar shows a week in India time, what has no time beside it, and k
     await settle(update);
     const next = reads.filter(path => path.includes('/activity/calendar?')).at(-1);
     assert.notEqual(next, first, 'the next week asks for its own window');
-    await update(() => button('List').click());
-    await settle(update);
-    assert.ok(reads.some(path => path.includes('/activity/upcoming')), 'the list keeps Pause for triggers and follow-ups');
+    assert.equal(button('List'), undefined, 'the List view was removed (step 6)');
+    assert.equal(reads.some(path => path.includes('/activity/upcoming')), false);
   }, { url: `http://localhost/w/${w}/?view=activity&tab=planned`, fetch: async path => {
     reads.push(path);
     if (path.endsWith('/session')) return response(session);
     if (path.includes('/attention')) return response({ available: true, items: [], next_before: null });
     if (path.includes('/activity/calendar')) return response({ from: 0, to: 0, now: Date.now(), timezone: 'Asia/Kolkata', items, untimed });
-    if (path.includes('/activity/upcoming')) return response({ items: [] });
     return response({});
   } });
 });

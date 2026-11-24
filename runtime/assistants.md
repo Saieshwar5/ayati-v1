@@ -577,6 +577,36 @@ and `POST …/assistant/take-over` are gone. The two columns it added to
 assistant to do there, and `anchor` is the first message it answers for you.
 The mark on a message's toolbar now asks for one reply to that message.
 
+## Since schema 149: the regular check is a task
+
+Built 2026-11-24, step 5 of [one system](../designs/agent-tasks/one-system.md) (decision
+7). Migration `m20261124_000149_check_tasks` gives every assistant whose checks are on a
+task **"Regular check"** for its person (`origin='check'`,
+`relay_assistant_settings.task`): a minute rule with the chosen interval, `precheck =
+'messages'`, the checklist as `instructions`, in the person's chat with their assistant,
+its next run kept from the old due time. Checks that are off get no task; turning them on
+makes it.
+
+- **The code check comes first.** When a run is due, Cuckoo looks in code for direct
+  messages and mentions since the last check (`checked`). Nothing new and no checklist:
+  the run is recorded as no change and no model is called. Otherwise the assistant runs
+  in the "Regular check" thread, as before; when nothing needs the person it answers
+  `NO_CHANGE` and nothing is shown (before: "Nothing new."). A check due while the last
+  is still running is skipped, as for any task.
+- **The panel edits the task.** Regular checks keeps on/off, how often and the checklist.
+  Saving changes the task in the same transaction: off pauses it, on resumes it, a new
+  interval counts from now, the checklist becomes its instructions. The panel shows the
+  next check and links to the task. Pausing it on the task page shows checks as off;
+  ending it there turns them off. The agent can pause it in chat but not change its times
+  or checklist.
+- **Removed:** the separate check dispatcher (`dispatch_checks`) and its place in the
+  scheduler loop. `GET …/assistant/settings` adds `task` (next run, paused).
+
+Checks: PostgreSQL `tasks::check_tests` (migration from schema 148, quiet runs without a
+model call, a run in the check thread) and
+`assistants::settings::tests::a_regular_check_runs_only_when_something_reached_its_person`
+(on, off, interval, checklist, ending); web `assistant-page`.
+
 ## Drafts, notes about you and regular checks (schema 129)
 
 - **Drafts.** Since 2026-11-21 a draft is asked for by mentioning your

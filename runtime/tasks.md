@@ -1,5 +1,27 @@
 # Tasks (schema 58; lifetimes, schema 144)
 
+## Since schemas 148 and 149: triggers and regular checks are tasks
+
+Steps 4 to 6 of [one system](../designs/agent-tasks/one-system.md), built 2026-11-24.
+Everything an agent does on its own is now a task; a task wakes at a time (its rule),
+when something happens (an event trigger) or to keep checking (a rule with a check in
+code before the model).
+
+- **Event triggers** (schema 148, `m20261124_000148_trigger_tasks`): each trigger has a
+  task (`origin='event'`, `relay_event_triggers.task`) and each delivered event is a run of
+  it, a started wake-up of kind `event`. Pausing or ending the task pauses or removes the
+  trigger and the other way round; resuming happens on the agent page, where the trigger's
+  access is reviewed again. See [shared agent events](shared-agent-events.md#since-schema-148-each-trigger-has-a-task).
+- **Regular checks** (schema 149, `m20261124_000149_check_tasks`): an assistant's check is
+  the task "Regular check" (`origin='check'`, `precheck='messages'`, a minute rule). A run
+  looks in code first; with nothing new and no checklist it is recorded as no change with
+  no model call. The assistant page's Regular checks panel edits the task. See
+  [assistants](assistants.md#since-schema-149-the-regular-check-is-a-task).
+- **Removed:** the regular-check dispatcher, Activity › Calendar's **List** view and
+  `GET …/activity/upcoming` (old `tab=upcoming` links open the Calendar).
+- **Agent instructions** talk about tasks: requests from schedules or events were tracked
+  automatically before; now a task run is told which task it belongs to.
+
 ## Since schema 147: schedules are tasks
 
 Built 2026-11-24, step 3 of [one system](../designs/agent-tasks/one-system.md) (decision
@@ -94,14 +116,16 @@ People:
   and, for the person it is for, **Undo** (cancels it).
 - **Activity › Calendar** (replaces Planned): a week of runs in the workspace's time zone,
   past (done, failed, no change, skipped, missed) and planned (every booked run and the
-  rule's later runs; since schema 147 a converted schedule's earlier runs as its task's runs);
-  triggers and paused tasks beside it. **List** keeps Planned's list for triggers,
-  follow-ups and booked runs; old `tab=upcoming` links open it.
+  rule's later runs; since schema 147 a converted schedule's earlier runs as its task's runs,
+  since schema 148 a trigger's runs as its task's); each trigger once and paused tasks
+  beside it. The **List** view was removed in step 6; old `tab=upcoming` links open the
+  Calendar.
 - **Task details**: the rule as one sentence, next run, runs so far, each run with what came
   of it, the agent's notes, **Pause** or **Resume**, **Skip next run** and **End task**, for
   the person it is for, the agent's owners and admins. Changes are asked for in chat.
-- **Agent page › On its own**: its open tasks that run on their own (converted schedules
-  among them), then its triggers, and a link to the Calendar.
+- **Agent page › On its own**: its open tasks that run on their own (converted schedules,
+  each trigger's task and an assistant's regular check among them) and a link to the
+  Calendar.
 
 API: `GET …/activity/calendar?from&to&scope` (six weeks at most), `POST
 …/activity/tasks/{id}/pause {paused}`, `POST …/activity/tasks/{id}/skip`, `GET/POST
@@ -117,8 +141,8 @@ the line under the reply); guest `task_schema`; web `tests/agent-tasks.test.mjs`
 Not built: conditions Cuckoo checks itself in a connected app (the agent checks
 `done_when` at each run), reading an action back to confirm "done", a spending limit per
 task (spending isn't recorded per request while the model gateway is off), briefs and
-alerts outside the app, moving event triggers into tasks (schedules moved in schema 147), a time zone per
-agent, and runs with a real model.
+alerts outside the app, a time zone per agent, and runs with a real model. (Schedules
+moved into tasks in schema 147, triggers in 148 and regular checks in 149.)
 
 The sections below describe the original increment.
 

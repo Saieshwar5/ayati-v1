@@ -24,7 +24,6 @@
 .activity-group { margin: 22px 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
 .activity-needs-list > section:first-of-type > .activity-group, .activity-open > section:first-of-type > .activity-group,
 .activity-review > section:first-of-type > .activity-group { margin-top: 0; }
-.activity-upcoming > section:first-of-type > .activity-group { margin-top: 14px; }
 .activity-list { list-style: none; margin: 0; padding: 0; }
 .activity-list > li { display: flex; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--border); }
 .activity-list > li.selected { background: var(--selection); border-radius: 8px; }
@@ -157,14 +156,8 @@ button.activity-row-button:hover { background: var(--soft); }
 .activity-fix-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .activity-fix-faces { display: inline-flex; }
 .activity-fix-faces .activity-face + .activity-face { margin-left: -6px; }
-.activity-upcoming .activity-list li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.activity-upcoming time { width: 64px; flex: none; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
-.activity-upcoming .activity-main { flex: 1 1 260px; }
 .activity-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13px; }
 .activity-actions small { color: var(--muted); }
-.activity-kinds { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
-.activity-kinds .ui-button { border-radius: 999px; min-height: 32px; font-size: 13px; }
-.activity-kinds .ui-button[aria-pressed="true"] { background: var(--text); color: var(--surface); border-color: var(--text); }
 .activity-next { margin: 8px 0 0; }
 .activity-review-list { display: grid; gap: 14px; padding-left: 20px; }
 .activity-review-list li { display: grid; gap: 6px; }
@@ -265,7 +258,6 @@ button.activity-row-button:hover { background: var(--soft); }
 /* Activity › Calendar (designs/agent-tasks): a week of runs in the workspace's time zone. */
 .activity-calendar { display: grid; gap: 12px; min-width: 0; }
 .activity-calendar-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.activity-calendar-spacer { flex: 1 1 auto; }
 .activity-calendar-title { margin: 0; font-size: 1rem; font-weight: 600; }
 .activity-calendar-title small { margin-left: 8px; color: var(--muted); font-weight: 400; font-size: .8125rem; }
 .activity-week-box { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }

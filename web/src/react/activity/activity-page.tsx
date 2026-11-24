@@ -96,7 +96,7 @@ export function ActivityPage({ href }: { href: string }) {
         openHistory={from => history(from)} openAgentHistory={agent => history(undefined, undefined, agent)} openUnhandled={() => history(undefined, 'unhandled')}
         openNeeds={key => { setItem(key); setTab('needs'); }} />}
       {tab === 'work' && show === 'tasks' && <OpenTasks scope={scope} search={search} initial={task} />}
-      {tab === 'planned' && <CalendarView scope={scope} search={search} list={params.get('tab') === 'upcoming'} />}
+      {tab === 'planned' && <CalendarView scope={scope} search={search} />}
       {tab === 'insights' && <ReviewView scope={scope} />}
       {tab === 'history' && <HistoryView key={`${since ?? 'period'}.${historyKind ?? ''}.${historyAgent ?? ''}`} scope={scope} search={search} since={since}
         initialKind={historyKind} initialAgent={historyAgent} pane={wide} />}

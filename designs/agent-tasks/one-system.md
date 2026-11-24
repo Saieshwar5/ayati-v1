@@ -78,4 +78,10 @@ next starts.
 Built: step 1 (schema 145); step 2 (schema 146, `m20261124_000146_panel_intervals`):
 panel intervals run on the panel's own update queue and panel schedules are paused;
 step 3 (schema 147, `m20261124_000147_schedules_to_tasks`): every other schedule is a task,
-and the schedule engine, API, proposals and screens are removed.
+and the schedule engine, API, proposals and screens are removed; step 4 (schema 148,
+`m20261124_000148_trigger_tasks`): each event trigger has a task and a delivered event is a
+run of it, with pause, resume and end kept together; step 5 (schema 149,
+`m20261124_000149_check_tasks`): an assistant's regular check is a task with
+`precheck='messages'`, edited from the Regular checks panel, and the check dispatcher is
+removed; step 6: Activity › Calendar's List view and `GET …/activity/upcoming` are removed,
+the agent instructions talk about tasks, and the docs are updated.

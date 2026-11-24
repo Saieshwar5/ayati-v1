@@ -1,5 +1,46 @@
 # Shared connected-system events
 
+## Since schema 148: each trigger has a task
+
+Built 2026-11-24, step 4 of [one system](../designs/agent-tasks/one-system.md) (decision
+6). Everything an agent does on its own is a [task](tasks.md); a trigger is how its task
+wakes. Migration `m20261124_000148_trigger_tasks`:
+
+- **Every trigger gets a task** (`relay_event_triggers.task`): a commitment with
+  `origin='event'`, title = the trigger's name, `instructions` = its task text, for = the
+  person who set it up, the same agent and created time. With a post target, `chat` =
+  that conversation and `room` = its work room; without one, `chat` = its work room, so it
+  shows only in Activity. The work room is the remembering room, opened if there is none;
+  a fresh trigger still opens a new room for every run. Paused → a paused task, blocked →
+  paused with the trigger's reason, removed → done. New triggers (agent page, app
+  triggers, system automations) get theirs in the same transaction
+  (`relay_event_trigger_task`).
+- **A delivered event starts a run of the task.** The delivery's request belongs to the
+  task (no automatic task per delivery) and is booked as a started wake-up of kind
+  `event` with its run number, so the task's runs, the task page and Activity › Calendar
+  show it like any task run. Earlier deliveries were linked the same way. Admission is
+  unchanged: one unfinished run per trigger (or per subject), later deliveries wait their
+  turn. Source, fields, filter, deliveries, memory and the posting rule (its person must
+  still look after the agent) are unchanged. A run that answers `NO_CHANGE` is recorded
+  as no change and posts nothing.
+- **State goes both ways.** Pausing the task (its page, or the agent in chat) pauses the
+  trigger and cancels its waiting deliveries; ending it (End task, `close_task`) removes
+  the trigger for good. Pausing, resuming or removing the trigger on the agent page, an
+  access change that blocks it and a closed workspace reach the task through the database
+  trigger `relay_event_trigger_task_state`. Resuming needs the trigger's access reviewed
+  again, so it happens only on the agent page; the task page links there. "Not a task"
+  and new times or instructions are refused for a trigger's task.
+- **Screens.** The task page says which event wakes it and offers Pause, End task and
+  "Resume on the agent's page". The Calendar lists each trigger once, linking to its
+  task. The agent page's **On its own** shows the trigger's task once; Automations keeps
+  the trigger's setup and review, with **Open its task**. Saved triggers report `task`;
+  Activity run details add `trigger.task`; task details add `trigger` (state, detail,
+  source).
+
+Checks: PostgreSQL `tasks::trigger_tests` (migration from schema 147, runs in the room
+and posting, quiet runs, waiting deliveries, pause, resume and end both ways, the
+Calendar); web `agent-tasks`, `agent-profile`.
+
 ## Since schema 115: trigger runs happen in work rooms, with a Memory setting
 
 Built 2026-11-14 (step E2 of the owner-approved plan "How work reaches agents", D247).

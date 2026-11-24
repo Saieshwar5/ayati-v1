@@ -88,10 +88,11 @@ pub(super) async fn ordinary(db: &impl ConnectionTrait, w: &str, chat: &str) -> 
     Ok(())
 }
 
-/// After an event trigger's run (or a schedule's run that started before schema
+/// After an event trigger's task run (or a schedule's run that started before schema
 /// 147) completes, posts one short message with its result where it says, if the
 /// person who set it up may still post there. Either way the outcome is recorded
-/// for Activity. Task runs post from `tasks::runs::after_finish`.
+/// for Activity. Other task runs post from `tasks::runs::after_finish`; a run
+/// that answered NO_CHANGE posts nothing (schema 148).
 pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &str) -> Result<()> {
     if !is_room(tx, &job.workspace, &job.chat).await? {
         return Ok(());

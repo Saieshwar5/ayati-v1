@@ -69,7 +69,9 @@ Main product contracts:
   people ask an agent in chat ("every weekday at 9", "every 3 days until they pay") and
   it creates the task at once; Cuckoo books every run in India time unless the workspace
   chose another, skips missed and overlapping runs, pauses after three failures, and
-  Activity › Calendar shows the week.
+  Activity › Calendar shows the week. Schedules, event triggers and an assistant's
+  regular checks are all tasks (schemas 147 to 149): a trigger is how its task wakes, and
+  a regular check looks in code before the model runs.
 - [Memory](runtime/memory.md): agents keep notes as they work, for the workspace,
   their job, one room or one person, and every request uses the ones its readers
   may know; admins open the workspace's in Settings, a nightly tidy-up keeps it small.

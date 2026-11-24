@@ -3,31 +3,22 @@ import { Button } from '../ui';
 import { agentSectionUrl } from '../agents/workspace-tabs';
 import { taskUrl, type Scope } from './model';
 import { useLive } from './use-live';
-import { UpcomingView } from './upcoming';
 import { days, itemState, loadCalendar, range, timeIn, weekStart, zoneLabel, type CalendarItem } from './calendar-model';
 
 /** Activity › Calendar (designs/agent-tasks), which replaces Planned: a week of what
  * agents did and will do on their own, in the workspace's time zone. Tasks are
  * made and changed by asking the agent in chat; here people look and open a task
- * to pause or stop it. The List keeps Planned's list: triggers, booked task runs and
- * follow-ups (schedules became tasks in schema 147). */
-export function CalendarView({ scope, search, list: startOnList = false }: { scope: Scope; search: string; list?: boolean }) {
-  const [list, setList] = useState(startOnList);
+ * to pause or stop it. Schedules (schema 147), triggers (148) and regular checks
+ * (149) are tasks; the List view was removed with them. */
+export function CalendarView({ scope, search }: { scope: Scope; search: string }) {
   const [offset, setOffset] = useState(0);
   return <section className="activity-calendar" aria-label="Calendar">
     <div className="activity-calendar-bar">
-      {!list && <>
-        <Button aria-label="Previous week" onClick={() => setOffset(o => o - 1)}>‹</Button>
-        <Button onClick={() => setOffset(0)} disabled={offset === 0}>This week</Button>
-        <Button aria-label="Next week" onClick={() => setOffset(o => o + 1)}>›</Button>
-      </>}
-      <span className="activity-calendar-spacer" />
-      <div className="activity-kinds" role="group" aria-label="Show as">
-        <Button aria-pressed={!list} onClick={() => setList(false)}>Week</Button>
-        <Button aria-pressed={list} onClick={() => setList(true)}>List</Button>
-      </div>
+      <Button aria-label="Previous week" onClick={() => setOffset(o => o - 1)}>‹</Button>
+      <Button onClick={() => setOffset(0)} disabled={offset === 0}>This week</Button>
+      <Button aria-label="Next week" onClick={() => setOffset(o => o + 1)}>›</Button>
     </div>
-    {list ? <UpcomingView scope={scope} search={search} /> : <Week scope={scope} search={search} offset={offset} />}
+    <Week scope={scope} search={search} offset={offset} />
   </section>;
 }
 
