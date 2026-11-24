@@ -5,9 +5,10 @@
 //!   price list"). It reaches the agent with the result of its next tool call
 //!   (`person_added`), instead of waiting behind it as a new request. Anything the
 //!   agent never saw is carried into a new request when it finishes.
-//! - **Routines from Chat:** `propose_schedule` saves a draft on the agent's reply; it
-//!   becomes a routine only when the person who asked confirms it ("Save schedule"),
-//!   with the ordinary routine checks.
+//! - **Routines proposed in Chat (until schema 144):** drafts an agent proposed on its
+//!   reply become a routine only when the person who asked saves them ("Save
+//!   schedule"), with the ordinary routine checks. Agents now create repeating tasks
+//!   in chat instead (`create_task` with a rule), so no new drafts are made.
 use super::super::super::*;
 use crate::identity::chat::model::{Job, NewMessage};
 use serde_json::json;
@@ -40,15 +41,6 @@ pub(in crate::identity::postgres) async fn take(
         FROM relay_users u WHERE s.workspace=$1 AND s.job=$2 AND s.read_ms IS NULL AND s.carried IS NULL AND u.id=s.author
         RETURNING jsonb_build_object('text',s.content,'from',COALESCE(u.display_name,u.email),'at',s.created_ms) AS data",
         vec![job.workspace.clone().into(), job.reply.clone().into()]).await
-}
-
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Proposal {
-    pub name: String,
-    pub instructions: String,
-    pub first_in_minutes: i64,
-    pub every_minutes: Option<i64>,
 }
 
 impl PgStore {
@@ -201,53 +193,6 @@ impl PgStore {
             }
         }
         Ok(())
-    }
-
-    /// `propose_schedule`: the agent drafts a routine; the person who asked confirms it.
-    pub(crate) async fn propose_schedule(&self, job: &Job, input: &Proposal) -> Result<Value> {
-        let name = input.name.trim();
-        let instructions = input.instructions.trim();
-        ensure!(
-            !name.is_empty() && name.chars().count() <= 80,
-            "Name the routine in at most 80 characters"
-        );
-        ensure!(
-            !instructions.is_empty() && instructions.chars().count() <= 2000,
-            "Give the routine's instructions in at most 2,000 characters"
-        );
-        ensure!(
-            (1..=525_600).contains(&input.first_in_minutes),
-            "The first run is 1 minute to a year away"
-        );
-        ensure!(
-            input
-                .every_minutes
-                .is_none_or(|m| (60..=43_200).contains(&m)),
-            "Repeat every hour to every 30 days, or not at all"
-        );
-        let tx = self.workspace_tx(&job.workspace).await?;
-        super::super::super::control_actions::authorize(&tx, job, true).await?;
-        ensure!(
-            available(&tx).await?,
-            "Proposing routines needs the latest workspace database"
-        );
-        let n = query(
-            &tx,
-            "SELECT count(*) AS n FROM relay_schedule_drafts WHERE workspace=$1 AND job=$2",
-            vec![job.workspace.clone().into(), job.reply.clone().into()],
-        )
-        .await?
-        .context("Count")?
-        .try_get::<i64>("", "n")?;
-        ensure!(n < 3, "This request already proposed three routines");
-        let id = uuid::Uuid::new_v4().to_string();
-        execute(&tx, "INSERT INTO relay_schedule_drafts(workspace,id,agent,job,chat,requester,name,content,first_ms,interval_seconds) VALUES($1,$2,$3,$4,$5,$6,$7,$8,(extract(epoch FROM clock_timestamp())*1000)::bigint+$9::bigint*60000,$10)",
-            vec![job.workspace.clone().into(), id.clone().into(), job.agent.clone().into(), job.reply.clone().into(), job.chat.clone().into(), job.requester.clone().into(),
-                name.into(), instructions.into(), input.first_in_minutes.into(), input.every_minutes.map(|m| m * 60).into()]).await?;
-        tx.commit().await?;
-        Ok(
-            json!({"draft": id, "state": "proposed", "message": "Proposed. The person sees it under your reply and saves it with Save schedule; nothing runs until they do. Say so in one line."}),
-        )
     }
 
     /// The person who asked saves or dismisses a proposed routine.

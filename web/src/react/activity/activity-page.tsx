@@ -7,7 +7,7 @@ import { HistoryView } from './history';
 import { RequestDetails } from './request-details';
 import { OpenTasks } from './open-tasks';
 import { ReviewView } from './review';
-import { UpcomingView } from './upcoming';
+import { CalendarView } from './calendar';
 import { PauseAgentsControl } from './agents-pause';
 import { saveScope, savedScope, type Scope } from './model';
 import { useMediaQuery } from '../use-media-query';
@@ -15,9 +15,9 @@ import './activity.css';
 
 type Tab = 'needs' | 'work' | 'planned' | 'history' | 'insights';
 const tabs: [Tab, string, string][] = [['needs', 'Needs you', 'Search what needs you'], ['work', 'Work', 'Search agents and work'],
-  ['planned', 'Planned', 'Search planned work'], ['history', 'History', 'Search history'], ['insights', 'Insights', 'Search']];
+  ['planned', 'Calendar', 'Search the calendar'], ['history', 'History', 'Search history'], ['insights', 'Insights', 'Search']];
 // Links written before Design A (designs/activity-next) named six tabs; they still open the right place.
-const earlier: Record<string, Tab> = { now: 'work', open: 'work', upcoming: 'planned', review: 'insights' };
+const earlier: Record<string, Tab> = { now: 'work', open: 'work', upcoming: 'planned', calendar: 'planned', review: 'insights' };
 const chosen = (href: string): Tab | undefined => {
   const tab = new URL(href).searchParams.get('tab') ?? '';
   return tabs.some(([id]) => id === tab) ? tab as Tab : earlier[tab];
@@ -96,7 +96,7 @@ export function ActivityPage({ href }: { href: string }) {
         openHistory={from => history(from)} openAgentHistory={agent => history(undefined, undefined, agent)} openUnhandled={() => history(undefined, 'unhandled')}
         openNeeds={key => { setItem(key); setTab('needs'); }} />}
       {tab === 'work' && show === 'tasks' && <OpenTasks scope={scope} search={search} initial={task} />}
-      {tab === 'planned' && <UpcomingView scope={scope} search={search} />}
+      {tab === 'planned' && <CalendarView scope={scope} search={search} list={params.get('tab') === 'upcoming'} />}
       {tab === 'insights' && <ReviewView scope={scope} />}
       {tab === 'history' && <HistoryView key={`${since ?? 'period'}.${historyKind ?? ''}.${historyAgent ?? ''}`} scope={scope} search={search} since={since}
         initialKind={historyKind} initialAgent={historyAgent} pane={wide} />}

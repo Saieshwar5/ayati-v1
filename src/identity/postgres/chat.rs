@@ -293,6 +293,7 @@ impl PgStore {
         if allowed && state == "complete" {
             super::communications::outbox::complete(tx, job, content).await?;
             super::work_rooms::post_result(tx, job, content).await?;
+            super::tasks::runs::after_finish(tx, job, content).await?;
         }
         Ok(true)
     }

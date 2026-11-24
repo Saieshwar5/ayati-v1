@@ -3,12 +3,14 @@ import { chatRequest, type Directory } from '../chat/model';
 import { useMutation, useResource } from '../requests';
 import { loadSettings, saveSettings, settingsInput, timeIn, timeZones, type WorkspaceSettings } from './workspace-model';
 import { WorkspaceDeletion } from './workspace-deletion';
+import { WorkspaceCalendarSettings } from './workspace-calendar';
 import { SaveBar } from './save-bar';
 import { WorkspaceCard, count } from './this-workspace';
 
 const loadDirectory = () => chatRequest<Directory>('/chat-directory');
 
-/** Settings → General: the workspace's name and time zone, and deleting it. What
+/** Settings → General: the workspace's name, time zone, working days and holidays,
+ * and deleting it. What
  * agents may do (models, approval backup, pausing) is on Agent rules. */
 export function WorkspaceGeneral({ renamed }: { renamed: (name: string) => void }) {
   const resource = useResource(loadSettings);
@@ -20,6 +22,7 @@ export function WorkspaceGeneral({ renamed }: { renamed: (name: string) => void 
     {data && <>
       <WorkspaceCard name={data.name} line={directory?.users && directory.agents ? `${count(directory.users.length, 'person', 'people')} · ${count(directory.agents.length, 'agent', 'agents')}` : 'You are an admin'} />
       <GeneralForm settings={data} saved={next => { resource.setData(next); renamed(next.name); }} />
+      <WorkspaceCalendarSettings />
       <WorkspaceDeletion settings={data} changed={resource.refresh} />
     </>}
   </section>;
@@ -51,7 +54,7 @@ function GeneralForm({ settings, saved }: { settings: WorkspaceSettings; saved: 
       <label className="ui-field">Time zone<select name="timezone" value={zone} onChange={event => setZone(event.target.value)}>
         {!settings.timezone && <option value="">Choose a time zone…</option>}
         {zones.map(choice => <option key={choice.id} value={choice.id}>{choice.label}</option>)}</select></label>
-      <p className="ui-help">Schedules and the clock on Home use this.{zone && timeIn(zone) ? ` It is ${timeIn(zone)} there now.` : ''}</p>
+      <p className="ui-help">Agent tasks, schedules and the clock on Home use this. India time unless you choose another.{zone && timeIn(zone) ? ` It is ${timeIn(zone)} there now.` : ''}</p>
     </fieldset>
     {(renamed || moved) && <SaveBar form={form} busy={mutation.busy} disabled={!name.trim()} discard={() => { setName(settings.name); setZone(settings.timezone ?? ''); mutation.setStatus(''); }} />}
     <p className="ui-status" role="status">{mutation.status}</p>

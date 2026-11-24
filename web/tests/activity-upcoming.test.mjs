@@ -34,7 +34,7 @@ test('Planned groups what runs by day, then paused, then always on, and filters 
   const reads = [];
   await reactFixture(async ({ render, update, click, button }) => {
     await open(render, update);
-    assert.equal(document.querySelector('[role=tab][aria-selected=true]').textContent, 'Planned');
+    assert.equal(document.querySelector('[role=tab][aria-selected=true]').textContent, 'Calendar', 'Planned is now the Calendar; old links open its list');
     assert.ok(reads.some(path => path.endsWith('/activity/upcoming?scope=mine')));
     const groups = [...document.querySelectorAll('.activity-upcoming h2')].map(h => h.textContent);
     assert.deepEqual(groups.slice(-2), ['Paused', 'Always on']);

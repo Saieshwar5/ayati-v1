@@ -305,8 +305,13 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.write_review(job, &serde_json::from_value(arguments)?)
                 .await
         }
-        "propose_schedule" => {
-            pg.propose_schedule(job, &serde_json::from_value(arguments)?)
+        "change_task" => {
+            pg.change_task(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "task_note" => pg.task_note(job, &serde_json::from_value(arguments)?).await,
+        "continue_later" => {
+            pg.continue_later(job, &serde_json::from_value(arguments)?)
                 .await
         }
         "propose_rule" => {

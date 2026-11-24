@@ -65,6 +65,11 @@ Main product contracts:
 - [Agents that get better on their own](runtime/evolution.md): every answer gets an
   outcome, memory learns from it, and every three days agents propose skills from
   their routine work, marked as created by them once a person approves.
+- [Agent tasks and calendar](runtime/tasks.md#since-schema-144-tasks-with-a-lifetime):
+  people ask an agent in chat ("every weekday at 9", "every 3 days until they pay") and
+  it creates the task at once; Cuckoo books every run in India time unless the workspace
+  chose another, skips missed and overlapping runs, pauses after three failures, and
+  Activity › Calendar shows the week.
 - [Memory](runtime/memory.md): agents keep notes as they work, for the workspace,
   their job, one room or one person, and every request uses the ones its readers
   may know; admins open the workspace's in Settings, a nightly tidy-up keeps it small.

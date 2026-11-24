@@ -257,3 +257,37 @@ button.activity-row-button:hover { background: var(--soft); }
   .activity-agent { grid-template-columns: 40px minmax(0, 1fr); }
   .activity-agent-state { grid-column: 2; }
 }
+/* A task with a lifetime (designs/agent-tasks): its rule as one sentence, its notes. */
+.activity-task-rule { margin: 10px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--soft); font-size: 1rem; line-height: 1.45; }
+.activity-task-notes { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.activity-task-notes small { color: var(--muted); margin-right: 6px; }
+.activity-task-change { color: var(--muted); font-size: .8125rem; }
+/* Activity › Calendar (designs/agent-tasks): a week of runs in the workspace's time zone. */
+.activity-calendar { display: grid; gap: 12px; min-width: 0; }
+.activity-calendar-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.activity-calendar-spacer { flex: 1 1 auto; }
+.activity-calendar-title { margin: 0; font-size: 1rem; font-weight: 600; }
+.activity-calendar-title small { margin-left: 8px; color: var(--muted); font-weight: 400; font-size: .8125rem; }
+.activity-week-box { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+.activity-week { display: grid; grid-template-columns: repeat(7, minmax(120px, 1fr)); min-width: 840px; }
+.activity-day { display: flex; flex-direction: column; gap: 6px; min-height: 220px; padding: 10px 8px 14px; border-right: 1px solid var(--border); }
+.activity-day:last-child { border-right: 0; }
+.activity-day.today { background: var(--soft); }
+.activity-day h3 { margin: 0 0 4px; padding: 0 4px; color: var(--muted); font-size: .8125rem; font-weight: 500; }
+.activity-day h3 b { margin-left: 4px; color: var(--text); font-weight: 600; }
+.activity-day-empty { margin: 0; padding: 0 4px; color: var(--muted); }
+.activity-entry { display: grid; gap: 2px; padding: 7px 8px; border: 1px solid var(--border-panel); border-radius: 8px; background: var(--surface);
+  color: var(--text); font-size: .8125rem; line-height: 1.35; text-decoration: none; overflow-wrap: anywhere; }
+.activity-entry:hover, .activity-entry:focus-visible { background: var(--soft); }
+.activity-entry time { font-size: .75rem; font-weight: 600; }
+.activity-entry small { color: var(--muted); }
+.activity-entry.done time { color: var(--success); }
+.activity-entry.problem { border-color: color-mix(in srgb, var(--danger) 55%, var(--border-panel)); }
+.activity-entry.problem time { color: var(--danger); }
+.activity-entry.quiet { border-style: dashed; color: var(--muted); }
+.activity-entry.working time { color: var(--working); }
+.activity-untimed h3 { margin: 0 0 6px; font-size: .875rem; }
+.activity-untimed ul { margin: 0; padding: 0; list-style: none; display: grid; }
+.activity-untimed li { display: grid; gap: 2px; padding: 9px 0; border-top: 1px solid var(--border); }
+.activity-untimed li:first-child { border-top: 0; }
+.activity-untimed small { color: var(--muted); }

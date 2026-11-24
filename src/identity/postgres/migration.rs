@@ -151,6 +151,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::assistants::threads::modes::ReplyModes),
             Box::new(super::memory::Memory),
             Box::new(super::evolution::Evolution),
+            Box::new(super::tasks::migration::TaskLifetimes),
         ]
     }
 }

@@ -1,5 +1,10 @@
 # Shared agent schedules
 
+> **Since schema 144** repeating work asked for in chat is a task with a lifetime
+> ([tasks](tasks.md#since-schema-144-tasks-with-a-lifetime)): the agent creates it at once
+> and Cuckoo books its runs. Schedules below keep running and still drive personal Home
+> panel updates; Activity › Calendar shows both.
+
 ## Since schema 56: runs happen in Activity, not in Chat
 
 Built 2026-11-01 (D237, milestone B1). The rule: Chat is for conversations

@@ -16,6 +16,7 @@ import { AssistantRules } from '../assistant/rules';
 import { AddWords, Chip, Plus, ProfileIcon, Row, type PlusItem } from './profile-parts';
 import { RulesEditor } from './rules-editor';
 import type { AgentSummary } from './use-agent-summary';
+import { taskUrl } from '../../activity/model';
 
 /** What the right-hand column shows in place of Recent work. */
 export type ProfilePanel =
@@ -142,10 +143,13 @@ const soon = (ms: number) => {
 /** On its own: every schedule and trigger as a line with when it runs next. */
 export function OnItsOwnRow({ agent, summary, panel, open }: RowProps) {
   const edit = Boolean(agent.editable);
-  const schedules = summary?.schedules ?? [], triggers = summary?.triggers ?? [];
+  const schedules = summary?.schedules ?? [], triggers = summary?.triggers ?? [], tasks = summary?.tasks ?? [];
   const current = is(panel, 'automations') ? 'true' : undefined;
   const own = agent.assistant && agent.is_owner;
   return <Row icon="clock" label="On its own">
+    {tasks.map(task => <a key={task.id} className={`profile-line${task.paused ? ' is-off' : ''}`} href={taskUrl(task.id)}>
+      <span className="profile-tile round"><ProfileIcon name="clock" size={14} /></span><span><strong>{task.title}</strong> · {task.repeats ? 'repeats' : 'once'}{task.requester_name ? ` · for ${task.requester_name}` : ''}</span>
+      <small>{task.paused || task.status === 'paused' ? 'Paused' : task.next_wakeup_ms ? `next · ${soon(task.next_wakeup_ms)}` : ''}</small></a>)}
     {schedules.map(routine => <button key={routine.id} type="button" className={`profile-line${routine.state === 'enabled' ? '' : ' is-off'}`} aria-current={current} onClick={() => open({ kind: 'automations' })}>
       <span className="profile-tile round"><ProfileIcon name="clock" size={14} /></span><span><strong>{routine.name}</strong> · {cadence(routine.interval_seconds)}</span>
       <small>{routine.state !== 'enabled' ? stateLabels[routine.state] : routine.next_ms ? `next · ${soon(routine.next_ms)}` : ''}</small></button>)}
@@ -154,9 +158,9 @@ export function OnItsOwnRow({ agent, summary, panel, open }: RowProps) {
       <small>{trigger.state === 'enabled' ? '' : trigger.state === 'paused' ? 'Paused' : 'Off'}</small></button>)}
     <div className="profile-chips">
       {own && <Chip open={() => open({ kind: 'checks' })} current={is(panel, 'checks')}><ProfileIcon name="check" size={14} />Regular checks</Chip>}
-      {edit ? <Plus label="Add a schedule or trigger" word={schedules.length || triggers.length ? undefined : 'Schedule or trigger'}
-        items={[{ icon: 'clock', label: 'Schedule or trigger', pick: () => open({ kind: 'automations', start: true }) }]} />
-        : <a className="profile-chip" href={workspaceUrl('/?view=activity&tab=upcoming')}><ProfileIcon name="clock" size={14} />Upcoming<ProfileIcon name="out" size={13} /></a>}
+      <a className="profile-chip" href={workspaceUrl('/?view=activity&tab=planned')}><ProfileIcon name="clock" size={14} />Calendar<ProfileIcon name="out" size={13} /></a>
+      {edit && <Plus label="Add a trigger" word={schedules.length || triggers.length || tasks.length ? undefined : 'Trigger'}
+        items={[{ icon: 'bolt', label: 'Trigger', pick: () => open({ kind: 'automations', start: true }) }]} />}
     </div>
   </Row>;
 }

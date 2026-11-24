@@ -315,11 +315,13 @@ mod source_access;
 mod system_prompt;
 #[cfg(test)]
 mod system_prompt_tests;
+mod task_calendar;
 mod task_continuation;
 #[cfg(test)]
 mod task_continuation_tests;
 mod task_revocation;
 mod tasks;
+pub(crate) use task_calendar::WorkspaceCalendar;
 pub(crate) mod transcripts;
 mod unread;
 mod web_reads;

@@ -9,6 +9,7 @@ import { loadEvents, type EventTrigger } from '../automation/event-model';
 import { loadOwnComputers, ownComputerOf, type OwnComputer } from '../computer/own-computers';
 import { loadRequests, type AgentRequest } from '../request-model';
 import { base, type Agent } from '../model';
+import { loadTasks, type TaskItem } from '../../activity/model';
 
 /** What one agent's page shows in its rows. A part the viewer may not read, or
  * that failed, is left out; the rest of the page still shows. */
@@ -18,6 +19,8 @@ export type AgentSummary = {
   lessons: { waiting: number; available: boolean };
   apps: ToolConnection[]; servers: ToolConnection[]; ownComputer?: OwnComputer; canAddComputer: boolean;
   schedules: Routine[]; triggers: EventTrigger[]; requests: AgentRequest[];
+  /** Its open tasks that run on their own: repeating, or with a run booked (designs/agent-tasks). */
+  tasks: TaskItem[];
 };
 
 const settled = async <T,>(work: Promise<T>): Promise<T | undefined> => { try { return await work; } catch { return undefined; } };
@@ -25,7 +28,7 @@ const settled = async <T,>(work: Promise<T>): Promise<T | undefined> => { try { 
 async function load(agent: Agent): Promise<AgentSummary> {
   const id = encodeURIComponent(agent.id);
   // Independent reads, together: no part waits for another.
-  const [skills, notes, always, learning, controls, own, schedules, events, requests] = await Promise.all([
+  const [skills, notes, always, learning, controls, own, schedules, events, requests, tasks] = await Promise.all([
     settled(loadAgentSkills(agent.id)),
     settled(identityRequest<{ notes: { forgotten: boolean }[] }>(`${base}/${id}/knowledge`)),
     settled(identityRequest<{ items: unknown[] }>(`/workspaces/${workspaceId}/library-always/${id}`)),
@@ -35,6 +38,7 @@ async function load(agent: Agent): Promise<AgentSummary> {
     agent.editable ? settled(loadSchedules(agent.id)) : undefined,
     agent.editable ? settled(loadEvents(agent.id)) : undefined,
     settled(loadRequests(agent.id, agent.editable ? 'visible' : 'mine', 'all')),
+    settled(loadTasks('all')),
   ]);
   const connections = controls?.connections ?? [];
   return {
@@ -47,6 +51,7 @@ async function load(agent: Agent): Promise<AgentSummary> {
     ownComputer: ownComputerOf(own, agent.id), canAddComputer: Boolean(own?.can_change),
     schedules: schedules?.schedules ?? [], triggers: events?.triggers ?? [],
     requests: requests?.requests ?? [],
+    tasks: (tasks?.items ?? []).filter(task => task.agent === agent.id && (task.repeats || task.next_wakeup_ms)),
   };
 }
 

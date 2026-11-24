@@ -4,7 +4,6 @@ use super::super::super::super::control_tests::setup;
 use super::super::super::super::executor_slot_tests;
 use super::super::super::super::tests::{chat, fixture, join, message, user, workspace};
 use super::super::super::super::*;
-use super::Proposal;
 use serde_json::json;
 
 #[tokio::test]
@@ -117,8 +116,13 @@ async fn count(db: &PgStore, id: &str) -> i64 {
     .unwrap()
 }
 
-fn proposal(name: &str) -> Proposal {
-    serde_json::from_value(json!({"name": name, "instructions": "Send me last week's sales summary", "first_in_minutes": 600, "every_minutes": 10080})).unwrap()
+/// A routine an agent proposed before tasks replaced proposals (schema 144): the
+/// person can still save or dismiss drafts that were already made.
+async fn proposal(db: &PgStore, job: &crate::identity::chat::model::Job, name: &str) -> String {
+    let id = uuid::Uuid::new_v4().to_string();
+    execute(&db.db, "INSERT INTO relay_schedule_drafts(workspace,id,agent,job,chat,requester,name,content,first_ms,interval_seconds) VALUES($1,$2,$3,$4,$5,$6,$7,'Send me last week''s sales summary',(extract(epoch FROM clock_timestamp())*1000)::bigint+36000000,604800)",
+        vec![job.workspace.clone().into(), id.clone().into(), job.agent.clone().into(), job.reply.clone().into(), job.chat.clone().into(), job.requester.clone().into(), name.into()]).await.unwrap();
+    id
 }
 
 #[tokio::test]
@@ -128,38 +132,9 @@ async fn a_routine_proposed_in_chat_is_saved_only_when_the_person_who_asked_conf
     db.pooled = true;
     let member = user(&db, "routine-member").await;
     join(&db, &owner, &w, &member, "Member").await;
-    let first = db
-        .propose_schedule(&job, &proposal("Monday sales summary"))
-        .await
-        .unwrap()["draft"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    let second = db
-        .propose_schedule(&job, &proposal("Friday stock check"))
-        .await
-        .unwrap()["draft"]
-        .as_str()
-        .unwrap()
-        .to_string();
-    db.propose_schedule(&job, &proposal("Third")).await.unwrap();
-    assert!(
-        db.propose_schedule(&job, &proposal("Fourth"))
-            .await
-            .is_err(),
-        "three per request"
-    );
-    assert!(
-        db.propose_schedule(
-            &job,
-            &serde_json::from_value(
-                json!({"name":"x","instructions":"y","first_in_minutes":5,"every_minutes":5})
-            )
-            .unwrap()
-        )
-        .await
-        .is_err()
-    );
+    let first = proposal(&db, &job, "Monday sales summary").await;
+    let second = proposal(&db, &job, "Friday stock check").await;
+    proposal(&db, &job, "Third").await;
     db.chat_finish(&job, "I can send that every Monday", "complete")
         .await
         .unwrap();
@@ -243,13 +218,7 @@ async fn a_member_saves_the_routine_proposed_to_them_and_looks_after_only_that_o
     .unwrap();
     let job = db.claim_job().await.unwrap().unwrap();
     db.pooled = true;
-    let draft = db
-        .propose_schedule(&job, &proposal("Monday sales summary"))
-        .await
-        .unwrap()["draft"]
-        .as_str()
-        .unwrap()
-        .to_string();
+    let draft = proposal(&db, &job, "Monday sales summary").await;
     // Members can't make schedules from Automations, even reusing the proposal's id.
     let direct = Schedule {
         id: draft.clone(),

@@ -11,11 +11,25 @@ use crate::identity::chat::model::Job;
 use serde::Deserialize;
 use serde_json::json;
 
+#[cfg(test)]
+#[path = "task_change_tests.rs"]
+mod change_tests;
+#[path = "task_changes.rs"]
+pub(crate) mod changes;
+#[cfg(test)]
+#[path = "task_lifetimes_tests.rs"]
+pub(in crate::identity::postgres) mod lifetime_tests;
 #[path = "tasks_migration.rs"]
 pub(super) mod migration;
+#[path = "task_rules.rs"]
+pub(crate) mod rules;
+#[path = "task_runs.rs"]
+pub(crate) mod runs;
 #[cfg(test)]
 #[path = "tasks_tests.rs"]
 mod tests;
+#[path = "task_time.rs"]
+pub(crate) mod time;
 #[path = "task_views.rs"]
 pub(super) mod views;
 #[path = "task_wakeups.rs"]
@@ -37,6 +51,12 @@ pub(crate) struct CreateTask {
     pub start_in_minutes: Option<i64>,
     /// Due by: the task shows as late after this (1 minute to a year).
     pub due_in_minutes: Option<i64>,
+    /// Schema 144: run it on a calendar rule, first at a local time, until a local
+    /// date or for a number of runs. Cuckoo books every run.
+    pub repeat: Option<rules::Rule>,
+    pub first_at: Option<String>,
+    pub until: Option<String>,
+    pub max_runs: Option<i64>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -218,13 +238,37 @@ impl PgStore {
         if let Some(minutes) = input.start_in_minutes {
             wakeups::book(&tx, &job.workspace, &id, minutes, None).await?;
         }
+        let timing = changes::Timing {
+            repeat: input.repeat.clone(),
+            first_at: input.first_at.clone(),
+            until: input.until.clone(),
+            max_runs: input.max_runs,
+        };
+        if timing.any() {
+            ensure!(
+                wakeups::lifetimes(&tx).await?,
+                "Repeating tasks need a newer workspace schema"
+            );
+            ensure!(
+                input.start_in_minutes.is_none(),
+                "Give either start_in_minutes or first_at, not both"
+            );
+            changes::schedule(&tx, job, &id, &timing, done_when.as_deref()).await?;
+        }
+        let summary = if wakeups::lifetimes(&tx).await? {
+            changes::summary(&tx, &job.workspace, &id).await?
+        } else {
+            Value::Null
+        };
         tx.commit().await?;
-        let message = if input.start_in_minutes.is_some() {
+        let message = if input.repeat.is_some() {
+            "Task saved and running: Cuckoo starts every run on its rule, in this conversation. Tell the person in one or two sentences what you will do, when it runs next (next_text) and what ends it. Don't ask them to confirm."
+        } else if input.start_in_minutes.is_some() || input.first_at.is_some() {
             "Task saved. You'll be woken to continue it at its start time; tell the person when that is."
         } else {
             "Task saved. Keep working on it now if you can; when its outcome is reached, call close_task. To check again later, call follow_up."
         };
-        Ok(json!({"id": id, "title": title, "state": "open", "message": message}))
+        Ok(json!({"id": id, "title": title, "state": "open", "task": summary, "message": message}))
     }
 
     /// `attach_to_task`: this request continues an open task.
@@ -280,8 +324,27 @@ impl PgStore {
             FROM relay_tasks t WHERE t.workspace=$1 AND t.agent=$2 AND t.kind='commitment' AND t.outcome IS NULL AND (t.requester=$3 OR t.chat=$4)
             ORDER BY t.created_ms DESC LIMIT 20",
             vec![job.workspace.clone().into(), job.agent.clone().into(), job.requester.clone().into(), job.chat.clone().into()]).await?;
+        // The agent is not told the time otherwise; it needs it to give first_at and until.
+        let clock = if wakeups::lifetimes(&tx).await? {
+            let zone = changes::workspace_zone(&tx, &job.workspace).await?;
+            let now = query(
+                &tx,
+                "SELECT to_char(clock_timestamp() AT TIME ZONE $1,'Dy YYYY-MM-DD HH24:MI') AS now",
+                vec![zone.clone().into()],
+            )
+            .await?
+            .context("Clock unavailable")?
+            .try_get::<String>("", "now")?;
+            json!({"now": now, "timezone": zone})
+        } else {
+            json!({})
+        };
         tx.commit().await?;
-        Ok(json!({"tasks": items}))
+        let mut result = json!({"tasks": items});
+        if let (Some(result), Some(clock)) = (result.as_object_mut(), clock.as_object()) {
+            result.extend(clock.clone());
+        }
+        Ok(result)
     }
 
     /// `close_task`: the agent reached (or gave up on) a task's outcome.

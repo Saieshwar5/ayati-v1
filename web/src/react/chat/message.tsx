@@ -86,6 +86,8 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
     {!own && edited}
     <ReactionBar message={message} reactions={reactions} directory={directory} />
   </>;
+  // A task run that found nothing to report stays out of the conversation.
+  if (message.quiet) return null;
   if (message.follow_up) return <FollowUpLine element={element} id={message.id} task={message.follow_up} time={time} />;
   // Tapping a message on a touch screen focuses it and reveals its actions.
   return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>

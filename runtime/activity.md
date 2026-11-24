@@ -56,7 +56,7 @@ it is on (it is off on Insights).
   - **Tasks** (`&tab=open` still opens it): every open task the person may see (needs
     fixing first), with each task's details, steps and closing. See [tasks](tasks.md).
     `&task=<id>` opens one.
-- **Planned** (`&tab=planned`; Upcoming until Design A): what agents will do on their own,
+- **Calendar** (`&tab=planned`; Planned until schema 144, Upcoming until Design A; see [tasks](tasks.md#since-schema-144-tasks-with-a-lifetime)): a week of what agents did and will do on their own; its **List** is the earlier Planned list, what agents will do on their own,
   from a "Now" line on. See [shared agent schedules](shared-agent-schedules.md).
 - **History** (`&tab=history`): filters in one row (period, agent, person, where,
   type, status) plus search; the period's totals as one line, where **N need a look**

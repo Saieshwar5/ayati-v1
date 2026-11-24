@@ -54,12 +54,12 @@ function server({ member = true } = {}) {
 
 test('links written for the six earlier tabs open the five that replaced them', async () => {
   const { fetch } = server();
-  for (const [old, tab, sign] of [['now', 'Work', /Running now · 1/], ['open', 'Work', /Nothing open/], ['upcoming', 'Planned', /Nothing runs on its own yet/], ['review', 'Insights', /Last 30 days/], ['needs', 'Needs you', /Discount for Sharma/]]) {
+  for (const [old, tab, sign] of [['now', 'Work', /Running now · 1/], ['open', 'Work', /Nothing open/], ['upcoming', 'Calendar', /Nothing runs on its own yet/], ['review', 'Insights', /Last 30 days/], ['needs', 'Needs you', /Discount for Sharma/]]) {
     await reactFixture(async ({ render }) => {
       await render(await page(), { href: at(`&tab=${old}`) });
       assert.equal(document.querySelector('[role=tab][aria-selected=true]').textContent.replace(/\d+$/, ''), tab, `tab=${old}`);
       assert.match(document.body.textContent, sign);
-      assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(node => node.textContent.replace(/\d+$/, '')), ['Needs you', 'Work', 'Planned', 'History', 'Insights']);
+      assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(node => node.textContent.replace(/\d+$/, '')), ['Needs you', 'Work', 'Calendar', 'History', 'Insights']);
     }, { url: at(`&tab=${old}`), fetch });
   }
 });

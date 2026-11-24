@@ -18,3 +18,26 @@ impl MigrationTrait for Tasks {
         Err(DbErr::Custom("Tasks require a forward migration".into()))
     }
 }
+
+/// Schema 144: tasks with a lifetime: calendar rules, end dates and run counts,
+/// notes for the next run, and the workspace's working days and holidays.
+pub(crate) struct TaskLifetimes;
+impl MigrationName for TaskLifetimes {
+    fn name(&self) -> &str {
+        "m20261124_000144_task_lifetimes"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for TaskLifetimes {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("task_lifetimes.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Task lifetimes require a forward migration".into(),
+        ))
+    }
+}

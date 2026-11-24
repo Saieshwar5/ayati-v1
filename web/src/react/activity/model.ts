@@ -157,19 +157,31 @@ export function foldPanelUpdates(items: ActivityItem[]): HistoryEntry[] {
 }
 
 /** A task: a promise with an outcome (people-and-agents-first, Phase 2). */
-export type TaskStatus = 'open' | 'working' | 'waiting' | 'needs_fixing' | 'scheduled' | 'late' | 'done' | 'failed' | 'cancelled' | 'not_task';
-export type TaskRef = { id: string; title: string; kind: 'automatic' | 'commitment'; status: TaskStatus };
+export type TaskStatus = 'open' | 'working' | 'waiting' | 'needs_fixing' | 'scheduled' | 'late' | 'paused' | 'done' | 'failed' | 'cancelled' | 'not_task';
+/** A task on a message; schema 144 adds who it is for, whether it repeats and its next run. */
+export type TaskRef = { id: string; title: string; kind: 'automatic' | 'commitment'; status: TaskStatus;
+  requester?: string; repeats?: boolean; paused?: boolean; next_text?: string | null };
+/** A task's lifetime (designs/agent-tasks): its rule as a sentence and its next run. */
+export type TaskLifetime = { rule_text: string | null; next_ms: number | null; next_text: string | null; timezone: string;
+  runs: number; max_runs: number | null; paused: boolean };
+export type TaskRunState = 'planned' | 'working' | 'done' | 'failed' | 'cancelled' | 'no_change' | 'skipped' | 'missed' | 'blocked';
+export type TaskRun = { at: number; kind: string; run: number | null; detail: string; reply: string | null; state: TaskRunState };
+export const runLabels: Record<TaskRunState, string> = {
+  planned: 'Planned', working: 'Working', done: 'Done', failed: 'Failed', cancelled: 'Stopped', no_change: 'No change',
+  skipped: 'Skipped', missed: 'Missed', blocked: "Couldn't start",
+};
 export type TaskItem = TaskRef & {
   origin: string; done_when: string | null; waiting_on: 'approval' | 'question' | 'helper' | null;
   agent: string; agent_name: string; agent_avatar: string | null; requester: string; requester_name: string | null;
   chat: string; conversation_name: string; conversation_kind: string; created_ms: number; start_ms: number | null; due_ms: number | null;
-  closed_ms: number | null; outcome: string | null; result: string | null; steps: number;
+  closed_ms: number | null; outcome: string | null; result: string | null; steps: number; repeats?: boolean; paused?: boolean;
   /** The agent's next booked follow-up, and why the last one couldn't run. */
   next_wakeup_ms?: number | null; blocked_wakeup?: string | null;
 };
-export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[] };
+export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[];
+  lifetime?: TaskLifetime | null; runs?: TaskRun[]; notes?: { note: string; created_ms: number }[]; paused_reason?: string | null };
 export const taskLabels: Record<TaskStatus, string> = {
-  open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Follow-up set', late: 'Late',
+  open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Follow-up set', late: 'Late', paused: 'Paused',
   done: 'Done', failed: 'Failed', cancelled: 'Cancelled', not_task: 'Not a task',
 };
 export const taskTone = (status: TaskStatus) => status === 'needs_fixing' || status === 'late' || status === 'failed' ? 'problem'
@@ -180,5 +192,8 @@ export const loadTasks = (scope: Scope, signal?: AbortSignal) =>
 export const loadTask = (id: string, signal?: AbortSignal) => identityRequest<TaskDetail>(`${root}/tasks/${encodeURIComponent(id)}`, undefined, signal);
 export const closeTask = (id: string, outcome: 'done' | 'cancelled' | 'not_task') =>
   identityRequest<{ id: string; outcome: string }>(`${root}/tasks/${encodeURIComponent(id)}/close`, { outcome });
+export const pauseTask = (id: string, paused: boolean) =>
+  identityRequest<TaskLifetime>(`${root}/tasks/${encodeURIComponent(id)}/pause`, { paused });
+export const skipNextRun = (id: string) => identityRequest<TaskLifetime>(`${root}/tasks/${encodeURIComponent(id)}/skip`, {});
 export const makeTask = (reply: string) => identityRequest<{ id: string; title: string }>(`${root}/requests/${encodeURIComponent(reply)}/task`, {});
 export const taskUrl = (id: string) => workspaceUrl(`/?view=activity&tab=open&task=${encodeURIComponent(id)}`);

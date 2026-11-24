@@ -12,7 +12,7 @@ pub(in crate::identity::postgres) mod migration;
 mod tests;
 
 /// The agents this person can fix: $1 workspace, $2 person, $3 admin, $4 scope.
-pub(super) const FIXERS: &str =
+pub(in crate::identity::postgres) const FIXERS: &str =
     "WITH f AS (SELECT a.id,a.name FROM relay_shared_agents a WHERE a.workspace=$1 AND a.revision>0
  AND ($3 OR relay_agent_owns(a.workspace,a.id,$2))
  AND ($4::text IS DISTINCT FROM 'mine' OR relay_agent_owns(a.workspace,a.id,$2)))";
@@ -60,13 +60,20 @@ fn causes() -> Vec<(&'static str, String)> {
              AND y.state='finished' AND y.started_ms IS NOT NULL AND y.finished_ms IS NOT NULL ORDER BY y.sequence DESC LIMIT 30) x),0))")),
         ("reported", format!("SELECT f.id,f.name,n.id,n.cause||'|'||n.job||'|'||n.detail||COALESCE('|'||n.fix,''),n.created_ms FROM f
           JOIN relay_agent_needs n ON n.workspace=$1 AND n.agent=f.id AND n.dismissed_ms IS NULL AND n.created_ms>{NOW}-86400000")),
-        ("tasks", "SELECT f.id,f.name,t.id,t.title,t.created_ms FROM f
-          JOIN relay_tasks t ON t.workspace=$1 AND t.agent=f.id AND t.outcome IS NULL
-          WHERE relay_task_status(t.workspace,t.id)='needs_fixing'".into()),
+        // Tasks that need fixing, that Cuckoo paused after failed runs, or that gave
+        // up in the last three days (schema 144; to_jsonb works on older schemas).
+        ("tasks", format!("SELECT f.id,f.name,t.id,t.title||COALESCE(' · '||(to_jsonb(t)->>'paused_reason'),'')||CASE WHEN t.outcome='failed' THEN ' · '||t.result ELSE '' END,
+          COALESCE(t.closed_ms,t.created_ms) FROM f
+          JOIN relay_tasks t ON t.workspace=$1 AND t.agent=f.id
+           AND (t.outcome IS NULL OR (t.outcome='failed' AND t.result LIKE 'Gave up%' AND t.closed_ms>{NOW}-259200000))
+          WHERE relay_task_status(t.workspace,t.id)='needs_fixing' OR to_jsonb(t)->>'paused_reason' LIKE 'Cuckoo paused%' OR t.outcome='failed'")),
     ]
 }
 
-pub(super) async fn exists(db: &impl ConnectionTrait, name: &str) -> Result<bool> {
+pub(in crate::identity::postgres) async fn exists(
+    db: &impl ConnectionTrait,
+    name: &str,
+) -> Result<bool> {
     Ok(query(
         db,
         "SELECT to_regclass($1) IS NOT NULL AS ok",
