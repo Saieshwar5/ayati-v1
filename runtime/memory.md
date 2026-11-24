@@ -56,7 +56,10 @@ only (`crates/guest/src/memory_schema.rs` refuses any other field).
 - `search_memory {query}` searches every shelf the request may read, by words (any
   of them, each also as a start), ranked by match and strength: up to 15 notes and 3
   topic summaries, each labelled `workspace`, `my job` or `this conversation`. Found
-  notes are used: +2 strength and their fading clock restarts. For an assistant it
+  notes' fading clock restarts. Since schema 143 strength follows the answer's
+  outcome instead ([evolution](evolution.md)): accepted +5, corrected −10, and the
+  notes a correction shows wrong go on hold; with an embedding model and pgvector,
+  notes close in meaning are found too. For an assistant it
   also returns its lines about its person.
 - `search_conversation_history` (changed): see below.
 
@@ -76,7 +79,8 @@ it remembers**.
 ## Strength, fading and the nightly tidy-up
 
 Every note has a strength from 0 to 100: 50 when an agent kept it, 90 when an admin
-or owner wrote, confirmed or kept it. Unused, it halves once per half-life of its
+or owner wrote, confirmed or kept it; outcomes of the answers that used it change it
+([evolution](evolution.md)). Unused, it halves once per half-life of its
 kind, computed when read (`relay_memory_strength`): status 14 days, people 90 days,
 customers, systems and preferences 180 days, decisions, practices and terms 365
 days. Pinned notes never fade. Below 30 a note is listed as fading; below 10 it is
@@ -184,13 +188,10 @@ topic summaries.
 
 ## Limits
 
-- Search is by words, not meaning; the Library's pgvector search is not used for
-  memory yet, and duplicates merge only when their words are the same.
-- Disagreements are found when an agent corrects a note with `replaces`; the
-  tidy-up does not yet compare notes for contradictions, and a person correcting an
-  answer does not yet put the notes it used on hold.
-- A note's strength rises with searches that find it, not with whether the answer
-  that used it was right; notes given without a search do not change strength.
+- Since schema 143 ([evolution](evolution.md)): meaning search with an embedding
+  model and pgvector; the classifier checks each new note for duplicates and
+  contradictions among nearby notes; corrections hold the notes they show wrong; and
+  strength follows outcomes.
 - Notes are never marked safe for people outside the workspace, so outside threads
   get only their own notes.
 - Owners and admins don't get a page of other people's person shelves; they see

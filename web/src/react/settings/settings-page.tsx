@@ -14,6 +14,7 @@ import { SettingsIcon } from './settings-icons';
 import './settings.css';
 import { UsagePage } from './usage-page';
 import { MemoryBrowser } from '../memory/memory-browser';
+import { WorkspaceLearning } from '../memory/workspace-learning';
 
 export function SettingsPage({ href }: { href: string }) {
   const url = new URL(href);
@@ -48,7 +49,7 @@ export function SettingsPage({ href }: { href: string }) {
         : section === 'company-rules' ? <AgentRules />
         : section === 'memory' ? <section className="settings-memory"><h2>Memory</h2>
           <p>What your agents have learned about this workspace. Every agent uses it; only admins see it here.</p>
-          <MemoryBrowser /></section>
+          <WorkspaceLearning /><MemoryBrowser /></section>
         : section === 'audit-log' ? <><AuditLog />{workspaceSession?.simulation && <SimulationReport />}</>
         : <UsagePage />}
     </div>

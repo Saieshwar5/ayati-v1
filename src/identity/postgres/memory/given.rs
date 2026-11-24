@@ -10,19 +10,24 @@ const JOB: usize = 1500;
 const HERE: usize = 1500;
 const TOPICS: usize = 3000;
 
-/// The notes of one shelf as lines, best first, up to `most` characters.
+/// The notes of one shelf as lines, best first, up to `most` characters, with
+/// their ids. Pinned and essential notes come first, then notes sharing words
+/// with the request (`words`, a text query, may be empty), then by strength.
 async fn lines(
     db: &impl ConnectionTrait,
     w: &str,
     shelf: &Shelf,
     most: usize,
-) -> Result<(Vec<String>, i64)> {
+    words: &str,
+) -> Result<(Vec<String>, Vec<String>, i64)> {
     let found = rows(
         db,
         &format!("SELECT m.id,m.kind,m.topic,m.text FROM relay_memories m
          WHERE m.workspace=$1 AND m.shelf=$2 AND {ACTIVE} AND {STRENGTH}>={ARCHIVE_BELOW}
-         ORDER BY m.pinned DESC,m.essential DESC,{STRENGTH} DESC,m.used DESC,m.created_ms DESC LIMIT 80"),
-        vec![w.into(), shelf.key().into()],
+         ORDER BY m.pinned DESC,m.essential DESC,
+           CASE WHEN $3='' THEN 0 ELSE ts_rank(to_tsvector('simple',m.topic||' '||m.text),to_tsquery('simple',$3)) END DESC,
+           {STRENGTH} DESC,m.used DESC,m.created_ms DESC LIMIT 80"),
+        vec![w.into(), shelf.key().into(), words.into()],
     )
     .await?;
     let total: i64 = query(
@@ -34,6 +39,7 @@ async fn lines(
     .context("Missing memory count")?
     .try_get("", "n")?;
     let mut out = vec![];
+    let mut ids = vec![];
     let mut used = 0;
     for row in found {
         let id: String = row.try_get("", "id")?;
@@ -54,9 +60,10 @@ async fn lines(
         }
         used += entry.len() + 1;
         out.push(entry);
+        ids.push(id);
     }
     let left = total - out.len() as i64;
-    Ok((out, left))
+    Ok((out, ids, left))
 }
 
 impl PgStore {
@@ -69,9 +76,22 @@ impl PgStore {
         let tx = self.workspace_tx(&job.workspace).await?;
         let access = access(&tx, job).await?;
         let w = &job.workspace;
+        // What was asked: it ranks notes and chooses topic summaries.
+        let asked: String = query(
+            &tx,
+            "SELECT COALESCE(m.content,'') AS content FROM relay_chat_jobs j LEFT JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.request_message WHERE j.workspace=$1 AND j.reply=$2",
+            vec![w.clone().into(), job.reply.clone().into()],
+        )
+        .await?
+        .map(|r| r.try_get("", "content"))
+        .transpose()?
+        .unwrap_or_default();
+        let request_words =
+            any_words(&asked.chars().take(2000).collect::<String>(), 24).unwrap_or_default();
         let mut parts = vec![];
         let mut given = 0;
         let mut left = 0;
+        let mut given_ids = vec![];
         for shelf in access.read.iter().rev() {
             let (most, title) = match shelf.scope {
                 "workspace" => (WORKSPACE, "The workspace (every agent knows these)"),
@@ -82,24 +102,16 @@ impl PgStore {
                     "This person (only used in their own conversation with you)",
                 ),
             };
-            let (shown, more) = lines(&tx, w, shelf, most).await?;
+            let (shown, ids, more) = lines(&tx, w, shelf, most, &request_words).await?;
             given += shown.len();
+            given_ids.extend(ids);
             left += more;
             if !shown.is_empty() {
                 parts.push(format!("{title}:\n{}", shown.join("\n")));
             }
         }
-        // Topic summaries that match what was asked.
-        let asked: String = query(
-            &tx,
-            "SELECT COALESCE(m.content,'') AS content FROM relay_chat_jobs j LEFT JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.request_message WHERE j.workspace=$1 AND j.reply=$2",
-            vec![w.clone().into(), job.reply.clone().into()],
-        )
-        .await?
-        .map(|r| r.try_get("", "content"))
-        .transpose()?
-        .unwrap_or_default();
-        if let Some(words) = any_words(&asked.chars().take(2000).collect::<String>(), 24) {
+        if !request_words.is_empty() {
+            let words = request_words.clone();
             let (filter, shelves) = shelf_filter("t", &access.read, 3);
             let mut args: Vec<sea_orm::Value> = vec![w.clone().into(), words.into()];
             args.extend(shelves);
@@ -141,6 +153,9 @@ impl PgStore {
         }
         if given > 0 {
             record(&tx, job, "given", None, Some(given as i64), None).await?;
+            // Kept so the answer's outcome can make these notes stronger or weaker.
+            super::super::evolution::notes::record_used(&tx, w, &job.reply, &given_ids, "given")
+                .await?;
         }
         tx.commit().await?;
         if parts.is_empty() {

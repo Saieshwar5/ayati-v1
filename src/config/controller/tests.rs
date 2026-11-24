@@ -390,6 +390,16 @@ fn transcription_is_a_provider_and_model_from_the_providers_file() {
         Some(("openai".into(), "gpt-5-mini".into()))
     );
     assert!(controller(&[("AYATI_LEARNING_MODEL", "openai:gpt-5-mini")]).is_err());
+    let classifier = controller(&[
+        providers,
+        ("AYATI_CLASSIFIER_MODEL", "anthropic:claude-haiku-5-5"),
+    ])
+    .unwrap();
+    assert_eq!(
+        classifier.classifier_model,
+        Some(("anthropic".into(), "claude-haiku-5-5".into()))
+    );
+    assert!(controller(&[("AYATI_CLASSIFIER_MODEL", "openai:gpt-5-mini")]).is_err());
     let Err(error) = controller(&[providers, ("AYATI_TRANSCRIPTION_MODEL", "whisper-v3")]) else {
         panic!("a model without a provider must be refused")
     };

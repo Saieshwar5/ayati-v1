@@ -55,5 +55,6 @@ export const reasons: Record<string, string> = {
   outside: 'Learned from people outside the workspace',
   background: 'Learned while working on its own',
   disagreement: 'Corrects a note',
+  corrected: 'An answer that used it was corrected',
 };
 export const day = (ms: number) => new Date(ms).toLocaleDateString([], { day: 'numeric', month: 'short', year: new Date(ms).getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });

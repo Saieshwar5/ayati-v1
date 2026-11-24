@@ -1,6 +1,7 @@
 mod computer_routes;
 pub(crate) mod computer_settings;
 pub(crate) mod config;
+mod evolution_routes;
 mod learning_routes;
 mod memory_routes;
 pub(crate) mod system_prompt;
@@ -19,6 +20,7 @@ pub(super) fn routes() -> Router<Shared> {
         .merge(workspace_computer_routes::routes())
         .merge(learning_routes::routes())
         .merge(memory_routes::routes())
+        .merge(evolution_routes::routes())
         .route(
             "/api/identity/workspaces/{w}/agent-profiles/{id}/requests",
             get(requests),

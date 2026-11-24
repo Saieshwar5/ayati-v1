@@ -1,7 +1,15 @@
 # Agents that get better on their own (proposal, 2026-11-24)
 
-**Status: proposal, not built.** Open [`mockups.html`](mockups.html) for the
-screens and [`implementation-plan.md`](implementation-plan.md) for the build steps.
+**Status: built 2026-11-24** (E1–E7), as described in
+[`runtime/evolution.md`](../../runtime/evolution.md). Open [`mockups.html`](mockups.html)
+for the screens and [`implementation-plan.md`](implementation-plan.md) for the steps.
+
+What differs from this proposal: only **Ask first** (no "use after rehearsal"
+setting); rehearsal uses the controller's learning model, not the executor; requests
+get a job type once they have an outcome; the Improving panel opens from a chip in
+the Knows row, without a count; the workspace week sits at the top of Settings ›
+Memory. Not built: members seeing a room's notes, themes for failed searches,
+assistant memory on the engine, the "asked again" and "steps per job" measures.
 Builds on [the memory system](../memory-system/README.md) (built, schema 142),
 [agent learning](../../runtime/agent-learning.md), [skills](../../runtime/skills.md)
 and the draft-only [job rehearsal](../../runtime/agent-job-rehearsal.md) runner.

@@ -1,3 +1,4 @@
+import '../improving/improving.css';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Button, Dialog } from '../../ui';
 import { useResource } from '../../requests';
@@ -15,9 +16,10 @@ export function SkillView({ id, close, footer }: { id: string; close: () => void
     {!data && !error && <p role="status">Loading skill…</p>}
     {data && <section className="skill-detail" aria-label="Skill">
       <p><strong>Use it when:</strong> {data.description}</p>
+      {data.created_by_agent && <p><span className="improving-made">Created by {data.created_by_agent}</span> from its routine work, approved by a person.</p>}
       <p className="ui-help">{scope(data)} · {data.license ? `License: ${data.license}` : 'No license'}{data.has_scripts ? ' · Has scripts: they run on the agent’s computer under its programs rule' : ''}</p>
       <label className="ui-field">Version<select value={data.shown_version} onChange={event => setVersion(Number(event.target.value))}>
-        {data.versions.map(v => <option key={v.version} value={v.version}>Version {v.version} · {v.author} · {new Date(v.created_ms).toLocaleDateString()}</option>)}</select></label>
+        {data.versions.map(v => <option key={v.version} value={v.version}>Version {v.version} · {v.agent ? `written by ${v.agent}, approved by ${v.author}` : v.author} · {new Date(v.created_ms).toLocaleDateString()}</option>)}</select></label>
       {main && <pre className="skill-text">{main.text}</pre>}
       <ul className="skill-files">{data.files.filter(file => file.path !== 'SKILL.md').map(file => <li key={file.path}>
         <details><summary>{file.path}</summary><pre>{file.text}</pre></details></li>)}</ul>

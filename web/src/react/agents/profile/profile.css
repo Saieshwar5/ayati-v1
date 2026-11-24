@@ -122,3 +122,4 @@ p.profile-rules { max-height: 15.5em; overflow: auto; }
 @media (pointer: coarse) { .profile-chip { min-height: 40px; } .profile-line { min-height: 44px; } }
 @media (forced-colors: active) { .profile-chip[aria-current="true"] { outline: 2px solid Highlight; } .profile-dot { background: CanvasText; forced-color-adjust: none; } }
 .agent-workspace { position: relative; }
+.profile-chip .profile-made { color: var(--working); font-weight: 600; }

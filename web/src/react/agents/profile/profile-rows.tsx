@@ -20,7 +20,7 @@ import type { AgentSummary } from './use-agent-summary';
 /** What the right-hand column shows in place of Recent work. */
 export type ProfilePanel =
   | { kind: 'assistant' } | { kind: 'notes'; adding?: boolean } | { kind: 'documents' } | { kind: 'lessons' } | { kind: 'memory' }
-  | { kind: 'agent-memory' } | { kind: 'about-me' }
+  | { kind: 'agent-memory' } | { kind: 'about-me' } | { kind: 'improving' }
   | { kind: 'app'; id: string; focus?: string } | { kind: 'connections'; part?: 'servers' | 'computers' | 'web'; start?: boolean }
   | { kind: 'automations'; start?: boolean } | { kind: 'checks' } | { kind: 'model' };
 /** Dialogs the rows open: they already exist and stay dialogs. */
@@ -55,7 +55,8 @@ export function DoesRow({ agent, summary, panel, open, show, draft, setDraft, sa
             {starters.filter(starter => starter.text(agent.name).trim()).map(starter => <button key={starter.id} type="button" className="profile-chip profile-pick" onClick={() => setDraft(starter.text(agent.name))}>{starter.label}</button>)}
           </div> : <p className="profile-quiet">No rules yet</p>}
     <div className="profile-chips">
-      {skills.map(skill => <Chip key={skill.id} open={() => show({ kind: 'skill', skill })}><ProfileIcon name="skill" size={14} />{skill.name}</Chip>)}
+      {skills.map(skill => <Chip key={skill.id} open={() => show({ kind: 'skill', skill })}><ProfileIcon name="skill" size={14} />{skill.name}
+        {skill.created_by_agent && <small className="profile-made" title={`Created by ${skill.created_by_agent}`}>by {skill.created_by_agent}</small>}</Chip>)}
       {edit && <Plus label="Add a skill" word={skills.length ? undefined : 'Skill'} items={[{ icon: 'skill', label: 'Skill', pick: () => show({ kind: 'add-skill' }) }]} />}
       {edit && helper && <button type="button" className="profile-chip profile-pick" aria-current={is(panel, 'assistant') ? 'true' : undefined} onClick={() => open({ kind: 'assistant' })}>
         <AgentFace agent={{ id: helper.id, name: helper.name, avatar: helper.avatar ?? undefined }} className="chat-avatar profile-mini-face" />Ask {helper.name}</button>}
@@ -99,6 +100,7 @@ export function KnowsRow({ agent, summary, panel, open }: RowProps) {
     {edit && lessons?.available && <Chip open={() => open({ kind: 'lessons' })} current={is(panel, 'lessons')}><ProfileIcon name="bulb" size={14} />Lessons
       {lessons.waiting > 0 && <span className="profile-pill">{lessons.waiting} to review</span>}</Chip>}
     {!agent.assistant && edit && <Chip open={() => open({ kind: 'agent-memory' })} current={is(panel, 'agent-memory')}><ProfileIcon name="bulb" size={14} />Memory</Chip>}
+    {!agent.assistant && edit && <Chip open={() => open({ kind: 'improving' })} current={is(panel, 'improving')}><ProfileIcon name="bolt" size={14} />Improving</Chip>}
     {!agent.assistant && <Chip open={() => open({ kind: 'about-me' })} current={is(panel, 'about-me')}><ProfileIcon name="memory" size={14} />About you</Chip>}
     {edit ? (notes || documents ? <Plus label="Add a note or a document" items={add} /> : <AddWords items={add} />) : !any && <span className="profile-quiet">Nothing yet</span>}
     {!agent.assistant && <ContextPreviewButton agent={agent} quiet />}

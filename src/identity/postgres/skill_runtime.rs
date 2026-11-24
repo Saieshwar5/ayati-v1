@@ -50,7 +50,8 @@ pub(crate) async fn steps(db: &impl ConnectionTrait, w: &str, reply: &str) -> Re
         return Ok(vec![]);
     }
     json_rows(db, "SELECT jsonb_build_object('id','skill-'||l.at_ms||'-'||s.name||COALESCE('/'||l.path,''),'title',
-        CASE WHEN l.path IS NULL THEN 'Used skill: '||s.name||' (version '||l.version||')'
+        CASE WHEN l.path IS NULL THEN 'Used skill: '||s.name||' (version '||l.version
+          ||COALESCE(', created by '||(SELECT a.name FROM relay_shared_agents a WHERE a.workspace=s.workspace AND a.id=to_jsonb(s)->>'created_by_agent'),'')||')'
           WHEN l.path LIKE 'run:%' THEN 'Ran '||substr(l.path,5)||' from '||s.name||' (version '||l.version||') on its computer'
           ELSE 'Read '||l.path||' from '||s.name END,
         'effect','skill','state','completed','automatic',true,'decision',NULL,'decided_by',NULL,'account',NULL,'arguments','{}'::jsonb,'at',l.at_ms/1000) AS data

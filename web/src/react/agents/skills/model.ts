@@ -7,9 +7,11 @@ export type Skill = {
   id: string; name: string; description: string; shared: boolean; owner_id: string; owner_name: string;
   version: number; license: string | null; has_scripts: boolean; updated_ms: number; files: number; agents: string[];
   used_this_week?: number;
+  /** The agent that wrote it (schema 143), when one did. */
+  created_by_agent?: string | null;
 };
 export type SkillDetail = Omit<Skill, 'files'> & { files: SkillFile[]; hash: string; shown_version: number;
-  versions: { version: number; hash: string; author: string; created_ms: number }[] };
+  versions: { version: number; hash: string; author: string; created_ms: number; agent?: string | null }[] };
 export type Checked = { name: string; description: string; license: string | null; has_scripts: boolean; hash: string; bytes: number };
 export type Library = { workspace: Skill[]; mine: Skill[]; others: Skill[]; admin: boolean };
 

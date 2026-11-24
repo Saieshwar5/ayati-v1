@@ -347,6 +347,31 @@ impl PgStore {
         } else {
             json!({"state":"found"})
         };
+        // The question's meaning, when an embedding model is set (asked before
+        // the transaction, so no database work waits on the provider).
+        let embedding = self
+            .library_models
+            .as_ref()
+            .and_then(|m| m.embedding().map(|s| (s.model.to_owned(), m.clone())));
+        let meaning = match &embedding {
+            Some((model, configured)) if !input.query.trim().is_empty() => {
+                let settings = configured.embedding().context("Embedding model missing")?;
+                crate::identity::library::models::embed(&settings, &[input.query.trim().to_owned()])
+                    .await
+                    .ok()
+                    .and_then(|(vectors, _)| vectors.into_iter().next())
+                    .map(|v| {
+                        (
+                            model.clone(),
+                            format!(
+                                "[{}]",
+                                v.iter().map(f32::to_string).collect::<Vec<_>>().join(",")
+                            ),
+                        )
+                    })
+            }
+            _ => None,
+        };
         let tx = self.workspace_tx(&job.workspace).await?;
         super::super::control_actions::authorize(&tx, job, true).await?;
         if !ready(&tx).await? {
@@ -373,6 +398,30 @@ impl PgStore {
             args(&shelves),
         )
         .await?;
+        // Notes close in meaning that share no word with the question come after.
+        let mut notes = notes;
+        if let Some((model, vector)) = &meaning {
+            let (filter, shelves) = shelf_filter("m", &access.read, 2);
+            let near = super::super::evolution::notes::nearest_in_meaning(
+                &tx,
+                &job.workspace,
+                &filter,
+                shelves,
+                vector,
+                model,
+            )
+            .await?;
+            for (id, distance) in near {
+                if notes.len() >= 15
+                    || distance > 0.6
+                    || notes.iter().any(|n| n["id"] == id.as_str())
+                {
+                    continue;
+                }
+                notes.extend(json_rows(&tx, "SELECT jsonb_build_object('memory',left(m.id,8),'id',m.id,'scope',m.scope,'kind',m.kind,'topic',NULLIF(m.topic,''),'text',m.text) AS data
+                    FROM relay_memories m WHERE m.workspace=$1 AND m.id=$2", vec![job.workspace.clone().into(), id.into()]).await?);
+            }
+        }
         let (topic_filter, shelves) = shelf_filter("t", &access.read, 3);
         let topics = json_rows(
             &tx,
@@ -390,11 +439,20 @@ impl PgStore {
         for id in &found {
             execute(
                 &tx,
-                &format!("UPDATE relay_memories SET used=used+1,used_ms={NOW_MS},strength=least(100,strength+2) WHERE workspace=$1 AND id=$2"),
+                &format!("UPDATE relay_memories SET used=used+1,used_ms={NOW_MS} WHERE workspace=$1 AND id=$2"),
                 vec![job.workspace.clone().into(), id.clone().into()],
             )
             .await?;
         }
+        // Strength now follows the answer's outcome (schema 143), not the search.
+        super::super::evolution::notes::record_used(
+            &tx,
+            &job.workspace,
+            &job.reply,
+            &found,
+            "found",
+        )
+        .await?;
         let label = |scope: &Value| match scope.as_str() {
             Some("workspace") => "workspace",
             Some("job") => "my job",

@@ -12,6 +12,7 @@ mod communications;
 pub(crate) mod connectors;
 pub(crate) mod control;
 mod events;
+pub(crate) mod evolution;
 pub mod executor;
 mod handoffs;
 mod home_panels;

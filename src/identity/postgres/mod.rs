@@ -212,6 +212,7 @@ pub(crate) mod event_subscriptions;
 #[cfg(test)]
 mod event_tests;
 mod event_triggers;
+pub(crate) mod evolution;
 #[cfg(test)]
 mod executor_task_tests;
 mod feedback;
@@ -462,12 +463,11 @@ pub(crate) use company_apps::{AppDecision, AppRequest, CompanyApp};
 #[cfg(test)]
 mod company_tests;
 #[cfg(test)]
+mod messaging_tests;
+#[cfg(test)]
 mod profile_tests;
 #[cfg(test)]
 pub(in crate::identity) mod tests;
-
-#[cfg(test)]
-mod messaging_tests;
 pub(crate) use agent_knowledge::KnowledgeInput;
 pub(crate) use library::always::AlwaysRead;
 pub(crate) use library::answers::SaveAnswer;

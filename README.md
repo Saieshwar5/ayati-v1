@@ -62,6 +62,9 @@ Main product contracts:
   private chat.
 - [Agents learn from their work](runtime/agent-learning.md): once a day Cuckoo
   proposes lessons from shared conversations; maintainers approve them as notes.
+- [Agents that get better on their own](runtime/evolution.md): every answer gets an
+  outcome, memory learns from it, and every three days agents propose skills from
+  their routine work, marked as created by them once a person approves.
 - [Memory](runtime/memory.md): agents keep notes as they work, for the workspace,
   their job, one room or one person, and every request uses the ones its readers
   may know; admins open the workspace's in Settings, a nightly tidy-up keeps it small.
