@@ -11,6 +11,7 @@ import { ReviewControl } from './upkeep';
 import { KeepingControl } from './keeping';
 import { ItemFields } from './watching';
 import { ReplaceFile } from './file-versions';
+import { DescriptionControl } from './description';
 import { PageEditor } from './editor';
 import { usePageSave } from './autosave';
 import {
@@ -250,6 +251,7 @@ function ReadyItem({
         </p>
       )}
       {item.kind === 'page' && <Suggestions id={id} revision={item.revision} changed={reload} />}
+      <DescriptionControl key={`about:${item.id}`} item={item} changed={refresh} />
       <ReviewControl key={`review:${item.revision}`} item={item} />
       <KeepingControl key={`keeping:${item.revision}`} item={item} />
       <ItemFields item={item} />

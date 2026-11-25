@@ -42,6 +42,15 @@ impl PgStore {
             }
             None => self.save_new(job, input, &relative, bytes).await?,
         };
+        // What the file is about, in the agent's words, so word search finds it.
+        if let (Some(id), true, Ok(text)) = (
+            saved["id"].as_str(),
+            ["saved", "edited"].contains(&saved["state"].as_str().unwrap_or("")),
+            super::descriptions::tidy(&input.description),
+        ) && !text.is_empty()
+        {
+            super::descriptions::set(&self.db, &job.workspace, id, &text).await?;
+        }
         // Saving the same file again continues from the revision just written.
         if let (Some(id), Some(revision), false) = (
             saved["id"].as_str(),

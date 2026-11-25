@@ -53,6 +53,9 @@ pub(crate) struct SaveFile {
     /// Why, when the change is a suggestion.
     #[serde(default)]
     pub(super) note: String,
+    /// One line saying what the file is, in the words people would look for.
+    #[serde(default)]
+    pub(super) description: String,
 }
 
 pub(super) fn invalid(message: &str) -> Value {

@@ -50,7 +50,7 @@ pub(in crate::identity::postgres) async fn index_item(
     if !present(db).await? {
         return Ok(());
     }
-    let Some(row) = query(db,"SELECT kind,title,document,text,revision FROM relay_library_items WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await? else {
+    let Some(row) = query(db,"SELECT kind,title,document,text,revision,COALESCE(to_jsonb(i)->>'description','') AS description FROM relay_library_items i WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await? else {
         return Ok(());
     };
     let kind: String = row.try_get("", "kind")?;
@@ -62,6 +62,13 @@ pub(in crate::identity::postgres) async fn index_item(
         ),
         "file" | "table" => row.try_get("", "text")?,
         _ => String::new(),
+    };
+    // What the item is about, in its saver's words, is found like its text.
+    let description: String = row.try_get("", "description")?;
+    let text = if description.is_empty() {
+        text
+    } else {
+        format!("{description}\n\n{text}")
     };
     let passages: Vec<Value> = split(&text)
         .into_iter()

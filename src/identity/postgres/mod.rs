@@ -471,7 +471,7 @@ mod profile_tests;
 pub(in crate::identity) mod tests;
 pub(crate) use agent_knowledge::KnowledgeInput;
 pub(crate) use library::{
-    always::AlwaysRead, answers::SaveAnswer, edits::Decision, keeping::Hold, keeping::Keeping,
+    always::AlwaysRead, answers::SaveAnswer, descriptions::Description, edits::Decision, keeping::Hold, keeping::Keeping,
     meaning_folders::MeaningSwitch, tables::SaveTable, upkeep::GapAction, upkeep::Review,
     watching::Watch,
 };

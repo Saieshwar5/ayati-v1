@@ -4,6 +4,7 @@ pub(super) mod agent_tools;
 mod agents;
 pub(super) mod always;
 pub(super) mod answers;
+pub(super) mod descriptions;
 pub(super) mod edits;
 pub(super) mod fence;
 pub(super) mod file_versions;

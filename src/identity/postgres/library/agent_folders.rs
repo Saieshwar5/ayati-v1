@@ -105,6 +105,11 @@ async fn folder(
         vec![w.into(), agent.into(), chat.into(), id.clone().into()],
     )
     .await?;
+    // Attachments and working files pile up: an agent's folder keeps things a year
+    // unless an admin changes its keeping rule. Held items are never deleted.
+    if parent.is_none() {
+        execute(tx, "INSERT INTO relay_library_keeping(workspace,folder,keep_days,set_by,set_at) VALUES($1,$2,365,$3,$4)", vec![w.into(), id.clone().into(), by.into(), now().into()]).await?;
+    }
     Ok(id)
 }
 

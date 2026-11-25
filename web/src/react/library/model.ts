@@ -38,6 +38,8 @@ export type Item = {
   granted?: boolean;
   item_count?: number;
   review_due?: boolean;
+  /** One line saying what the item is, searched with its text. */
+  description?: string;
 };
 export type Listing = { items: Item[]; more: boolean; available: boolean; storage: string };
 export const base = `/workspaces/${workspaceId}/library`;

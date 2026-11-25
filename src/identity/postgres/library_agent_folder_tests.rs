@@ -1,7 +1,7 @@
 //! Schema 155: a new file with no folder named goes to the agent's own folder, in the
 //! subfolder of the conversation it was made for, which only that conversation's
 //! people, the agent's owners and admins open.
-use super::super::{tests::*, *};
+use super::super::tests::*;
 use super::folders::share;
 use super::workbench::{asked, bench, run, tool};
 use crate::identity::library::model::*;
@@ -15,10 +15,43 @@ async fn a_new_file_with_no_folder_goes_to_the_agents_folder_for_that_conversati
     // The owner's request: the report lands in the agent's folder for their conversation.
     let job = asked(&b, &b.s.owner, "Write me a report").await;
     run(&b, &job, "echo 'Owner figures' > report.txt").await;
-    let mine = tool(&b, &job, "save_file", json!({"path": "report.txt"})).await;
+    let mine = tool(
+        &b,
+        &job,
+        "save_file",
+        json!({"path": "report.txt", "description": "Quarterly sales figures for the board"}),
+    )
+    .await;
     assert_eq!(mine["state"], "saved", "{mine}");
     let mine = mine["id"].as_str().unwrap().to_owned();
     let report = db.library_get(&b.s.owner, &b.s.w, &mine).await.unwrap();
+    // Its description is found by words the file itself doesn't hold.
+    assert_eq!(
+        report["description"],
+        "Quarterly sales figures for the board"
+    );
+    let found = tool(
+        &b,
+        &job,
+        "search_library",
+        json!({"query": "quarterly board sales"}),
+    )
+    .await;
+    assert_eq!(found["results"][0]["id"], json!(mine), "{found}");
+    let described = crate::identity::postgres::Description {
+        text: "  Board   pack, Q3 ".into(),
+    };
+    assert_eq!(
+        db.library_describe(&b.s.owner, &b.s.w, &mine, &described)
+            .await
+            .unwrap()["description"],
+        "Board pack, Q3"
+    );
+    assert!(
+        db.library_describe(&b.s.member, &b.s.w, &mine, &described)
+            .await
+            .is_err()
+    );
     assert_eq!(
         report["granted"], true,
         "theirs because they are in the conversation"
@@ -66,6 +99,11 @@ async fn a_new_file_with_no_folder_goes_to_the_agents_folder_for_that_conversati
         json!(top)
     );
     assert!(db.library_get(&b.s.member, &b.s.w, &top).await.is_err());
+    // The agent's folder keeps what is in it for a year unless an admin changes that.
+    assert_eq!(
+        db.library_keeping(&b.s.owner, &b.s.w, &mine).await.unwrap()["folder_keep_days"],
+        365
+    );
     assert_eq!(
         db.library_list(&b.s.owner, &b.s.w, "everything", "", &top, 0)
             .await

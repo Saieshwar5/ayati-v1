@@ -46,6 +46,10 @@ pub(super) fn routes() -> Router<Shared> {
         )
         .route("/api/identity/workspaces/{w}/library/{id}/hold", post(hold))
         .route(
+            "/api/identity/workspaces/{w}/library/{id}/description",
+            post(describe),
+        )
+        .route(
             "/api/identity/workspaces/{w}/library/{id}/meaning",
             get(meaning).post(meaning_set),
         )
@@ -235,6 +239,16 @@ async fn hold(
     Ok(Json(
         app.store.library_hold_set(&user, &w, &id, &input).await?,
     ))
+}
+/// One line saying what an item is (schema 158).
+async fn describe(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::Description>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_describe(&user, &w, &id, &input).await?))
 }
 /// A folder's meaning search: off until its manager turns it on (schema 156).
 async fn meaning(
