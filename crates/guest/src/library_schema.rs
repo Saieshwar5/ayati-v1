@@ -10,6 +10,8 @@ pub(crate) fn tools() -> Vec<Value> {
         json!({"name":"suggest_edit","description":"Suggest a change to a Library page you were allowed to suggest edits to: the page's whole new text (Markdown headings and lists) and a short note why. A person who can edit the page accepts or rejects it; nothing changes until then.","inputSchema":{"type":"object","properties":{"id":{"type":"string","maxLength":64},"text":{"type":"string","maxLength":60000},"note":{"type":"string","maxLength":500}},"required":["id","text"],"additionalProperties":false}}),
         json!({"name":"edit_document","description":"Change a Library page you were allowed to edit, for a person who may edit it: the page's whole new text (Markdown headings and lists) and the revision you read. It is saved as a new version anyone who can edit can restore from; if the page changed since you read it, read it again.","inputSchema":{"type":"object","properties":{"id":{"type":"string","maxLength":64},"revision":{"type":"integer","minimum":1},"text":{"type":"string","maxLength":60000},"note":{"type":"string","maxLength":500}},"required":["id","revision","text"],"additionalProperties":false}}),
         json!({"name":"save_document","description":"Save a new Library page (a quote, report or summary) in a folder you may save in, for a person who may add to it: a title and the text (Markdown headings and lists). Returns its link.","inputSchema":{"type":"object","properties":{"folder":{"type":"string","maxLength":64},"title":{"type":"string","maxLength":180},"text":{"type":"string","maxLength":60000}},"required":["folder","title","text"],"additionalProperties":false}}),
+        json!({"name":"open_document","description":"Put a Library document on your computer to work on it: a file as it is, a page as a Markdown file, a table as a CSV file. Returns its path in this request's folder. Use it when you need the whole file or will change it; to answer a question, search_library and read_document are quicker. The Library keeps documents; your computer is where you work on them.","inputSchema":{"type":"object","properties":{"id":{"type":"string","maxLength":64}},"required":["id"],"additionalProperties":false}}),
+        json!({"name":"save_file","description":"Save a file from your computer to the Library. A file you opened with open_document becomes that document's next version (if it changed in the Library meanwhile, open it again first); where you may only suggest, a page's change waits for a person. Any other file is saved as a new file: name the folder (an id from list_folder) and optionally its title. Every save is a version people can restore.","inputSchema":{"type":"object","properties":{"path":{"type":"string","maxLength":500},"folder":{"type":"string","maxLength":64},"title":{"type":"string","maxLength":180},"note":{"type":"string","maxLength":500}},"required":["path"],"additionalProperties":false}}),
         json!({"name":"file_document","description":"Move a Library item into a folder you may save in, for a person who may add to it, such as filing a new invoice under Invoices. It then follows that folder's sharing.","inputSchema":{"type":"object","properties":{"id":{"type":"string","maxLength":64},"folder":{"type":"string","maxLength":64}},"required":["id","folder"],"additionalProperties":false}}),
         json!({"name":"set_document_fields","description":"Record key fields on a Library item you may suggest changes to, such as an invoice's amount, supplier and due date: up to 20 named short texts, numbers or true/false. Later values replace earlier ones of the same name.","inputSchema":{"type":"object","properties":{"id":{"type":"string","maxLength":64},"fields":{"type":"object"}},"required":["id","fields"],"additionalProperties":false}}),
         json!({"name":"lookup","description":"Look up one row of a Library table (a price list, product catalogue, supplier list) by its key, the value in its first column, matched exactly ignoring case. Use it for numbers and limits instead of searching text. Cuckoo cites the table under your answer.","inputSchema":{"type":"object","properties":{"table":{"type":"string","maxLength":64},"key":{"type":"string","maxLength":500}},"required":["table","key"],"additionalProperties":false}}),
@@ -76,6 +78,19 @@ pub(crate) fn observed(name: &str, input: &Value) -> bool {
                     .and_then(Value::as_str)
                     .is_some_and(|s| s.len() <= 2000)
         }
+        "open_document" => v.len() == 1 && v.contains_key("id") && short("id"),
+        "save_file" => {
+            v.keys()
+                .all(|k| ["path", "folder", "title", "note"].contains(&k.as_str()))
+                && short("folder")
+                && v.get("path")
+                    .and_then(Value::as_str)
+                    .is_some_and(|s| !s.is_empty() && s.len() <= 500)
+                && v.get("title")
+                    .is_none_or(|t| t.as_str().is_some_and(|s| s.len() <= 720))
+                && v.get("note")
+                    .is_none_or(|n| n.as_str().is_some_and(|s| s.len() <= 2000))
+        }
         "file_document" => {
             v.keys().all(|k| k == "id" || k == "folder")
                 && v.len() == 2
@@ -114,6 +129,18 @@ mod tests {
     #[test]
     fn inputs_are_bounded() {
         assert!(super::observed("list_folder", &json!({})));
+        assert!(super::observed("open_document", &json!({"id":"i"})));
+        assert!(!super::observed("open_document", &json!({"id":"i","path":"x"})));
+        assert!(super::observed(
+            "save_file",
+            &json!({"path":"library/Price list.csv"})
+        ));
+        assert!(super::observed(
+            "save_file",
+            &json!({"path":"report.pdf","folder":"f","title":"May report"})
+        ));
+        assert!(!super::observed("save_file", &json!({"folder":"f"})));
+        assert!(!super::observed("save_file", &json!({"path":"a","id":"x"})));
         assert!(super::observed(
             "file_document",
             &json!({"id":"i","folder":"f"})

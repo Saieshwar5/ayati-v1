@@ -118,12 +118,22 @@ impl PgStore {
         Ok(())
     }
 
-    /// Holds the agent's computer for this request and makes sure it is awake with the
-    /// agent's current internet rule, or says why it can't be used now.
+    /// The agent's computer, ready for this request, with nothing on it that earlier
+    /// requests opened from the Library.
     pub(super) async fn computer_ready(
         &self,
         job: &Job,
     ) -> Result<std::result::Result<Ready, Value>> {
+        let ready = self.computer_take(job).await?;
+        if let Ok(ready) = &ready {
+            self.workbench_tidy(job, ready).await?;
+        }
+        Ok(ready)
+    }
+
+    /// Holds the agent's computer for this request and makes sure it is awake with the
+    /// agent's current internet rule, or says why it can't be used now.
+    async fn computer_take(&self, job: &Job) -> Result<std::result::Result<Ready, Value>> {
         // An agent the workspace gave its own computer uses that one (B3).
         if let Some(shared) =
             super::shared_computers::assigned(&self.db, &job.workspace, &job.agent).await?

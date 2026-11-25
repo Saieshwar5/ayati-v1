@@ -344,6 +344,14 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.library_save_document(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "open_document" => {
+            pg.library_open_document(job, &serde_json::from_value(arguments)?)
+                .await
+        }
+        "save_file" => {
+            pg.library_save_file(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "file_document" => {
             pg.library_file_document(job, &serde_json::from_value(arguments)?)
                 .await

@@ -35,7 +35,7 @@ pub(crate) struct ReadDocument {
 
 /// Items `i` whose folder (or self) `s` this agent ($2) was given and may use for this
 /// reply ($3). The grant join keeps the per-item audience check to granted items.
-const USABLE: &str = "relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2 WHERE i.workspace=$1 AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$2,$3) IS NOT NULL";
+pub(super) const USABLE: &str = "relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2 WHERE i.workspace=$1 AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$2,$3) IS NOT NULL";
 const SUMMARY: &str = "jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'updated',i.updated,'folder',(SELECT f.title FROM relay_library_items f WHERE f.workspace=i.workspace AND f.id=i.folder),'use_for',g.use_for,'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=i.workspace AND m.item=i.id AND m.revision=i.revision),'review_due',EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=i.workspace AND rv.item=i.id AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp()))))";
 /// Passages matching any of the question's words ($4), best first, among documents
 /// granted to this agent (optionally in one folder, $5); the audience check runs once
@@ -54,10 +54,10 @@ const MATCHES: &str = "WITH q AS (SELECT replace(plainto_tsquery('english',$4)::
   'review_due',EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=$1 AND rv.item=h.item AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp())))) AS data
  FROM hits h WHERE h.item IN (SELECT item FROM usable) ORDER BY h.rank DESC,h.item,h.position LIMIT 60";
 
-fn link(w: &str, id: &str) -> String {
+pub(super) fn link(w: &str, id: &str) -> String {
     format!("/w/{w}/?view=library&item={id}")
 }
-fn binds(job: &Job) -> Vec<sea_orm::Value> {
+pub(super) fn binds(job: &Job) -> Vec<sea_orm::Value> {
     vec![
         job.workspace.clone().into(),
         job.agent.clone().into(),
@@ -124,7 +124,7 @@ fn outline(passages: &[Value]) -> Vec<Value> {
 }
 
 /// A receipt for a document an agent was shown; `cited` once it was read.
-async fn receipt(
+pub(super) async fn receipt(
     tx: &DatabaseTransaction,
     job: &Job,
     found: &Value,

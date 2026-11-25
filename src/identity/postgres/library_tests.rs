@@ -31,6 +31,8 @@ mod trash;
 mod upkeep;
 #[path = "library_watching_tests.rs"]
 mod watching;
+#[path = "library_workbench_tests.rs"]
+mod workbench;
 fn page(title: &str) -> SavePage {
     SavePage {
         id: uuid::Uuid::new_v4().to_string(),

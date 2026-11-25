@@ -360,6 +360,8 @@ pub struct PgStore {
     pub(crate) web_search: Option<crate::identity::web_search::WebSearch>,
     /// Agent computers (schema 103), when configured.
     pub(crate) computers: Option<crate::identity::computers::Computers>,
+    /// Where Library files are stored, for agents opening and saving them (schema 154).
+    pub(crate) library_files: crate::identity::library::Storage,
 }
 impl PgStore {
     /// A store whose every query fails, for HTTP tests that must reject a
@@ -381,6 +383,7 @@ impl PgStore {
             model_catalog: None,
             web_search: None,
             computers: None,
+            library_files: Default::default(),
         }
     }
     /// Connect with the controller's execution and store policy, then verify the schema.
@@ -393,6 +396,7 @@ impl PgStore {
         store.model_catalog = crate::identity::models::catalog::Files::from(config);
         store.web_search = crate::identity::web_search::WebSearch::from(config)?;
         store.computers = crate::identity::computers::Computers::from(config)?;
+        store.library_files = crate::identity::library::Storage::from_settings(&config.library)?;
         store.verify_schema().await?;
         Ok(store)
     }

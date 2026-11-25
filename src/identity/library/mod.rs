@@ -6,10 +6,12 @@ pub(in crate::identity) mod keeping;
 pub(crate) mod model;
 pub(crate) mod models;
 mod office;
+pub(crate) mod page_markdown;
 pub(crate) mod page_text;
 pub(crate) mod passages;
 mod storage;
 pub(crate) mod tables;
+pub(crate) mod tables_csv;
 use super::*;
 use axum::{
     Json,
@@ -19,6 +21,8 @@ use model::*;
 use serde::Deserialize;
 use serde_json::{Value, json};
 pub(super) use storage::Storage;
+/// What kind of file these bytes are, and their text for search, when it can be read.
+pub(in crate::identity) use extract::{mime as file_mime, text as file_text};
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()

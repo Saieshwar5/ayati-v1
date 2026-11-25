@@ -19,6 +19,8 @@ mod trash;
 pub(super) mod upkeep;
 mod uploads;
 pub(super) mod watching;
+pub(super) mod workbench;
+mod workbench_save;
 use super::*;
 use crate::identity::library::model::*;
 pub(super) use agents::source_allowed;

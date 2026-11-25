@@ -28,8 +28,8 @@ checking who will read an answer before an agent may use a document for it.
 | A1 | File versions and one history (schema 152) | Built and tested |
 | A2 | Folders inside folders (schema 153) | Built and tested |
 | A3 | Admins can open everything, audited (schema 153) | Built and tested |
-| B4 | Open on the computer and Save back | Next |
-| B5 | Five agent tools instead of ten | Not started |
+| B4 | Open on the computer and Save back (schema 154) | Built and tested with the stand-in computer |
+| B5 | Five agent tools instead of ten | Next: `open_document` and `save_file` exist beside the old tools |
 | B6 | A computer for every agent | Not started |
 | C7 | Each agent's own folder | Not started |
 | C8 | Chat attachments as Library items | Not started |

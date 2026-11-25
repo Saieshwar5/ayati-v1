@@ -193,6 +193,46 @@ checked like any page (60,000 characters at most). Agents never change who has a
   `GET …/library/{id}/suggestions`, `POST …/library/{id}/suggestions/{s}` with
   `{request, action}`; decisions are audited and replay-safe.
 
+### Working on documents on the computer (schema 154)
+
+The Library keeps; the agent's computer works. Two tools join the Library to the
+agent's [computer](agent-computers.md):
+
+- **`open_document({id})`** puts an item the agent may use for this conversation in
+  `library/` in the request's folder: a file as it is, a page as Markdown
+  (`Returns policy.md`), a table as CSV (`Price list.csv`). It leaves a read receipt, so
+  it is cited and fenced like `read_document`, and remembers the revision opened
+  (`relay_library_opened`).
+- **`save_file({path, folder?, title?, note?})`** saves a file from the computer.
+  - A file that was opened becomes **that item's next version**, marked with the agent
+    and the person it worked for. The agent needs **Edit** and the person must be able to
+    edit the item. If the item changed in the Library meanwhile, nothing is written and
+    the tool says to open it again (`state: changed`). Saving the same file again
+    continues from the version just written.
+  - With **Suggest edits**, a page's change becomes a suggestion (with `note`); files and
+    tables are refused. With **Read**, saving is refused.
+  - Any other file is a **new file** in `folder`, which needs **Edit and save here** and
+    a person who can edit the folder; `title` names it.
+- A page keeps its headings, lists (nested, numbered, check lists), quotes, code blocks,
+  rules, line breaks, bold, italic, strike, underline, code and links through the round
+  trip (`library/page_markdown.rs`). A table's number columns stay numbers; a new column
+  is numbers when every value is (`library/tables_csv.rs`).
+- **Copies don't outlive the request.** When another request of the agent takes the
+  computer, the `library/` folders of earlier requests are deleted first: the next
+  request may be for someone who can't see that document.
+- Files are stored and read like uploads (25 MiB, the workspace quota, text for search).
+  Saves are in the Audit log ("Nova saved a new version of "prices.txt" (revision 2)",
+  "Nova saved "May report.txt" in "Policies"").
+
+Checks: unit (the page and table round trips), PostgreSQL
+(`postgres/library_workbench_tests.rs`, with the local stand-in computer and local file
+storage: a page opened as Markdown, changed with a shell command and saved as revision 2
+with its formatting, continued to revision 3, refused after a person's newer edit, and
+cited; read, suggest and edit levels, a colleague who can't edit, HR not opened for
+them, and earlier requests' copies gone; a stored file and a table changed and saved, a
+number column refusing text, a new file refused without "save here" and then filed).
+Not yet run with a real model or a real provider computer.
+
 **Fencing (schema 71).** Library edits and sharing changes no longer raise the
 workspace-wide context epoch, which used to hide every earlier agent answer in the
 workspace and stop running work whenever anyone saved a page. Instead an answer that

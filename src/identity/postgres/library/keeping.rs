@@ -57,6 +57,7 @@ const ITEM_TABLES: &[&str] = &[
     "relay_library_always",
     "relay_library_reviews",
     "relay_library_indexed",
+    "relay_library_opened",
 ];
 
 async fn present(db: &impl ConnectionTrait) -> Result<bool> {

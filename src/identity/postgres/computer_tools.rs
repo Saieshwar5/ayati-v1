@@ -112,7 +112,7 @@ pub(super) fn resolve(job: &Job, path: &str) -> std::result::Result<String, Valu
 }
 
 /// What a person would recognise: the path within the agent's home.
-fn shown(path: &str) -> &str {
+pub(super) fn shown(path: &str) -> &str {
     path.strip_prefix(HOME)
         .unwrap_or(path)
         .trim_start_matches('/')

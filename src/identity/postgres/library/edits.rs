@@ -106,7 +106,7 @@ pub(super) async fn name_of(tx: &DatabaseTransaction, w: &str, agent: &str) -> R
 }
 /// Writes a new revision of a page and its version, marked with the agent and task.
 #[allow(clippy::too_many_arguments)]
-async fn write_revision(
+pub(super) async fn write_revision(
     tx: &DatabaseTransaction,
     w: &str,
     id: &str,
@@ -127,13 +127,25 @@ async fn write_revision(
 impl PgStore {
     pub(crate) async fn library_suggest_edit(&self, job: &Job, input: &Change) -> Result<Value> {
         let (document, text) = checked(&input.text)?;
+        self.library_suggest_page(job, &input.id, &input.note, document, text)
+            .await
+    }
+    /// A suggested new text for a page, waiting for a person who can edit it.
+    pub(super) async fn library_suggest_page(
+        &self,
+        job: &Job,
+        id: &str,
+        note: &str,
+        document: Value,
+        text: String,
+    ) -> Result<Value> {
         ensure!(
-            input.note.chars().count() <= 500,
+            note.chars().count() <= 500,
             "Keep the note under 500 characters"
         );
         let tx = self.workspace_tx(&job.workspace).await?;
         super::super::control_actions::authorize(&tx, job, true).await?;
-        let Some((level, access, page)) = standing(&tx, job, &input.id).await? else {
+        let Some((level, access, page)) = standing(&tx, job, id).await? else {
             tx.commit().await?;
             return Ok(unavailable());
         };
@@ -143,17 +155,17 @@ impl PgStore {
                 json!({"state":"not_allowed","message":"You may only read this document. Tell the person what you would change instead."}),
             );
         }
-        let pending: i64 = query(&tx, "SELECT count(*) AS n FROM relay_library_suggestions WHERE workspace=$1 AND item=$2 AND state='pending'", vec![job.workspace.clone().into(), input.id.clone().into()]).await?.context("Count")?.try_get("", "n")?;
+        let pending: i64 = query(&tx, "SELECT count(*) AS n FROM relay_library_suggestions WHERE workspace=$1 AND item=$2 AND state='pending'", vec![job.workspace.clone().into(), id.to_owned().into()]).await?.context("Count")?.try_get("", "n")?;
         ensure!(pending < 20, "This page already has 20 suggestions waiting");
-        let id = uuid::Uuid::new_v4().to_string();
-        execute(&tx, "INSERT INTO relay_library_suggestions(workspace,id,item,base_revision,title,document,text,note,agent,job,requester,created) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)", vec![job.workspace.clone().into(), id.clone().into(), input.id.clone().into(), page["revision"].as_i64().unwrap_or(1).into(), page["title"].as_str().unwrap_or("").into(), document.into(), text.into(), input.note.trim().into(), job.agent.clone().into(), job.reply.clone().into(), job.requester.clone().into(), now().into()]).await?;
+        let suggestion = uuid::Uuid::new_v4().to_string();
+        execute(&tx, "INSERT INTO relay_library_suggestions(workspace,id,item,base_revision,title,document,text,note,agent,job,requester,created) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)", vec![job.workspace.clone().into(), suggestion.clone().into(), id.to_owned().into(), page["revision"].as_i64().unwrap_or(1).into(), page["title"].as_str().unwrap_or("").into(), document.into(), text.into(), note.trim().into(), job.agent.clone().into(), job.reply.clone().into(), job.requester.clone().into(), now().into()]).await?;
         let name = name_of(&tx, &job.workspace, &job.agent).await?;
         audit_with_summary(
             &tx,
             &job.requester,
             Some(&job.workspace),
             "library_change_suggested",
-            &input.id,
+            id,
             &format!(
                 "{name} suggested a change to \"{}\"",
                 page["title"].as_str().unwrap_or("")
@@ -162,15 +174,27 @@ impl PgStore {
         .await?;
         tx.commit().await?;
         Ok(
-            json!({"state":"suggested","suggestion":id,"next":"Someone who can edit the page accepts or rejects it in the Library. Tell the person in one line."}),
+            json!({"state":"suggested","suggestion":suggestion,"next":"Someone who can edit the page accepts or rejects it in the Library. Tell the person in one line."}),
         )
     }
 
     pub(crate) async fn library_edit_document(&self, job: &Job, input: &Change) -> Result<Value> {
         let (document, text) = checked(&input.text)?;
+        self.library_edit_page(job, &input.id, input.revision, document, text)
+            .await
+    }
+    /// A page's new content as its next revision, from the revision the agent read.
+    pub(super) async fn library_edit_page(
+        &self,
+        job: &Job,
+        id: &str,
+        revision: Option<i64>,
+        document: Value,
+        text: String,
+    ) -> Result<Value> {
         let tx = self.workspace_tx(&job.workspace).await?;
         super::super::control_actions::authorize(&tx, job, true).await?;
-        let Some((level, access, page)) = standing(&tx, job, &input.id).await? else {
+        let Some((level, access, page)) = standing(&tx, job, id).await? else {
             tx.commit().await?;
             return Ok(unavailable());
         };
@@ -181,7 +205,7 @@ impl PgStore {
             );
         }
         let current = page["revision"].as_i64().unwrap_or(1);
-        if input.revision.is_some_and(|r| r != current) {
+        if revision.is_some_and(|r| r != current) {
             tx.commit().await?;
             return Ok(
                 json!({"state":"changed","revision":current,"message":"The page changed since you read it. Read it again and make your change on the new revision."}),
@@ -191,7 +215,7 @@ impl PgStore {
         let revision = write_revision(
             &tx,
             &job.workspace,
-            &input.id,
+            id,
             &job.requester,
             &title,
             &document,
@@ -206,13 +230,13 @@ impl PgStore {
             &job.requester,
             Some(&job.workspace),
             "library_page_edited_by_agent",
-            &input.id,
+            id,
             &format!("{name} edited \"{title}\" (revision {revision})"),
         )
         .await?;
         tx.commit().await?;
         Ok(
-            json!({"state":"edited","revision":revision,"link":format!("/w/{}/?view=library&item={}",job.workspace,input.id),"next":"The change is saved as a new version; anyone who can edit the page can restore the earlier one from History."}),
+            json!({"state":"edited","revision":revision,"link":format!("/w/{}/?view=library&item={}",job.workspace,id),"next":"The change is saved as a new version; anyone who can edit the page can restore the earlier one from History."}),
         )
     }
 
