@@ -49,7 +49,9 @@ Only admins invite or remove workspace members through Settings.
   the Audit log records "Opened … as an admin; it was not shared with them" (once an hour
   per admin and item). `relay_library_granted` is what a person was given;
   `relay_library_access` adds the admin rule. Agents get nothing from this: an agent uses
-  only what it was given.
+  only what it was given. Sample runs (rehearsals) also offer and accept only what was
+  shared with the person, so an admin opens another person's private item, audited, before
+  using it there.
 - Links do not grant access. There is no guest/public-link sharing.
 - Version history requires edit access; a viewer can fetch the current page version.
 
