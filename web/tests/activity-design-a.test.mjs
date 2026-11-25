@@ -11,7 +11,7 @@ const at = query => `http://localhost/w/${w}/?view=activity${query}`;
 const session = { user: { id: 'meera', email: 'meera@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Admin' }] };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 const now = Date.now();
-const totals = { requests: 5, done: 3, failed: 1, review: 2, waiting: 0, automatic: 3, approved: 1, people: 2, channels: 1, schedule_runs: 1, per_day: [], by_agent: [] };
+const totals = { requests: 5, done: 3, failed: 1, review: 2, waiting: 0, automatic: 3, approved: 1, people: 2, channels: 1, task_runs: 1, per_day: [], by_agent: [] };
 const approval = { kind: 'approval', id: 'a1', version: 'pending', status: 'pending', title: 'Discount for Sharma Traders', at: now, created_at: now - 600000, agent: 'nova', agent_name: 'Nova',
   chat: 'sales', thread: null, reply: 'r-a1', conversation_name: 'sales', archived: false, read: true, reviewed: false };
 const fixing = [{ cause: 'reconnect', title: 'Zoho Books needs reconnecting', count: 2, fix: { kind: 'settings', label: 'Reconnect' }, agents: [{ id: 'nova', name: 'Nova' }], items: [{ agent: 'nova', agent_name: 'Nova', ref: 'c1', detail: 'Sign-in expired', at: now }] }];

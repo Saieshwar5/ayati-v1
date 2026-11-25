@@ -105,7 +105,13 @@ async fn deletion_can_be_undone_for_seven_days_and_then_closes_the_workspace() {
     db.schedule_workspace_deletion(&owner, &w, &name)
         .await
         .unwrap();
-    let (_, agent) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
+    let (chat, agent) = super::super::executor_slot_tests::agent(&db, &owner, &w).await;
+    // A repeating task with its next run booked.
+    let task = uuid::Uuid::new_v4().to_string();
+    execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,repeat,anchor_ms) VALUES($1,$2,$3,'commitment','agent','Daily summary',$4,$5,'{\"unit\":\"day\",\"at\":\"09:00\"}',1)",
+        vec![w.clone().into(), task.clone().into(), agent.clone().into(), owner.id.clone().into(), chat.into()]).await.unwrap();
+    execute(&db.db, "INSERT INTO relay_task_wakeups(workspace,id,task,due_ms,kind) VALUES($1,$2,$3,(extract(epoch FROM clock_timestamp())*1000)::bigint+3600000,'repeat')",
+        vec![w.clone().into(), uuid::Uuid::new_v4().to_string().into(), task.clone().into()]).await.unwrap();
     execute(
         &db.db,
         "UPDATE relay_workspaces SET delete_at_ms=1 WHERE id=$1",
@@ -140,6 +146,17 @@ async fn deletion_can_be_undone_for_seven_days_and_then_closes_the_workspace() {
     .try_get("", "p")
     .unwrap();
     assert!(paused);
+    // Its tasks pause and nothing booked runs.
+    let stopped = query(&db.db, "SELECT t.paused_reason,(SELECT count(*) FROM relay_task_wakeups k WHERE k.task=t.id AND k.state='pending') AS booked FROM relay_tasks t WHERE t.id=$1",
+        vec![task.into()]).await.unwrap().unwrap();
+    assert_eq!(
+        stopped
+            .try_get::<Option<String>>("", "paused_reason")
+            .unwrap()
+            .as_deref(),
+        Some("The workspace was closed.")
+    );
+    assert_eq!(stopped.try_get::<i64>("", "booked").unwrap(), 0);
 }
 
 #[tokio::test]

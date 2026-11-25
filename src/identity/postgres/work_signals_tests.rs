@@ -214,7 +214,6 @@ async fn every_table_the_loops_act_on_announces_its_work() {
     .collect();
     let mut expected = [
         "relay_agent_handoffs",
-        "relay_agent_schedules",
         "relay_assistant_settings",
         "relay_chat_jobs",
         "relay_event_deliveries",

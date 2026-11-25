@@ -6,7 +6,6 @@ import type { Scope, TaskRunState } from './model';
 type Base = { agent: string; agent_name: string; title: string };
 export type CalendarRun = Base & { kind: 'run'; task: string; at: number; state: Exclude<TaskRunState, 'planned'>; detail: string; reply: string | null };
 export type CalendarPlanned = Base & { kind: 'planned'; task: string; at: number; run_kind: 'repeat' | 'follow_up' | 'continue' };
-/** A schedule's runs from before schema 147 come as runs of the task it became. */
 export type CalendarItem = CalendarRun | CalendarPlanned;
 /** A trigger links to its task (schema 148), whose runs show as the task's runs. */
 export type Untimed = Base & ({ kind: 'trigger'; trigger: string; task: string | null; detail: string | null } | { kind: 'paused'; task: string; detail: string | null });

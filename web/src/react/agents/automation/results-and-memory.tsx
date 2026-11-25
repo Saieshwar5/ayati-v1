@@ -1,6 +1,6 @@
 /** The two choices every automation shares (schema 115): what a run remembers
- * of earlier runs, and where its results go besides Activity. Schedules and
- * app events use the same controls and the same words. */
+ * of earlier runs, and where its results go besides Activity. Triggers use these
+ * controls and words. */
 export type Memory = 'fresh' | 'remember' | 'subject';
 
 export const memoryLabels: Record<Memory, { title: string; detail: string }> = {

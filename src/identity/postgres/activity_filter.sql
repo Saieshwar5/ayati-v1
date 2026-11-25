@@ -5,9 +5,10 @@ JOIN relay_shared_agents ag ON ag.workspace=j.workspace AND ag.id=j.payload->>'a
 CROSS JOIN LATERAL (SELECT CASE
  -- A Home panel refresh is a panel update even when a routine starts it.
  WHEN EXISTS(SELECT 1 FROM relay_home_update_runs hu WHERE hu.workspace=j.workspace AND hu.reply=j.reply) THEN 'panel'
- WHEN EXISTS(SELECT 1 FROM relay_schedule_occurrences o WHERE o.workspace=j.workspace AND o.reply=j.reply) THEN 'schedule'
  WHEN EXISTS(SELECT 1 FROM relay_event_deliveries d WHERE d.workspace=j.workspace AND d.reply=j.reply) THEN 'trigger'
  WHEN EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=j.workspace AND h.child=j.reply) THEN 'handoff'
+ -- A run a task started on its own: its rule, a follow-up or a long task's next part.
+ WHEN EXISTS(SELECT 1 FROM relay_task_wakeups t WHERE t.workspace=j.workspace AND t.reply=j.reply) THEN 'task'
  ELSE 'chat' END AS kind) k
 WHERE j.workspace=$1
 -- Who sees it: the requester, anyone who can see the conversation, the agent's

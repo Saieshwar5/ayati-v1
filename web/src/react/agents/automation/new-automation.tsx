@@ -2,7 +2,7 @@ import { Button, Dialog } from '../../ui';
 
 /** "New automation" step 1 (designs/automations-simplified 2): when should the agent
  * start — at a time, or when something happens? Work at a time is asked for in Chat
- * and becomes a task (schedules became tasks in schema 147); a trigger opens its form. */
+ * and becomes a task; a trigger opens its form. */
 export function NewAutomation({ agent, ask, close, choose }: {
   agent: string; ask?: () => void; close: () => void; choose: () => void;
 }) {

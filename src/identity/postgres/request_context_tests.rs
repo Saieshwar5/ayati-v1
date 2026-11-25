@@ -193,7 +193,7 @@ async fn request_context_background_origin_is_not_a_fresh_human_message() {
     let owner = user(&db, "fresh-context-background").await;
     let w = workspace(&db, &owner).await;
     let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
-    let input = message("Scheduled work · Review\nReview the current work", Some(&a));
+    let input = message("Task run · Review\nReview the current work", Some(&a));
     let queued = db
         .chat_background(&owner, &w, &c, &input)
         .await

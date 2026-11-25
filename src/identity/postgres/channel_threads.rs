@@ -45,7 +45,7 @@ pub(super) fn for_me(param: &str, follows: bool) -> String {
 /// Where an agent's answer to `asking` goes: its own thread when the asking
 /// message is in one; otherwise a new thread under it in a channel or group
 /// several people read whose managers keep the default; otherwise the main
-/// timeline. Only a person's own message gets a new thread: schedules, events
+/// timeline. Only a person's own message gets a new thread: task runs, events
 /// and doors keep their places.
 pub(super) async fn reply_thread(
     tx: &impl ConnectionTrait,

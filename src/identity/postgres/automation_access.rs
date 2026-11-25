@@ -35,7 +35,7 @@ pub(super) async fn authority(
 }
 /// May post the agent's work in `chat` as `user`. `manage`: `user` must look after
 /// the agent (an event trigger they set up), not only be allowed to ask it (a task
-/// they asked for, or a schedule saved from the agent's proposal before schema 147).
+/// they asked for).
 pub(super) async fn authority_for(
     tx: &DatabaseTransaction,
     user: &User,

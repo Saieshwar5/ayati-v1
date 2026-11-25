@@ -54,7 +54,7 @@ test('an agent reads its goals, reports progress and a risk, and writes its week
   assert.equal(review.goals[0].risk, 'Two suppliers are late with prices');
   assert.equal(review.reviews[0].suggestion, 'Add the price list skill');
   const weekly = (await app.request(`${app.path}/activity/weekly-review`, app.cookie, { agent: app.profile.id, enabled: true })).value;
-  // A weekly task in its own work room (schedules became tasks in schema 147).
+  // A weekly task in its own work room.
   assert.equal(app.sql(`SELECT repeat->>'unit' FROM relay_tasks WHERE id='${weekly.task}'`), 'week');
   assert.equal(app.sql(`SELECT count(*) FROM relay_task_wakeups WHERE task='${weekly.task}' AND kind='repeat' AND state='pending'`), '1');
   await app.stop(executor);

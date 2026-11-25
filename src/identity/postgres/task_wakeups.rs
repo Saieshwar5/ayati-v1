@@ -210,7 +210,7 @@ impl PgStore {
 
     /// Start every follow-up that is due. Run by the scheduler loop every second.
     pub(crate) async fn dispatch_task_wakeups(&self) -> Result<usize> {
-        // Like schedules, follow-ups run only with pooled executors.
+        // Follow-ups and task runs start only with pooled executors.
         if !self.pooled {
             return Ok(0);
         }
@@ -285,7 +285,7 @@ impl PgStore {
                 super::runs::notes_text(&tx, w, &task).await?,
             )
         } else {
-            // A one-time task converted from a schedule (schema 147) says what to do.
+            // A one-time task with instructions (converted in schema 147) says what to do.
             let what = super::runs::instructions(&tx, w, &task)
                 .await?
                 .map(|text| format!("\nWhat to do: {text}"))

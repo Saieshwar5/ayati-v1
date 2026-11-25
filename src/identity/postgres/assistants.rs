@@ -96,7 +96,7 @@ pub(super) async fn own_room(db: &impl ConnectionTrait, m: &str) -> Result<Strin
     })
 }
 
-/// Where an assistant's schedule or trigger runs: its owner's chat with it, in
+/// Where an assistant's task or trigger runs: its owner's chat with it, in
 /// the automation's own thread, opened under one line that names it. `None`
 /// for any other agent, which runs in a work room.
 pub(super) async fn run_place(

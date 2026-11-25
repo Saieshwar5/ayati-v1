@@ -81,7 +81,7 @@ function UpdateAgreement({panel, close, refresh}: {
       <div className="workspace-panel-field"><label htmlFor={`${fields}-interval`}>Check every (minutes)</label>
         <input id={`${fields}-interval`} type="number" min="1" max="1440" step="1" placeholder="Manual updates only"
           value={interval} disabled={m.busy} onChange={event => setInterval(event.target.value)} />
-        <small>Leave blank for Update now only. Scheduled checks use elapsed intervals.</small></div>
+        <small>Leave blank for Update now only. Interval checks use elapsed time.</small></div>
       <label className="workspace-panel-check"><input type="checkbox" checked={follow} disabled={m.busy}
         onChange={event => setFollow(event.target.checked)} /> Also update when its sources change
         <small>After {panel.agent_name ?? 'the agent'} finishes work that used them, or a new event arrives on them.</small></label>
@@ -93,11 +93,11 @@ function UpdateAgreement({panel, close, refresh}: {
           value={age} disabled={m.busy} onChange={event => setAge(event.target.value)} /></div>
       <p className="ui-help">New snapshots publish automatically within this agreement. Source reads use the exact reviewed filters
         and current permissions. Business writes and changes to this panel’s purpose or sources need separate authority.
-        Scheduled checks may use agent inference.</p>
+        Interval checks may use agent inference.</p>
       {agreement.checked_ms && <p>Last successful source read: {new Date(agreement.checked_ms).toLocaleString()}.</p>}
       {agreement.from_source && <p>Numbers refresh straight from the source; {panel.agent_name ?? 'the agent'} is asked only when something meaningful changes.</p>}
       {agreement.last_day && agreement.last_day.updates > 0 && <p>Last 24 hours: {agreement.last_day.updates} {agreement.last_day.updates === 1 ? 'update' : 'updates'}, {agreement.last_day.without_agent} without the agent.</p>}
-      {agreement.enabled && agreement.next_ms && <p>Next scheduled check: {new Date(agreement.next_ms).toLocaleString()}.</p>}
+      {agreement.enabled && agreement.next_ms && <p>Next interval check: {new Date(agreement.next_ms).toLocaleString()}.</p>}
       <div className="panel-maintenance-actions">
         <Button primary type="submit" disabled={m.busy || !agreement.eligible || !instructions.trim()}>
           {m.busy ? 'Saving…' : agreement.enabled ? 'Save update agreement' : 'Enable updates'}</Button>

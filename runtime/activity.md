@@ -2,11 +2,12 @@
 
 One page for everything agents do (D235, built in M4). It sits in the main menu
 between Chat and Agents (`/w/<workspace-id>/?view=activity`) and reads existing
-records: chat requests, tool actions, approvals, questions, task, schedule and
-trigger runs, hand-offs and agent setting changes. Opening it never starts work. Since
-schema 147 schedules are tasks: their earlier runs stay in History and show on the
-Calendar as runs of the task they became, and nothing in Activity lists or pauses a
-schedule any more.
+records: chat requests, tool actions, approvals, questions, task and trigger runs,
+hand-offs and agent setting changes. Opening it never starts work. Schedules became
+tasks in schema 147 and were dropped in schema 150: a run a task started (a task
+wake-up's reply) has the type `task` ("Task runs" in History, `task_runs` in the
+totals), request details name its task under Started by, and an old schedule run
+reads as an ordinary request of the task it became.
 
 ## Views
 
@@ -197,7 +198,7 @@ and admins; with My agents, the agents they own):
   list what was added and whether the agent read it. At most 20 per request, 2,000
   characters each; never on a finished request.
 - **Routines from Chat** (T3, retired: since schema 144 agents create repeating tasks, and
-  since schema 147 old proposals no longer show): for something that repeats, the agent calls
+  schema 150 dropped the old proposals): for something that repeats, the agent calls
   `propose_schedule {name, instructions, first_in_minutes, every_minutes?}` (every hour to
   every 30 days, or once; at most three per request). It shows under the agent's reply
   ("Routine: Monday sales summary · Every week, first Mon 9:00") and is saved only when
@@ -264,7 +265,7 @@ cookie; every query applies the visibility rule above on the server.
 - `GET /history?agent&person&chat&status&kind&from&to&q&before&scope` — 25 requests,
   newest first; `next_before` is the cursor (no gaps or repeats).
   `status` is one of active, waiting, done, failed, review, stopped; `kind` one of
-  chat, schedule, trigger, handoff; `scope` one of mine, all (default all).
+  chat, task, trigger, handoff, panel; `scope` one of mine, all (default all).
 - `GET /totals?…&offset` — counts and per-day/per-agent numbers for the same
   filters; `offset` is the browser's minutes east of UTC.
 - `GET /export?…` — the same filters as a CSV file; the `x-cuckoo-truncated`

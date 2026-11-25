@@ -1,5 +1,5 @@
 //! A panel's fixed interval ("update every N", schema 146) runs on the panel's own
-//! update queue (`relay_home_update_wanted`, reason `interval`), not as a schedule.
+//! update queue (`relay_home_update_wanted`, reason `interval`).
 //! Each update run that starts books the next interval update one interval later;
 //! an interval update that comes due while an update still runs waits for it.
 use super::super::*;

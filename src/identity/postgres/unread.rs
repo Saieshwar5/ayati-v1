@@ -3,7 +3,7 @@
 //! A message is unread for a person when someone else sent it, it is sent or
 //! complete, the person has no seen receipt for it, and the person could see it
 //! when it arrived. The conversation must be one Chat lists as active: archived
-//! channels and a schedule's work room never count. The message must not be
+//! channels and a task's work room never count. The message must not be
 //! older than the person's access: for a public channel, joining the workspace;
 //! for a private conversation, the later of joining the workspace and being
 //! added to it. A person who joins today starts with nothing unread.

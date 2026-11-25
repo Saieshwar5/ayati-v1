@@ -42,8 +42,8 @@ and shows on the same Calendar and agent page.
    enabled. A paused or blocked schedule becomes a paused task with its reason; a
    completed one a done task. It keeps running in its own work room and posts
    where it posted before (decision 1); one with no post target belongs to its work
-   room and shows only in Activity. `relay_tasks.schedule` keeps the old id, so its
-   earlier runs stay readable. The old row is marked moved and no longer runs.
+   room and shows only in Activity. Its earlier runs are linked to the task. The old row is marked moved and
+   no longer runs (schema 150 dropped the schedule tables).
 5. **Home panel updates are not tasks.** A panel's fixed-interval update moves from
    its schedule binding to the panel's own update queue (`relay_home_update_wanted`),
    which already handles "after work" and "on an event". People see no change.
@@ -61,7 +61,7 @@ and shows on the same Calendar and agent page.
    API, the schedule dispatcher and occurrence writing, schedule proposals in Chat
    and their cards, the regular-check dispatcher, Activity › Calendar's List view and
    the Planned/upcoming list, and the separate schedule list on the agent page.
-   Calendar and task pages read tasks only (old occurrences only as history).
+   Calendar and task pages read tasks only.
 
 ## Order
 
@@ -85,3 +85,12 @@ run of it, with pause, resume and end kept together; step 5 (schema 149,
 `precheck='messages'`, edited from the Regular checks panel, and the check dispatcher is
 removed; step 6: Activity › Calendar's List view and `GET …/activity/upcoming` are removed,
 the agent instructions talk about tasks, and the docs are updated.
+
+Schema 150 drops the old schedule tables and code (`m20261125_000150_drop_schedules`,
+2026-11-25; the owner decided that while Cuckoo is in development it keeps no old
+schedules, their data or code):
+the schedule tables, columns, triggers and functions and the `schedule` task origin are
+gone, and what still read them now reads tasks and their wake-ups (Activity's `task`
+type, retry, the owner view, revocation, Library use where a run posts, closing a
+workspace, and removing a member, which pauses their repeating tasks). See
+[runtime/tasks.md](../../runtime/tasks.md#since-schema-150-the-old-schedules-are-gone).

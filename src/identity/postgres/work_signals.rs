@@ -5,8 +5,8 @@
 //! kept an idle database busy (D226). Now database triggers announce work on one
 //! channel in the transaction that changes it: a job or executor task added, put
 //! back or finished, an executor slot ready, a voice transcript queued or done,
-//! and anything the scheduler admits (schedules, events, Library arrivals, app
-//! records, follow-ups, panel updates, helper waits). PostgreSQL sends a
+//! and anything the scheduler admits (task runs and follow-ups, events, Library
+//! arrivals, app records, panel updates, helper waits). PostgreSQL sends a
 //! notification at commit, at most once per transaction for each loop.
 //!
 //! Each controller listens once (`messaging.rs`) and wakes the loop the

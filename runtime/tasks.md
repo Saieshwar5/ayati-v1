@@ -1,5 +1,36 @@
 # Tasks (schema 58; lifetimes, schema 144)
 
+## Since schema 150: the old schedules are gone
+
+Built 2026-11-25. Migration `m20261125_000150_drop_schedules` drops the schedule tables
+(`relay_agent_schedules`, `relay_schedule_occurrences`, `relay_schedule_changes`,
+`relay_schedule_drafts`, `relay_home_schedule_bindings`), the schedule columns
+(`relay_tasks.schedule`, `relay_review_routines.schedule`,
+`relay_home_maintenance.schedule`), their triggers and functions, and the `schedule`
+task origin (converted tasks are `origin='person'`, automatic ones `request`). Tasks
+converted in schema 147 keep their rules, runs (linked through `relay_chat_jobs.task`),
+rooms and posting; an old run reads as an ordinary request of its task and no longer
+shows on the Calendar. A Home panel still linked to a paused or blocked schedule has its
+update agreement paused for review.
+
+What schedules answered now comes from tasks:
+
+- **A task's run** is a request a task wake-up started (`relay_task_wakeups.reply`).
+  Activity's type is `task` ("Task runs", `task_runs` in the totals); it can't be retried
+  from Activity; the owner view refuses it; revoking access stops it.
+- **Library use** in a task's run must suit everyone in the task's conversation, where
+  its result is posted (`relay_library_agent_use`).
+- **Removing a member** pauses their open repeating tasks (a rule or a booked follow-up;
+  "Paused because the person it was for left the workspace.") and the handover summary
+  counts them as repeating tasks paused for review.
+- **Closing a deleted workspace** pauses its tasks with a booked run and cancels what is
+  booked.
+
+Checks: PostgreSQL `tasks::conversion_tests` (schedules from schema 146 converted through
+147 and dropped at 150: nothing named schedule left, rules, rooms, old runs, and the next
+run posting where it did), `member_handover_tests`, `settings::tests` (closing),
+`library_tests::task_posts`; web `activity`, `people` and `settings` tests.
+
 ## Since schemas 148 and 149: triggers and regular checks are tasks
 
 Steps 4 to 6 of [one system](../designs/agent-tasks/one-system.md), built 2026-11-24.
@@ -27,10 +58,10 @@ code before the model).
 Built 2026-11-24, step 3 of [one system](../designs/agent-tasks/one-system.md) (decision
 4). Migration `m20261124_000147_schedules_to_tasks` made every schedule that is not a Home
 panel update (`relay_home_schedule_bindings`; schema 146 moved those to the panel's queue)
-a commitment task with `origin='schedule'`:
+a commitment task with `origin='schedule'` (`person` since schema 150):
 
 - **What it keeps.** Title = name; `instructions` = content; for = its person; the agent;
-  `timezone` = its zone; `anchor_ms` = its first run; `schedule` = the old id; `runs` = its
+  `timezone` = its zone; `anchor_ms` = its first run; `schedule` = the old id (dropped in schema 150); `runs` = its
   number of runs; its created time.
 - **Its rule**, from the interval: whole weeks → weekly on the first run's local weekday
   and time; whole days → daily at that time; whole hours that divide a day → hourly
@@ -46,11 +77,9 @@ a commitment task with `origin='schedule'`:
   ("Paused before it became a task."). Blocked: paused with the schedule's reason.
   Completed: done.
 - **Earlier runs** are linked to the task (`relay_chat_jobs.task`; an automatic task left
-  with no requests is deleted). Activity › Calendar shows them as runs of the task;
-  request details name the task (`schedule.task`). `relay_schedule_occurrences` and run
-  receipts stay readable.
-- **The schedule row** gets `task` and is marked `state='completed'`, `next_ms` empty,
-  `detail='Moved to a task.'`; nothing runs schedules any more.
+  with no requests is deleted).
+- **The schedule row** got `task` and was marked `state='completed'`; schema 150 dropped
+  the schedule tables.
 - **Weekly reviews** (Activity › Insights) are tasks: turning one on makes a weekly task
   "Weekly review" for that person in its own work room (`relay_review_routines.task`);
   off pauses it, on resumes it.
@@ -61,9 +90,8 @@ Removed: the schedule dispatcher, the schedule create/details/state/runs API (th
 agent's conversations for posting moved to `GET …/agent-profiles/{a}/post-targets`),
 schedule proposals in Chat and their cards, schedule items in Needs fixing, Coming up and
 Planned, the schedule half of New automation (At a time now opens Chat) and the agent
-page's schedule list. Checks: PostgreSQL `tasks::conversion_tests` (each kind of schedule
-converted, panel schedules left, old runs linked, the next run through the task engine
-in its room posting to its old target), `work_rooms::tests`, `getting_better` weekly review.
+page's schedule list. Checks: `work_rooms::tests`, `getting_better` weekly review; the
+conversion is now checked through schema 150 (above).
 
 ## Since schema 144: tasks with a lifetime
 
@@ -106,7 +134,7 @@ Built 2026-11-24 from [designs/agent-tasks](../designs/agent-tasks/README.md). T
 - **Long jobs.** `continue_later {task, done, next}` saves where a part stopped and books
   the next part a minute later (`kind='continue'`); after 20 parts the agent must ask.
 - **Limits.** 20 open repeating tasks per person per agent, 100 per agent. A run that
-  started on its own (schedule, event, task run) may create a repeating task only with an
+  started on its own (an event or a task run) may create a repeating task only with an
   end (`until`, `max_runs` or `done_when`).
 - **The agent is told the time.** `open_tasks` returns `now` (local) and `timezone`.
 
@@ -116,15 +144,13 @@ People:
   and, for the person it is for, **Undo** (cancels it).
 - **Activity › Calendar** (replaces Planned): a week of runs in the workspace's time zone,
   past (done, failed, no change, skipped, missed) and planned (every booked run and the
-  rule's later runs; since schema 147 a converted schedule's earlier runs as its task's runs,
-  since schema 148 a trigger's runs as its task's); each trigger once and paused tasks
+  rule's later runs; since schema 148 a trigger's runs as its task's); each trigger once and paused tasks
   beside it. The **List** view was removed in step 6; old `tab=upcoming` links open the
   Calendar.
 - **Task details**: the rule as one sentence, next run, runs so far, each run with what came
   of it, the agent's notes, **Pause** or **Resume**, **Skip next run** and **End task**, for
   the person it is for, the agent's owners and admins. Changes are asked for in chat.
-- **Agent page › On its own**: its open tasks that run on their own (converted schedules,
-  each trigger's task and an assistant's regular check among them) and a link to the
+- **Agent page › On its own**: its open tasks that run on their own (each trigger's task and an assistant's regular check among them) and a link to the
   Calendar.
 
 API: `GET …/activity/calendar?from&to&scope` (six weeks at most), `POST
@@ -155,7 +181,7 @@ result, so people see what agents have taken on, and an agent never forgets a pr
 
 | Kind | Opened by | Closes |
 | --- | --- | --- |
-| **automatic** | The platform, when a request changes a real system (a write action that isn't blocked), asks a question, hands work to a helper, or comes from a schedule or an event | With that request: complete is done, cancelled is cancelled, anything else failed |
+| **automatic** | The platform, when a request changes a real system (a write action that isn't blocked), asks a question, hands work to a helper, or comes from an event | With that request: complete is done, cancelled is cancelled, anything else failed |
 | **commitment** | The agent's `create_task`, or a person's **Make this a task** | Only when the agent calls `close_task` or a person closes it |
 
 A Home panel refresh is a panel update, never a task. Answering, explaining, drafting text
@@ -197,7 +223,7 @@ book a follow-up. A panel update task can't use these tools.
 
 ## Follow-ups (agents wake themselves)
 
-When a follow-up is due, the scheduler loop (pooled executors only, like schedules)
+When a follow-up is due, the scheduler loop (pooled executors only)
 starts a request for the agent **in the task's own conversation, for the person it
 promised**, already attached to the task. The request says "Follow-up · <title>" with
 what the task is for and the agent's note; Chat shows it as one light line, "Following up

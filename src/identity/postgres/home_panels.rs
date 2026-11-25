@@ -80,7 +80,7 @@ impl PgStore {
         .await?;
         tx.commit().await?;
         Ok(
-            json!({"id":input.id,"revision":revision,"state":"saved_draft","message":"Personal Home draft saved. Ask the original person to review it on Home and choose Keep on Home. It is not published and no schedule or source authority was granted."}),
+            json!({"id":input.id,"revision":revision,"state":"saved_draft","message":"Personal Home draft saved. Ask the original person to review it on Home and choose Keep on Home. It is not published and no update agreement or source authority was granted."}),
         )
     }
     pub(crate) async fn personal_panels(&self, job: &Job) -> Result<Value> {

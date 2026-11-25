@@ -18,7 +18,7 @@ The controller decides from the running request, never from what a message says:
 - the person asking is one of the agent's [owners](agent-profiles.md#who-can-talk-to-it-and-its-owners), or an admin;
 - the conversation is their direct chat with the agent, which only they read
   (not a channel, a group, a work room or an email thread);
-- a person's message started the request (not a schedule, an event trigger, a
+- a person's message started the request (not a task's run, an event trigger, a
   hand-off or a panel update, whose content can come from outside).
 
 Everyone else, and every shared conversation, gets `unavailable` and no data.

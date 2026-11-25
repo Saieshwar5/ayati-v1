@@ -72,22 +72,8 @@ pub(super) async fn maintenance(
             .map(|r| r.try_get::<i64>("", "saved_ms"))
             .transpose()?
     );
-    // Before schema 146 a fixed interval ran as a bound schedule; since then it is
-    // the panel's own next interval update.
-    let schedule = if let Some(sid) = data["schedule"].as_str() {
-        query(
-            db,
-            "SELECT state,next_ms FROM relay_agent_schedules WHERE workspace=$1 AND id=$2",
-            vec![w.into(), sid.into()],
-        )
-        .await?
-    } else {
-        None
-    };
-    data["next_ms"] = json!(match &schedule {
-        Some(r) => r.try_get::<Option<i64>>("", "next_ms")?,
-        None => super::home_update_runs::intervals::next_ms(db, w, id).await?,
-    });
+    // A fixed interval is the panel's own next interval update (schema 146).
+    data["next_ms"] = json!(super::home_update_runs::intervals::next_ms(db, w, id).await?);
     let now = query(
         db,
         "SELECT (extract(epoch FROM clock_timestamp())*1000)::bigint AS now",
@@ -102,11 +88,7 @@ pub(super) async fn maintenance(
         "review_required"
     } else if data["enabled"] != true {
         "paused"
-    } else if authority.is_err()
-        || schedule
-            .as_ref()
-            .is_some_and(|r| r.try_get::<String>("", "state").ok().as_deref() == Some("blocked"))
-    {
+    } else if authority.is_err() {
         "blocked"
     } else if let Some(last) = last.as_ref() {
         let state: String = last.try_get("", "state")?;

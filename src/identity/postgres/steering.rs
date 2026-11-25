@@ -6,8 +6,7 @@
 //!   (`person_added`), instead of waiting behind it as a new request. Anything the
 //!   agent never saw is carried into a new request when it finishes.
 //! - **Routines proposed in Chat (until schema 144)** are no longer shown or saved:
-//!   agents create repeating tasks in chat (`create_task` with a rule), and schema
-//!   147 made every saved schedule a task. Old drafts stay in `relay_schedule_drafts`.
+//!   agents create repeating tasks in chat (`create_task` with a rule).
 use super::super::super::*;
 use crate::identity::chat::model::{Job, NewMessage};
 use serde_json::json;

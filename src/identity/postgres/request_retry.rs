@@ -22,7 +22,7 @@ impl PgStore {
             &tx,
             "SELECT j.state AS job_state,j.payload->>'requester' AS requester,j.payload->>'agent' AS agent,
               m.chat,m.state,r.id AS asked,r.content,COALESCE(r.thread,m.thread) AS thread,r.author,r.kind,COALESCE(r.attachments,'[]'::jsonb) AS attachments,
-              EXISTS(SELECT 1 FROM relay_schedule_occurrences o WHERE o.workspace=j.workspace AND o.reply=j.reply)
+              EXISTS(SELECT 1 FROM relay_task_wakeups k WHERE k.workspace=j.workspace AND k.reply=j.reply)
                OR EXISTS(SELECT 1 FROM relay_event_deliveries d WHERE d.workspace=j.workspace AND d.reply=j.reply)
                OR EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=j.workspace AND h.child=j.reply) AS automatic,
               EXISTS(SELECT 1 FROM relay_control_actions x WHERE x.workspace=j.workspace AND x.job=j.reply
@@ -52,7 +52,7 @@ impl PgStore {
         );
         ensure!(
             !row.try_get::<bool>("", "automatic")?,
-            "Schedule runs, events and hand-offs can't be retried here"
+            "Task runs, events and hand-offs can't be retried here"
         );
         let asked: Option<String> = row.try_get("", "asked")?;
         let author: Option<String> = row.try_get("", "author")?;

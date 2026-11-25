@@ -119,8 +119,8 @@ impl PgStore {
         self.one_job_in(tx, user, w, chat, input, WorkClass::Communication)
             .await
     }
-    // Scheduled/event intake shares the ordinary source/target/queue checks and
-    // commits its occurrence receipt with the exact source message and job.
+    // Task and event intake shares the ordinary source/target/queue checks and
+    // commits its receipt with the exact source message and job.
     pub(super) async fn background_in(
         &self,
         tx: &DatabaseTransaction,
@@ -174,7 +174,7 @@ impl PgStore {
         self.one_job_in(tx, user, w, chat, input, WorkClass::Private(agent))
             .await
     }
-    /// Intake that asks one agent at most: events, schedules, handoffs, moved
+    /// Intake that asks one agent at most: events, task runs, handoffs, moved
     /// questions and email or WhatsApp messages.
     async fn one_job_in(
         &self,

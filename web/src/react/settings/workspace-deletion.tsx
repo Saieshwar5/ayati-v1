@@ -29,7 +29,7 @@ export function WorkspaceDeletion({ settings, changed }: { settings: WorkspaceSe
     {confirming && <Dialog title="Delete this workspace?" busy={mutation.busy} status={mutation.status} close={() => { setConfirming(false); setTyped(''); }}
       footer={<><Button onClick={() => { setConfirming(false); setTyped(''); }}>Cancel</Button>
         <Button className="danger" disabled={mutation.busy || typed.trim() !== settings.name} onClick={schedule}>Delete in 7 days</Button></>}>
-      <p>Everyone loses access to <strong>{settings.name}</strong> after 7 days: its chats, agents, schedules, files and settings. Until then any admin can undo it.</p>
+      <p>Everyone loses access to <strong>{settings.name}</strong> after 7 days: its chats, agents, repeating tasks, files and settings. Until then any admin can undo it.</p>
       <label className="ui-field">Type the workspace name to confirm<input value={typed} onChange={event => setTyped(event.target.value)} autoComplete="off" /></label>
     </Dialog>}
   </section>;

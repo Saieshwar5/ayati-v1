@@ -1,6 +1,7 @@
-//! Schema 147: every schedule that is not a Home panel update becomes a task, keeps
-//! its earlier runs, and from then on runs through the task engine in its own work
-//! room, posting where it posted before. Nothing runs as a schedule any more.
+//! Schema 150 drops the old schedule tables. A workspace with schedules from before
+//! schema 147 upgrades through 147 (each becomes a task with its earlier runs) to
+//! 150: no schedule table, column, function or trigger is left, and the converted
+//! tasks keep their rules, runs and posting place and run through the task engine.
 use super::super::home_maintenance_tests::{claim, setup_on};
 use super::super::*;
 use crate::identity::chat::model::NewMessage;
@@ -28,21 +29,32 @@ async fn schedule(db: &PgStore, w: &str, agent: &str, person: &str, old: Old<'_>
     id
 }
 
-async fn task(db: &PgStore, schedule: &str) -> Value {
+/// Schedule tables, columns, functions, triggers and constraints left in this schema.
+async fn schedule_objects(db: &PgStore) -> Vec<String> {
+    rows(&db.db, "SELECT 'table '||table_name AS n FROM information_schema.tables WHERE table_schema=current_schema() AND table_name ILIKE '%schedule%'
+        UNION ALL SELECT 'column '||table_name||'.'||column_name FROM information_schema.columns WHERE table_schema=current_schema() AND column_name ILIKE '%schedule%'
+        UNION ALL SELECT 'function '||proname FROM pg_proc WHERE pronamespace=current_schema()::regnamespace AND (proname ILIKE '%schedule%' OR prosrc ILIKE '%relay_agent_schedules%' OR prosrc ILIKE '%relay_schedule_%')
+        UNION ALL SELECT 'trigger '||tgname FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid WHERE c.relnamespace=current_schema()::regnamespace AND NOT t.tgisinternal AND tgname ILIKE '%schedule%'
+        UNION ALL SELECT 'constraint '||conname FROM pg_constraint WHERE connamespace=current_schema()::regnamespace AND (conname ILIKE '%schedule%' OR pg_get_constraintdef(oid) ILIKE '%schedule%')", vec![])
+        .await.unwrap().into_iter().map(|r| r.try_get("", "n").unwrap()).collect()
+}
+
+/// The task a schedule named `title` became.
+async fn task(db: &PgStore, title: &str) -> Value {
     query(&db.db, "SELECT to_jsonb(t)||jsonb_build_object('next',(SELECT jsonb_build_object('kind',k.kind,'due_ms',k.due_ms) FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id AND k.state='pending'),
           'room_work',(SELECT c.work FROM relay_chats c WHERE c.workspace=t.workspace AND c.id=COALESCE(t.room,t.chat)),
           'room_people',(SELECT jsonb_agg(p.user_id) FROM relay_chat_people p WHERE p.workspace=t.workspace AND p.chat=COALESCE(t.room,t.chat)),
           'room_agents',(SELECT jsonb_agg(x.agent) FROM relay_chat_agents x WHERE x.workspace=t.workspace AND x.chat=COALESCE(t.room,t.chat))) AS v
-        FROM relay_tasks t WHERE t.schedule=$1", vec![schedule.into()])
+        FROM relay_tasks t WHERE t.title=$1", vec![title.into()])
         .await.unwrap().map(|r| r.try_get("", "v").unwrap()).unwrap_or(Value::Null)
 }
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_before() {
+async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting() {
     let url = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&url).await.unwrap();
-    let schema = format!("relay_schedules_to_tasks_{}", uuid::Uuid::new_v4().simple());
+    let schema = format!("relay_drop_schedules_{}", uuid::Uuid::new_v4().simple());
     admin
         .db
         .execute_unprepared(&format!("CREATE SCHEMA {schema}"))
@@ -82,7 +94,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         ),
     )
     .await;
-    let weekly = schedule(
+    schedule(
         &db,
         &w,
         &a,
@@ -97,7 +109,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         ),
     )
     .await;
-    let two_hours = schedule(
+    schedule(
         &db,
         &w,
         &a,
@@ -105,7 +117,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         old("Stock check", None, Some(7_200), "enabled", Some(soon), ""),
     )
     .await;
-    let ninety = schedule(
+    schedule(
         &db,
         &w,
         &a,
@@ -113,7 +125,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         old("Queue check", None, Some(5_400), "enabled", Some(soon), ""),
     )
     .await;
-    let long = schedule(
+    schedule(
         &db,
         &w,
         &a,
@@ -128,7 +140,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         ),
     )
     .await;
-    let once = schedule(
+    schedule(
         &db,
         &w,
         &a,
@@ -136,7 +148,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         old("Year end note", None, None, "enabled", Some(soon), ""),
     )
     .await;
-    let paused = schedule(
+    schedule(
         &db,
         &w,
         &a,
@@ -151,7 +163,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         ),
     )
     .await;
-    let blocked = schedule(
+    schedule(
         &db,
         &w,
         &a,
@@ -166,7 +178,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         ),
     )
     .await;
-    let completed = schedule(
+    schedule(
         &db,
         &w,
         &a,
@@ -224,7 +236,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
     let input = NewMessage {
         reply_to: None,
         id: uuid::Uuid::new_v4().to_string(),
-        content: "Scheduled work · Daily delivery review\nDo the daily delivery review.".into(),
+        content: "Daily delivery review\nDo the daily delivery review.".into(),
         agent: Some(a.clone()),
         agents: vec![],
         thread: None,
@@ -256,30 +268,43 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         .await
         .unwrap();
 
+    // Through schema 149 the schedules become tasks; 150 drops what is left of them.
+    super::super::migration::Migrator::up(&db.db, Some(3))
+        .await
+        .unwrap();
     assert!(db.verify_schema().await.is_err());
+    assert!(!schedule_objects(&db).await.is_empty());
     db.migrate().await.unwrap();
     db.migrate().await.unwrap();
     db.verify_schema().await.unwrap();
+    assert_eq!(schedule_objects(&db).await, Vec::<String>::new());
 
     // Rules: whole days daily, whole weeks on the first run's weekday and time,
     // whole hours that divide a day at the same minute, anything else in minutes.
+    // A converted schedule was set up by a person (no schedule origin is left).
     let rules = [
-        (&daily, json!({"unit":"day","every":1,"at":"09:30"})),
         (
-            &weekly,
+            "Daily delivery review",
+            json!({"unit":"day","every":1,"at":"09:30"}),
+        ),
+        (
+            "Weekly sales summary",
             json!({"unit":"week","every":1,"days":[1],"at":"09:30"}),
         ),
-        (&two_hours, json!({"unit":"hour","every":2,"from":"01:30"})),
-        (&ninety, json!({"unit":"minute","every":90})),
-        (&long, json!({"unit":"minute","every":2160})),
-        (&once, Value::Null),
+        (
+            "Stock check",
+            json!({"unit":"hour","every":2,"from":"01:30"}),
+        ),
+        ("Queue check", json!({"unit":"minute","every":90})),
+        ("Supplier check", json!({"unit":"minute","every":2160})),
+        ("Year end note", Value::Null),
     ];
-    for (id, rule) in rules {
-        let t = task(&db, id).await;
+    for (title, rule) in rules {
+        let t = task(&db, title).await;
         assert_eq!(t["repeat"], rule, "{t}");
         assert_eq!(
             (t["kind"].as_str(), t["origin"].as_str()),
-            (Some("commitment"), Some("schedule"))
+            (Some("commitment"), Some("person"))
         );
         assert_eq!(
             (t["timezone"].as_str(), t["anchor_ms"].as_i64()),
@@ -301,7 +326,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
     }
     // Where it runs and posts: with a post target, the conversation it posted to
     // and its own room; without one, its room only (Activity).
-    let d = task(&db, &daily).await;
+    let d = task(&db, "Daily delivery review").await;
     assert_eq!(
         (d["chat"].as_str(), d["room"].as_str()),
         (Some(c.as_str()), Some(room.as_str()))
@@ -310,7 +335,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         (d["title"].as_str(), d["runs"].as_i64()),
         (Some("Daily delivery review"), Some(1))
     );
-    let wk = task(&db, &weekly).await;
+    let wk = task(&db, "Weekly sales summary").await;
     assert!(wk["room"].is_null());
     assert_eq!(wk["room_work"], true);
     assert_eq!(
@@ -319,22 +344,22 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
     );
     assert_eq!(wk["runs"], 0);
     // Paused and blocked become paused tasks with their reason; completed, done.
-    let p = task(&db, &paused).await;
+    let p = task(&db, "Paused report").await;
     assert_eq!(
         (p["paused_reason"].as_str(), p["next"].is_null()),
         (Some("Paused before it became a task."), true)
     );
-    let b = task(&db, &blocked).await;
+    let b = task(&db, "Blocked report").await;
     assert_eq!(
         (b["paused_reason"].as_str(), b["next"].is_null()),
         (Some("Routine access changed."), true)
     );
     assert!(b["room"].as_str().is_some() && b["chat"] == c.as_str());
-    let done = task(&db, &completed).await;
+    let done = task(&db, "Launch note").await;
     assert_eq!(done["outcome"], "done");
     assert!(done["closed_ms"].as_i64().is_some() && done["next"].is_null());
-    // A Home panel's schedule stays as schema 146 left it.
-    assert!(task(&db, &home).await.is_null());
+    // A Home panel's schedule never became a task.
+    assert!(task(&db, "Personal Home panel update").await.is_null());
 
     // The old run belongs to the task now; its automatic task is gone.
     let linked: String = query(
@@ -358,44 +383,13 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
         .unwrap()
         .is_none()
     );
+    // The old run reads as its task's run.
     let details = db.activity_request(&owner, &w, &ran.reply).await.unwrap();
-    assert_eq!(details["schedule"]["task"], d["id"]);
-    let calendar = db
-        .activity_calendar(&owner, &w, FIRST - 86_400_000, FIRST + 86_400_000, None)
-        .await
-        .unwrap();
-    assert!(
-        calendar["items"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|i| i["kind"] == "run"
-                && i["task"] == d["id"]
-                && i["reply"] == ran.reply.as_str()
-                && i["state"] == "done"),
-        "{calendar}"
-    );
-
-    // Nothing runs as a schedule any more.
-    let left = query(&db.db, "SELECT count(*) FILTER (WHERE state<>'completed' OR task IS NULL OR detail<>'Moved to a task.') AS n FROM relay_agent_schedules WHERE id<>$1", vec![home.clone().into()])
-        .await.unwrap().unwrap().try_get::<i64>("", "n").unwrap();
-    assert_eq!(left, 0);
-    assert_eq!(
-        query(
-            &db.db,
-            "SELECT count(*) AS n FROM relay_agent_schedules WHERE state='enabled'",
-            vec![]
-        )
-        .await
-        .unwrap()
-        .unwrap()
-        .try_get::<i64>("", "n")
-        .unwrap(),
-        0
-    );
+    assert_eq!(details["task"]["id"], d["id"]);
+    assert!(details.get("schedule").is_none());
 
     // Its next run starts through the task engine in its room and posts its result
-    // where the schedule posted.
+    // where it posted before.
     execute(
         &db.db,
         "UPDATE relay_task_wakeups SET state='cancelled' WHERE state='pending' AND task<>$1",
@@ -416,6 +410,11 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
     .try_get("", "reply")
     .unwrap();
     let run = claim(&db, &w, &reply).await;
+    assert_eq!(
+        db.activity_request(&owner, &w, &reply).await.unwrap()["kind"],
+        "task",
+        "Activity shows it as a task's run"
+    );
     assert_eq!(run.chat, room);
     assert!(
         run.prompt
@@ -433,7 +432,7 @@ async fn schema_147_turns_every_schedule_into_a_task_that_runs_and_posts_as_befo
             && posted.contains("Two deliveries are late."),
         "{posted}"
     );
-    let after = task(&db, &daily).await;
+    let after = task(&db, "Daily delivery review").await;
     assert_eq!(after["runs"], 2);
     assert_eq!(
         after["next"]["kind"], "repeat",

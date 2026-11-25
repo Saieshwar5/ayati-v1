@@ -1,9 +1,8 @@
 //! Activity › Calendar and the workspace calendar (designs/agent-tasks). The
 //! calendar shows, for a window of at most six weeks, the runs agents made (done,
 //! failed, no change, skipped, missed) and the runs they will make: every booked
-//! run and the later runs of each repeating task's rule. A schedule's runs from
-//! before schema 147 show as runs of the task it became, and an event trigger's
-//! runs as runs of its task (schema 148). Event triggers and paused tasks have no
+//! run and the later runs of each repeating task's rule. An event trigger's runs
+//! show as runs of its task (schema 148). Event triggers and paused tasks have no
 //! time and are listed beside it. It shows the tasks of agents the
 //! person looks after and the ones they asked for, and triggers that post where
 //! they can read.
@@ -126,16 +125,6 @@ impl PgStore {
                 FROM relay_tasks t JOIN relay_shared_agents a ON a.workspace=t.workspace AND a.id=t.agent
                 WHERE t.workspace=$1 AND t.outcome IS NULL AND t.paused_ms IS NOT NULL AND {MY_TASK} AND $5::bigint>0 AND $6::bigint>0
                 ORDER BY t.paused_ms DESC LIMIT 50"), args()).await?);
-        }
-        // A schedule's runs from before schema 147, as runs of the task it became.
-        if super::tasks::wakeups::rooms(&tx).await? {
-            items.extend(json_rows(&tx, &format!("{FIXERS} SELECT jsonb_build_object('kind','run','task',t.id,'title',t.title,'agent',t.agent,'agent_name',a.name,'at',o.due_ms,
-                  'state',CASE m.state WHEN 'complete' THEN 'done' WHEN 'cancelled' THEN 'cancelled' WHEN 'queued' THEN 'working' WHEN 'running' THEN 'working' ELSE 'failed' END,
-                  'detail','','reply',o.reply) AS data
-                FROM relay_schedule_occurrences o JOIN relay_tasks t ON t.workspace=o.workspace AND t.schedule=o.schedule
-                JOIN relay_shared_agents a ON a.workspace=t.workspace AND a.id=t.agent JOIN relay_chat_messages m ON m.workspace=o.workspace AND m.id=o.reply
-                WHERE o.workspace=$1 AND o.due_ms>=$5 AND o.due_ms<$6 AND {MY_TASK}
-                ORDER BY o.due_ms LIMIT 300"), args()).await?);
         }
         let mine = "(x.agent IN (SELECT id FROM f) OR x.principal=$2)";
         // A trigger has no time: it is listed once, beside the calendar, linking to

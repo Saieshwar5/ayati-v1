@@ -36,7 +36,7 @@ pub(crate) struct Filters {
     pub chat: Option<String>,
     /// active, waiting, done, failed, review, stopped.
     pub status: Option<String>,
-    /// chat, schedule, trigger, handoff, panel.
+    /// chat, task, trigger, handoff, panel.
     pub kind: Option<String>,
     pub from: Option<i64>,
     pub to: Option<i64>,
@@ -62,7 +62,7 @@ impl Filters {
         ensure!(
             self.kind
                 .as_deref()
-                .is_none_or(|k| ["chat", "schedule", "trigger", "handoff", "panel"].contains(&k)),
+                .is_none_or(|k| ["chat", "task", "trigger", "handoff", "panel"].contains(&k)),
             "Invalid type filter"
         );
         ensure!(

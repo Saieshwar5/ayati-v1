@@ -1,6 +1,6 @@
-// The agent's Automations tab (formerly Schedules): work at a time is asked for in
-// Chat and becomes a task (schedules became tasks in schema 147); triggers are set
-// up here, with triggers set up from an app listed beside the agent's own.
+// The agent's Automations tab: work at a time is asked for in Chat and becomes a
+// task; triggers are set up here, with triggers set up from an app listed beside
+// the agent's own.
 import { registerHooks } from 'node:module';
 registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { format: 'module', source: 'export {};', shortCircuit: true } : next(url, context); } });
 import { test } from 'node:test';
@@ -20,7 +20,7 @@ async function openPane(render) {
   await render(AutomationPane, { agent });
 }
 
-test('work at a time points to Chat and the Calendar; triggers sit beside it; no schedule list is read', async () => {
+test('work at a time points to Chat and the Calendar; triggers sit beside it', async () => {
   const reads = [];
   await reactFixture(async ({ render, update }) => {
     await openPane(render);
@@ -31,7 +31,6 @@ test('work at a time points to Chat and the Calendar; triggers sit beside it; no
     assert.match(document.body.textContent, /Ask Nova in Chat, in your own words\. It becomes a task/);
     assert.equal([...document.querySelectorAll('a.ui-button')].find(a => a.textContent === 'Open the Calendar').getAttribute('href'), `/w/${w}/?view=activity&tab=planned`);
     assert.match(document.body.textContent, /No triggers yet\./);
-    assert.ok(!reads.some(path => path.includes('/schedules')), 'schedules are not read');
   }, { url, fetch: async path => {
     reads.push(path);
     if (path.endsWith('/session')) return response(session);
@@ -42,7 +41,7 @@ test('work at a time points to Chat and the Calendar; triggers sit beside it; no
 
 test('old and linked tab names open Automations', async () => {
   const { sectionNamed, agentSectionUrl } = await import('../src/react/agents/workspace-tabs.tsx');
-  assert.equal(sectionNamed('Schedules'), 'Automations', 'a saved "Schedules" tab still opens');
+  assert.equal(sectionNamed('Automations'), 'Automations');
   assert.equal(sectionNamed('automations'), 'Automations');
   assert.equal(sectionNamed('tools'), 'Connections', 'a link to the old Tools tab opens Connections');
   assert.equal(sectionNamed('environment'), 'Settings');
@@ -80,7 +79,7 @@ test('Recent work lists the agent’s requests as links and leads to all of Acti
     assert.equal(work.querySelector('button'), null, 'the agent page decides nothing');
     // ?section=automations (Activity › Upcoming's "Edit in Nova") opens the panel in the right-hand column.
     const { panelFor, sectionNamed } = await import('../src/react/agents/workspace-tabs.tsx');
-    await render(AgentWorkspace, { ...props, agent: { ...agent, id: 'nova-2' }, start: panelFor(sectionNamed('schedules')) });
+    await render(AgentWorkspace, { ...props, agent: { ...agent, id: 'nova-2' }, start: panelFor(sectionNamed('automations')) });
     await update(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
     assert.equal(document.querySelector('.profile-panel').getAttribute('aria-label'), 'On its own');
     assert.equal(document.querySelector('.profile-work'), null, 'the panel takes Recent work’s place');
@@ -88,7 +87,6 @@ test('Recent work lists the agent’s requests as links and leads to all of Acti
     if (path.endsWith('/session')) return response(session);
     if (path.includes('/requests')) return response({ requests: [request], next_before: null });
     if (path.includes('/event-triggers')) return response({ triggers: [], choices: [], apps: [], execution_available: true });
-    if (path.includes('/schedules')) return response({ schedules: [], conversations: [], more_conversations: false, execution_available: true });
     return response({});
   } });
 });

@@ -17,7 +17,7 @@ It is one binary, one image and one database. Built 2026-11-19; not yet run on A
 | Browser port (`AYATI_PORT`): sign-in, pages, the browser API, webhooks | Yes | `/health/live` and `/health/ready` only; everything else is 404 |
 | Live updates and presence | Yes | No |
 | [Worker control](worker-control.md): executors, job hand-out, the [model gateway](model-gateway.md), tool calls, agent output | No | Yes |
-| Scheduler (schedules, events, Library arrivals, wake-ups, panel updates) | No | Yes |
+| Scheduler (task runs and follow-ups, events, Library arrivals, panel updates) | No | Yes |
 | Other background jobs: communication gateway, unconfirmed-write checks, cleanup and archive, connector drift, Library indexing and keeping, working summaries, lessons, waits for people, computer sleep, transcription | No | Yes |
 | Pool metrics | Yes | Yes |
 
@@ -110,8 +110,8 @@ node --test tests/controller_roles.mjs
 It checks that chat works with no work controller and requests wait; that a work
 controller started later runs them; that work serves no pages; that each request
 is picked up without waiting for the fallback timer; that web streams a reply
-another process produced; that a schedule fires once; that losing the work
-controller mid-reply loses nothing; and that schedules still run with web down.
+another process produced; that a due task run starts once; that losing the work
+controller mid-reply loses nothing; and that task runs still start with web down.
 The settings are covered by unit tests in `src/config/role.rs`.
 
 First run, 2026-11-19 (debug build, PostgreSQL 16.15, scripted provider, one

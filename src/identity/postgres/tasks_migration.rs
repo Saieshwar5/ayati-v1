@@ -133,3 +133,26 @@ impl MigrationTrait for CheckTasks {
         ))
     }
 }
+
+/// Schema 150: the old schedule tables, columns and functions are dropped; tasks
+/// are the only thing an agent does on its own (designs/agent-tasks/one-system.md).
+pub(crate) struct DropSchedules;
+impl MigrationName for DropSchedules {
+    fn name(&self) -> &str {
+        "m20261125_000150_drop_schedules"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for DropSchedules {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("drop_schedules.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Schedules were dropped in a forward migration".into(),
+        ))
+    }
+}

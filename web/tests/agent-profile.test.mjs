@@ -16,8 +16,8 @@ const directory = { role: 'Member', agents: [agent], default_model: 'fixture', p
 const operation = { id: 'order.read', title: 'Read orders', effect: 'read', meaning: 'read', workspace_mode: 'allow', needs_other: false, agent_mode: null, mode: 'allow', revision: 0 };
 const shop = { id: 'shop', server: 'shopify', name: 'Shopify', account: 'lotus-store', revision: 1, on: true, operations: [operation], own: true };
 const mail = { id: 'mail', server: 'gmail', name: 'Gmail', revision: 1, on: true, operations: [], own: true, state: 'reconnect' };
-// A schedule converted into a task (schema 147) is one of its repeating tasks.
-const task = { id: 't1', title: 'Late orders', status: 'scheduled', origin: 'schedule', agent: 'atlas', agent_name: 'Atlas', requester: 'owner', requester_name: 'Ravi Kumar', repeats: true, next_wakeup_ms: null, paused: false };
+// One of its repeating tasks.
+const task = { id: 't1', title: 'Late orders', status: 'scheduled', origin: 'person', agent: 'atlas', agent_name: 'Atlas', requester: 'owner', requester_name: 'Ravi Kumar', repeats: true, next_wakeup_ms: null, paused: false };
 const request = { id: 'reply', sequence: 1, chat: 'channel', thread: null, source_message: 'm', conversation_name: 'Orders', requester: 'owner', requester_name: 'Ravi Kumar', summary: 'Where is order 4417?', state: 'complete', latest_update: '', created_ms: 1000, can_cancel: false, cancellation: null, approvals: [] };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 
@@ -115,7 +115,7 @@ test('someone who cannot change the agent reads the same page: no ＋, no pencil
     assert.deepEqual(chips('People'), ['PSPriya Shah owner', 'Everyone can message it']);
     assert.equal(chips('Knows').some(text => text.startsWith('Lessons')), false, 'lessons are for those who look after it');
     assert.equal(document.querySelector('.profile-work h3').textContent, 'Your requests');
-    assert.equal(reads.some(route => /\/(learning|schedules)(\?|$)/.test(route)), false, 'what only its owners manage is not read');
+    assert.equal(reads.some(route => /\/learning(\?|$)/.test(route)), false, 'what only its owners manage is not read');
     assert.ok(reads.some(route => route.includes('/requests?scope=mine')), 'only their own requests are asked for');
   }, { url, fetch: server({ reads, editable: false }) });
 });

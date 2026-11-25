@@ -140,8 +140,8 @@ const soon = (ms: number) => {
 };
 
 /** On its own: its tasks that run on their own, each a line with when it runs next.
- * Schedules became tasks in schema 147 and every trigger has one from schema 148, so
- * a trigger shows once, as its task; one without a task here opens Automations. */
+ * Every trigger has a task from schema 148, so a trigger shows once, as its task;
+ * one without a task here opens Automations. */
 export function OnItsOwnRow({ agent, summary, panel, open }: RowProps) {
   const edit = Boolean(agent.editable);
   const tasks = summary?.tasks ?? [];

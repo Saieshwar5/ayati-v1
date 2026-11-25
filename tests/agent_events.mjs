@@ -181,7 +181,7 @@ test(
     const page = await pageFor(app.cookie),
       agents = `${app.base}/w/${w}/?view=agents`;
     await page.goto(agents);
-    await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
+    await page.getByRole('tab', { name: 'Automations', exact: true }).click();
     await page.getByRole('button', { name: 'Create event trigger', exact: true }).click();
     let dialog = page.getByRole('dialog', { name: 'Create event trigger', exact: true });
     const prompt = 'Ask delivery method then prepare a separately approved connected update';
@@ -360,7 +360,7 @@ test(
     });
     await app.request(responsePath, app.cookie, undefined, 400);
     await page.goto(agents);
-    await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
+    await page.getByRole('tab', { name: 'Automations', exact: true }).click();
     await page
       .getByRole('article', { name: 'Event trigger: Review delayed orders', exact: true })
       .getByRole('button', { name: 'Review trigger and deliveries', exact: true })

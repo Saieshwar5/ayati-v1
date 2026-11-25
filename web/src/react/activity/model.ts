@@ -12,7 +12,7 @@ export type ActivityItem = {
   id: string; chat: string; thread: string | null; conversation_name: string; conversation_kind: string; in_conversation: boolean;
   /** The door the request came through when not Chat (E3). */
   door?: string | null;
-  agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'schedule' | 'trigger' | 'handoff' | 'panel';
+  agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'task' | 'trigger' | 'handoff' | 'panel';
   /** A Home panel refresh names its panel. */
   panel?: { id: string; title: string } | null;
   /** The task this request works towards, if any. */
@@ -20,15 +20,14 @@ export type ActivityItem = {
   requester: string; requester_name: string | null; summary: string; state: string; latest_update: string;
   created_ms: number; finished_ms: number | null; can_cancel: boolean; approvals: { id: string; title: string; state: string }[];
 };
-/** The schedule a run came from, and whether its result was posted (schema 56).
- * Schedules became tasks in schema 147: `task` is the task it became. */
-export type RunSchedule = { id: string; name: string; agent: string; state: string; revision: number; principal: string; interval_seconds: number | null;
-  post_to: string | null; posted: 'posted' | 'skipped' | null; post_reason: string | null; task?: string | null;
-  /** The run happened in the schedule's own work room, which isn't a conversation. */
-  room: boolean };
-/** The event trigger a run came from (schema 115): the same facts as a schedule's. */
-export type RunTrigger = Omit<RunSchedule, 'interval_seconds' | 'task'> & { source: string | null; memory: 'fresh' | 'remember' | 'subject' };
-export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null; trigger?: RunTrigger | null;
+/** The event trigger a run came from (schema 115), and whether its result was posted. */
+export type RunTrigger = { id: string; name: string; agent: string; state: string; revision: number; principal: string;
+  post_to: string | null; posted: 'posted' | 'skipped' | null; post_reason: string | null;
+  /** The run happened in the trigger's own work room, which isn't a conversation. */
+  room: boolean; source: string | null; memory: 'fresh' | 'remember' | 'subject' };
+export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; trigger?: RunTrigger | null;
+  /** It ran in a task's or trigger's own work room, which isn't a conversation. */
+  work_room?: boolean;
   /** What the person added while it ran (Phase 4), and whether the agent saw it. */
   added?: { text: string; from: string; at: number; seen: boolean; carried: string | null }[];
   /** Tokens through the model gateway (core-agent CA3); zero calls without it. */
@@ -37,7 +36,7 @@ export const steerRequest = (reply: string, text: string) => identityRequest(`${
 export const steerTask = (task: string, text: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/steer`, { text });
 export type Totals = {
   requests: number; done: number; failed: number; review: number; waiting: number; automatic: number; approved: number;
-  people: number; channels: number; schedule_runs: number;
+  people: number; channels: number; task_runs: number;
   per_day: { day: string; count: number }[]; by_agent: { agent: string; name: string; avatar: string | null; count: number }[];
 };
 export type AgentCard = { id: string; name: string; role: string; avatar: string | null; paused: boolean; paused_note: string | null;
@@ -59,7 +58,7 @@ export type FixKind = 'request' | 'needs' | 'tasks' | 'agent' | 'settings' | 'ne
 export type FixGroup = { cause: string; title: string; count: number; fix: { kind: FixKind; label: string; ref?: string };
   agents: { id: string; name: string }[];
   items: { agent: string; agent_name: string; ref: string; detail: string | null; at: number | null; cause?: string; request?: string; fix?: string | null }[] };
-export type ComingItem = { kind: 'routine' | 'follow_up' | 'due'; id: string; agent: string; agent_name: string; title: string; at: number; revision?: number; can_pause: boolean };
+export type ComingItem = { kind: 'follow_up' | 'due'; id: string; agent: string; agent_name: string; title: string; at: number; can_pause: boolean };
 export const dismissNeed = (id: string) => identityRequest(`${root}/needs/${encodeURIComponent(id)}/dismiss`, {});
 export const cancelFollowUp = (task: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/follow-up/cancel`, {});
 /** An event no agent acted on, with the recorded reason; never the event's contents. */
@@ -117,8 +116,8 @@ export function status(item: { state: string; approvals?: { state: string }[] })
     default: return { label: 'Working', tone: 'working' };
   }
 }
-export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', schedule: 'Schedule', trigger: 'Trigger', handoff: 'Hand-off', panel: 'Panel update' };
-const place = (item: ActivityItem) => item.kind === 'panel' ? 'Home panel' : item.kind === 'schedule' ? `Schedule · ${item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
+export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', task: 'Task run', trigger: 'Trigger', handoff: 'Hand-off', panel: 'Panel update' };
+const place = (item: ActivityItem) => item.kind === 'panel' ? 'Home panel' : item.kind === 'task' ? `Task · ${item.task?.title ?? item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
   : item.conversation_kind === 'direct' ? 'direct chat' : `#${item.conversation_name}`;
 export const where = (item: ActivityItem) => [place(item), doorLabel(item.door)].filter(Boolean).join(' · ');
 export const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

@@ -157,6 +157,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::tasks::migration::SchedulesToTasks),
             Box::new(super::tasks::migration::TriggerTasks),
             Box::new(super::tasks::migration::CheckTasks),
+            Box::new(super::tasks::migration::DropSchedules),
         ]
     }
 }

@@ -53,9 +53,9 @@ pub(super) async fn event_room(
     Ok(room)
 }
 
-/// What Activity shows about a run that came from an event trigger: the same
-/// shape as a schedule's `run_source`, plus the app, what it remembers and its task
-/// (schema 148).
+/// What Activity shows about a run that came from an event trigger: its name,
+/// state, person, where it posts and whether it posted, the app, what it remembers
+/// and its task (schema 148).
 pub(super) async fn run_source(
     db: &impl ConnectionTrait,
     w: &str,

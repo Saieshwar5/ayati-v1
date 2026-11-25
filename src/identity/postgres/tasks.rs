@@ -22,7 +22,7 @@ mod check_tests;
 #[path = "task_checks.rs"]
 pub(crate) mod checks;
 #[cfg(test)]
-#[path = "schedules_to_tasks_tests.rs"]
+#[path = "drop_schedules_tests.rs"]
 mod conversion_tests;
 #[cfg(test)]
 #[path = "task_lifetimes_tests.rs"]

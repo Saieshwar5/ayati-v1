@@ -33,7 +33,7 @@ async fn task_in_room(
         .unwrap();
     tx.commit().await.unwrap();
     let task = uuid::Uuid::new_v4().to_string();
-    execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,room,repeat,anchor_ms,instructions) VALUES($1,$2,$3,'commitment','schedule','Delivery review',$4,$5,$6,'{\"unit\":\"hour\"}',1,'Review delivery exceptions.')",
+    execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,room,repeat,anchor_ms,instructions) VALUES($1,$2,$3,'commitment','person','Delivery review',$4,$5,$6,'{\"unit\":\"hour\"}',1,'Review delivery exceptions.')",
         vec![w.into(), task.clone().into(), a.into(), owner.id.clone().into(), post_to.unwrap_or(&room).into(), post_to.map(|_| room.clone()).into()]).await.unwrap();
     due(db, &task).await;
     (task, room)

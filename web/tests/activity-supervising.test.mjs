@@ -12,7 +12,7 @@ const needsUrl = `http://localhost/w/${w}/?view=activity&tab=needs`;
 const session = { user: { id: 'kavya', email: 'kavya@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Member' }] };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 const now = Date.now();
-const totals = { requests: 0, done: 0, failed: 0, review: 0, waiting: 0, automatic: 0, approved: 0, people: 0, channels: 0, schedule_runs: 0, per_day: [], by_agent: [] };
+const totals = { requests: 0, done: 0, failed: 0, review: 0, waiting: 0, automatic: 0, approved: 0, people: 0, channels: 0, task_runs: 0, per_day: [], by_agent: [] };
 const card = (id, name, extra = {}) => ({ id, name, role: 'Helper', avatar: null, paused: false, paused_note: null, running: 0, waiting: 0, today: 1,
   failed_today: 0, doing: null, next_run: null, last_failed: null, can_pause: true, ...extra });
 async function page() {

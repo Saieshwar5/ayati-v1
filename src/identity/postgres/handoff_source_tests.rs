@@ -96,7 +96,7 @@ pub(super) async fn event_setup() -> (Setup, String, Source) {
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn a_new_event_run_cannot_hand_off() {
-    // Like a schedule's run, an event run happens in a private work room
+    // Like a task's run in a work room, an event run happens in a private room
     // (schema 115), which has no other agents to ask.
     let s = setup().await;
     s.db.cancel_assignment(&s.owner, &s.w, &s.c, &s.parent.reply)

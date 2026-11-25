@@ -152,7 +152,7 @@ pub(in crate::identity::postgres) async fn claim_direct(
 
 impl PgStore {
     /// Start the panel updates that are wanted and allowed now. Run every second by
-    /// the scheduler loop; like schedules, only with pooled executors.
+    /// the scheduler loop; like task runs, only with pooled executors.
     pub(crate) async fn dispatch_panel_updates(&self) -> Result<usize> {
         if !self.pooled || !available(&self.db).await? {
             return Ok(0);

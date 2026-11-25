@@ -28,7 +28,7 @@ const chosen = (href: string): Tab | undefined => {
  * unless a link asks for another view. */
 export function ActivityPage({ href }: { href: string }) {
   const [params] = useState(() => new URL(href).searchParams);
-  // A link to one run (from a schedule's posted result or its runs) opens it here.
+  // A link to one run (from a task's posted result or its runs) opens it here.
   const [run, setRun] = useState(() => params.get('run') ?? undefined);
   // A link to one task (from a task chip in Chat) opens it in Work → Tasks.
   const [task] = useState(() => params.get('task') ?? undefined);

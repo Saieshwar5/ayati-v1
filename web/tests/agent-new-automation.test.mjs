@@ -22,7 +22,7 @@ async function openPane(render, update) {
 }
 const kind = label => [...document.querySelectorAll('.automation-kind')].find(node => node.querySelector('strong').textContent === label);
 
-test('one button: At a time asks the agent in Chat, where it becomes a task; there is no schedule form', async () => {
+test('one button: At a time asks the agent in Chat, where it becomes a task', async () => {
   let opened = 0;
   await reactFixture(async ({ render, update, click, button }) => {
     const context = await import('../src/workspace-context.ts');
@@ -30,7 +30,7 @@ test('one button: At a time asks the agent in Chat, where it becomes a task; the
     const { AutomationPane } = await import('../src/react/agents/automation/pane.tsx');
     await render(AutomationPane, { agent, openChat: () => { opened++; } });
     await update(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
-    assert.deepEqual([...document.querySelectorAll('button')].filter(b => /New schedule|Create event trigger|happens in an app/.test(b.textContent)), [], 'one way in');
+    assert.deepEqual([...document.querySelectorAll('button')].filter(b => /Create event trigger|happens in an app/.test(b.textContent)), [], 'one way in');
     await click(button('New automation'));
     assert.match(document.querySelector('dialog').textContent, /New automation for Nova.*When should Nova start this work\?.*At a time.*ask Nova in Chat and it becomes a task.*When something happens/);
     await click(kind('At a time'));

@@ -91,11 +91,7 @@ impl PgStore {
             previous["scopes"].clone()
         };
         super::home_update_runs::cancel_unstarted(&tx, w, id).await?;
-        // Before schema 146 an interval ran as a bound schedule; it never runs again.
-        if let Some(old) = previous["schedule"].as_str() {
-            execute(&tx,"UPDATE relay_agent_schedules SET state='paused',revision=revision+1 WHERE workspace=$1 AND id=$2 AND state<>'completed'",vec![w.into(),old.into()]).await?;
-        }
-        execute(&tx,"INSERT INTO relay_home_maintenance(workspace,panel,revision,panel_revision,enabled,instructions,interval_seconds,stale_seconds,scopes,schedule) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,NULL) ON CONFLICT(workspace,panel) DO UPDATE SET revision=excluded.revision,panel_revision=excluded.panel_revision,enabled=excluded.enabled,instructions=excluded.instructions,interval_seconds=excluded.interval_seconds,stale_seconds=excluded.stale_seconds,scopes=excluded.scopes,schedule=NULL",vec![w.into(),id.into(),(input.revision+1).into(),input.panel_revision.into(),input.enabled.into(),input.instructions.trim().into(),input.interval_seconds.into(),input.stale_seconds.into(),scopes.into()]).await?;
+        execute(&tx,"INSERT INTO relay_home_maintenance(workspace,panel,revision,panel_revision,enabled,instructions,interval_seconds,stale_seconds,scopes) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(workspace,panel) DO UPDATE SET revision=excluded.revision,panel_revision=excluded.panel_revision,enabled=excluded.enabled,instructions=excluded.instructions,interval_seconds=excluded.interval_seconds,stale_seconds=excluded.stale_seconds,scopes=excluded.scopes",vec![w.into(),id.into(),(input.revision+1).into(),input.panel_revision.into(),input.enabled.into(),input.instructions.trim().into(),input.interval_seconds.into(),input.stale_seconds.into(),scopes.into()]).await?;
         if super::home_update_runs::living::available(&tx).await? {
             execute(&tx,"UPDATE relay_home_maintenance SET follow_sources=COALESCE($3,follow_sources),min_gap_seconds=COALESCE($4,min_gap_seconds),bindings=NULL WHERE workspace=$1 AND panel=$2",vec![w.into(),id.into(),input.follow_sources.into(),input.min_gap_seconds.into()]).await?;
         }

@@ -2,8 +2,7 @@
 //! room with the person it is for and the agent, never in a conversation people
 //! use. The room never appears in Chat; its runs show in Activity, and it is the
 //! memory of earlier runs. Each run may post one short result message to a
-//! conversation (the owner's channel rule, schema 145). Schedules worked this way
-//! until schema 147 made them tasks.
+//! conversation (the owner's channel rule, schema 145).
 use super::automation_access::authority_for;
 use super::*;
 use crate::identity::chat::model::Job;
@@ -88,23 +87,20 @@ pub(super) async fn ordinary(db: &impl ConnectionTrait, w: &str, chat: &str) -> 
     Ok(())
 }
 
-/// After an event trigger's task run (or a schedule's run that started before schema
-/// 147) completes, posts one short message with its result where it says, if the
-/// person who set it up may still post there. Either way the outcome is recorded
-/// for Activity. Other task runs post from `tasks::runs::after_finish`; a run
-/// that answered NO_CHANGE posts nothing (schema 148).
+/// After an event trigger's task run completes, posts one short message with its
+/// result where the trigger says, if the person who set it up may still post
+/// there. Either way the outcome is recorded for Activity. Other task runs post
+/// from `tasks::runs::after_finish`; a run that answered NO_CHANGE posts nothing
+/// (schema 148).
 pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &str) -> Result<()> {
-    if !is_room(tx, &job.workspace, &job.chat).await? {
+    if !is_room(tx, &job.workspace, &job.chat).await?
+        || !super::automation_memory::ready(tx).await?
+    {
         return Ok(());
     }
-    let mut found = json_rows(tx, "SELECT jsonb_build_object('name',s.name,'chat',s.chat,'principal',s.principal,'kind','schedule') AS data FROM relay_schedule_occurrences o
-        JOIN relay_agent_schedules s ON s.workspace=o.workspace AND s.id=o.schedule WHERE o.workspace=$1 AND o.reply=$2 AND s.chat IS NOT NULL",
+    let found = json_rows(tx, "SELECT jsonb_build_object('name',t.input->>'name','chat',t.chat,'principal',t.principal) AS data FROM relay_event_deliveries d
+        JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2 AND d.room IS NOT NULL AND t.chat IS NOT NULL AND NOT d.revoked",
         vec![job.workspace.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
-    if found.is_none() && super::automation_memory::ready(tx).await? {
-        found = json_rows(tx, "SELECT jsonb_build_object('name',t.input->>'name','chat',t.chat,'principal',t.principal,'kind','event') AS data FROM relay_event_deliveries d
-            JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2 AND d.room IS NOT NULL AND t.chat IS NOT NULL AND NOT d.revoked",
-            vec![job.workspace.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
-    }
     let Some(source) = found else {
         return Ok(());
     };
@@ -116,7 +112,7 @@ pub(super) async fn post_result(tx: &DatabaseTransaction, job: &Job, content: &s
         source["name"].as_str().unwrap_or("Automation"),
         source["principal"].as_str().context("Missing person")?,
         target,
-        source["kind"] == "event",
+        true,
     )
     .await
 }
@@ -203,29 +199,4 @@ pub(super) async fn guard_posts(
         }
     }
     Ok(())
-}
-
-/// What Activity shows about a run that came from a schedule (before schema 147),
-/// with the task it became (`task`), whose page has its later runs.
-pub(super) async fn run_source(
-    db: &impl ConnectionTrait,
-    w: &str,
-    reply: &str,
-) -> Result<Option<Value>> {
-    if !ready(db).await? {
-        return Ok(None);
-    }
-    let task = if super::tasks::wakeups::rooms(db).await? {
-        "(SELECT t.id FROM relay_tasks t WHERE t.workspace=s.workspace AND t.schedule=s.id LIMIT 1)"
-    } else {
-        "NULL::text"
-    };
-    Ok(json_rows(db, &format!("SELECT jsonb_build_object('id',s.id,'name',s.name,'agent',s.agent,'state',s.state,'revision',s.revision,
-            'principal',s.principal,'interval_seconds',s.interval_seconds,'post_to',c.name,
-            'posted',p.state,'post_reason',p.reason,'task',{task},
-            'room',EXISTS(SELECT 1 FROM relay_chat_messages m JOIN relay_chats r ON r.workspace=m.workspace AND r.id=m.chat WHERE m.workspace=o.workspace AND m.id=o.reply AND r.work)) AS data
-        FROM relay_schedule_occurrences o JOIN relay_agent_schedules s ON s.workspace=o.workspace AND s.id=o.schedule
-        LEFT JOIN relay_chats c ON c.workspace=s.workspace AND c.id=s.chat
-        LEFT JOIN relay_run_posts p ON p.workspace=o.workspace AND p.reply=o.reply
-        WHERE o.workspace=$1 AND o.reply=$2"), vec![w.into(), reply.into()]).await?.into_iter().next())
 }

@@ -1,7 +1,6 @@
 //! The weekly review (Phase 5): a task "Weekly review" for the agent, for the person
 //! who turned it on, that runs every week in its own work room and shows only in
-//! Activity. Turning it off pauses the task; on again resumes it. Before schema 147
-//! it was a schedule; those became tasks like every other schedule.
+//! Activity. Turning it off pauses the task; on again resumes it.
 use super::super::super::super::tasks::{create_repeating, rules::Rule, runs::set_paused};
 use super::super::super::super::*;
 use serde_json::json;
@@ -99,7 +98,7 @@ impl PgStore {
             first,
         )
         .await?;
-        execute(&tx, "INSERT INTO relay_review_routines(workspace,agent,task) VALUES($1,$2,$3) ON CONFLICT(workspace,agent) DO UPDATE SET task=excluded.task,schedule=NULL",
+        execute(&tx, "INSERT INTO relay_review_routines(workspace,agent,task) VALUES($1,$2,$3) ON CONFLICT(workspace,agent) DO UPDATE SET task=excluded.task",
             vec![w.into(), agent.into(), id.clone().into()]).await?;
         audit(&tx, &user.id, Some(w), "weekly_review_on", &id).await?;
         tx.commit().await?;

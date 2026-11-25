@@ -51,7 +51,7 @@ export function TaskDetails({ id, close }: { id: string; close: () => void }) {
         <dt>Agent</dt><dd>{data.agent_name}</dd>
         <dt>For</dt><dd>{data.requester_name ?? 'Former member'}</dd>
         <dt>Where</dt><dd>{data.conversation_kind === 'direct' ? 'direct chat' : `#${data.conversation_name}`}</dd>
-        <dt>Started</dt><dd>{when(data.created_ms)}{data.kind === 'automatic' ? ' · tracked automatically' : data.origin === 'person' ? ' · made a task by a person' : data.origin === 'schedule' ? ' · was a schedule' : trigger ? ' · an event trigger' : data.origin === 'check' ? ' · regular checks, set on the assistant page' : ' · promised by the agent'}</dd>
+        <dt>Started</dt><dd>{when(data.created_ms)}{data.kind === 'automatic' ? ' · tracked automatically' : data.origin === 'person' ? ' · made a task by a person' : trigger ? ' · an event trigger' : data.origin === 'check' ? ' · regular checks, set on the assistant page' : ' · promised by the agent'}</dd>
         {trigger && life && <><dt>Runs so far</dt><dd>{life.runs}</dd></>}
         {data.start_ms && <><dt>Starts</dt><dd>{when(data.start_ms)}</dd></>}
         {data.due_ms && <><dt>Due</dt><dd>{when(data.due_ms)}</dd></>}

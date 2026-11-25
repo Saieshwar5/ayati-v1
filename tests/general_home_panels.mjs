@@ -43,7 +43,7 @@ test('general panel families and chart variants survive real managed draft/revie
   ];
   const drafts = raw.map((section, i) => ({ id: randomUUID(), expected_revision: 0, title: `General view ${i+1}`,
     purpose: 'Illustrative data for local UI verification', sections: [section], sources: [] }));
-  const command = 'Prepare these twelve illustrative general panel drafts for my review, using the reviewed source. No schedule.';
+  const command = 'Prepare these twelve illustrative general panel drafts for my review, using the reviewed source. No automatic updates.';
   app.provider.setControl(command, { steps: [
     { tool: 'request_action', arguments: { connection, operation: 'order.read', arguments: { order: 'one' } } },
     ...drafts.map(draft => ({ tool: 'save_home_panel', arguments: draft })),

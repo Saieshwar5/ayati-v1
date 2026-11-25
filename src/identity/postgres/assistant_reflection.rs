@@ -4,7 +4,7 @@
 //!
 //! In code first: with nothing new in the chat there is no run. Only the
 //! person's own conversation with their assistant is read, not the threads of
-//! its schedules, checks or drafts. The run happens in the "What I learned"
+//! its tasks, checks or drafts. The run happens in the "What I learned"
 //! thread, as background work, and uses the memory tools like any other task.
 //! Turned off with "Learn from my edits" (relay_assistant_settings.learn).
 use super::super::super::*;

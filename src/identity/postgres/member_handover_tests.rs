@@ -288,3 +288,68 @@ async fn members_leave_on_their_own_and_the_last_admin_cannot() {
     assert!(refused.to_string().contains("at least one admin"));
     assert_eq!(db.role(&w, &admin.id).await.unwrap(), "Admin");
 }
+
+/// Every run of a repeating task is for the person who asked, so removing them
+/// pauses their open tasks that would run again and cancels what is booked.
+#[tokio::test]
+#[ignore = "requires local PostgreSQL"]
+async fn removal_pauses_the_persons_repeating_tasks() {
+    let db = fixture().await;
+    let admin = user(&db, "tasks-admin").await;
+    let member = user(&db, "tasks-member").await;
+    let w = workspace(&db, &admin).await;
+    join(&db, &admin, &w, &member, "Member").await;
+    let (c, a) = super::executor_slot_tests::agent(&db, &admin, &w).await;
+    // (title, person, rule, booked wake-up, paused)
+    let tasks = [
+        ("Daily stock check", &member, true, Some("repeat"), false),
+        ("Check the refund", &member, false, Some("follow_up"), false),
+        ("Write the price list", &member, false, None, false),
+        ("Paused report", &member, true, None, true),
+        (
+            "Admin's weekly summary",
+            &admin,
+            true,
+            Some("repeat"),
+            false,
+        ),
+    ];
+    let mut ids = vec![];
+    for (title, person, rule, booked, paused) in tasks {
+        let id = uuid::Uuid::new_v4().to_string();
+        execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,repeat,anchor_ms,paused_ms) VALUES($1,$2,$3,'commitment','agent',$4,$5,$6,CASE WHEN $7 THEN '{\"unit\":\"day\",\"at\":\"09:00\"}'::jsonb END,1,CASE WHEN $8 THEN 1 END)",
+            vec![w.clone().into(), id.clone().into(), a.clone().into(), title.into(), person.id.clone().into(), c.clone().into(), rule.into(), paused.into()]).await.unwrap();
+        if let Some(kind) = booked {
+            execute(&db.db, "INSERT INTO relay_task_wakeups(workspace,id,task,due_ms,kind) VALUES($1,$2,$3,(extract(epoch FROM clock_timestamp())*1000)::bigint+3600000,$4)",
+                vec![w.clone().into(), uuid::Uuid::new_v4().to_string().into(), id.clone().into(), kind.into()]).await.unwrap();
+        }
+        ids.push(id);
+    }
+    let before = db
+        .member_responsibilities(&admin, &w, &member.id)
+        .await
+        .unwrap();
+    assert_eq!(before["repeating_tasks"], 2, "{before}");
+
+    db.change(&admin, &w, &member.id, None, None).await.unwrap();
+    let state = |id: String| {
+        let db = &db;
+        async move {
+            query(&db.db, "SELECT t.paused_reason,(SELECT count(*) FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id AND k.state='pending') AS booked FROM relay_tasks t WHERE t.id=$1",
+                vec![id.into()]).await.unwrap().map(|r| (r.try_get::<Option<String>>("", "paused_reason").unwrap(), r.try_get::<i64>("", "booked").unwrap())).unwrap()
+        }
+    };
+    let left = Some("Paused because the person it was for left the workspace.".to_string());
+    assert_eq!(state(ids[0].clone()).await, (left.clone(), 0));
+    assert_eq!(state(ids[1].clone()).await, (left, 0));
+    assert_eq!(state(ids[2].clone()).await, (None, 0));
+    assert_eq!(
+        state(ids[4].clone()).await,
+        (None, 1),
+        "other people's tasks run"
+    );
+    assert_eq!(
+        audit_summary(&db, &w).await,
+        "tasks-admin@example.test removed tasks-member@example.test; 2 repeating tasks paused for review"
+    );
+}

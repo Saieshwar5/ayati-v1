@@ -1,9 +1,8 @@
 // Work an agent does at a time, with real Goose (designs/agent-tasks/one-system.md,
-// decisions 1 and 4). Schedules became tasks in schema 147: a repeating task asked
-// for in a channel starts at once; each run works in its own private room, its
-// question and the approval of its write wait for the person who asked, the write
-// happens once, and the channel gets one short result. Pausing the task stops its
-// runs and keeps what was saved. The model is scripted; Goose, the controller and
+// decisions 1 and 4): a repeating task asked for in a channel starts at once;
+// each run works in its own private room, its question and the approval of its
+// write wait for the person who asked, the write happens once, and the channel gets
+// one short result. Pausing the task stops its runs and keeps what was saved. The model is scripted; Goose, the controller and
 // ayati_control are real.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -86,7 +85,6 @@ test('a repeating task asked for in a channel runs in its own room, asks, waits 
   await new Promise(resolve => setTimeout(resolve, 3000));
   assert.equal(app.sql(`SELECT count(*) FROM relay_task_wakeups WHERE task='${task.id}' AND state='pending'`), '0');
   assert.equal(app.provider.requests.length, calls); assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1);
-  assert.equal(app.sql(`SELECT count(*) FROM relay_agent_schedules`), '0', 'nothing is saved as a schedule');
   await app.stop(executor);
   app.pass('Pausing the task stops its runs across a restart and keeps the one confirmed write');
 });

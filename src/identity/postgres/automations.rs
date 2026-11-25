@@ -1,5 +1,4 @@
-//! Where an automation an agent's owner sets up may post its results. Schedules
-//! became tasks in schema 147 and are no longer saved here.
+//! Where an automation an agent's owner sets up may post its results.
 use super::automation_access::authority;
 use super::*;
 use serde_json::json;

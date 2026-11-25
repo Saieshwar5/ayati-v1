@@ -3,7 +3,7 @@ import type { Agent } from '../model';
 import { Button } from '../../ui';
 import { workspaceUrl } from '../../../workspace-context';
 import { subscribeChanges } from '../../chat/live';
-import './schedules.css';
+import './automations.css';
 import { EventTriggers } from './events';
 import { NewAutomation } from './new-automation';
 
@@ -48,7 +48,7 @@ function Automations({ agent, openChat, start, changed }: { agent: Agent; openCh
     return () => { window.clearTimeout(focusTimer.current); access(); };
   }, []);
   const ask = openChat ? () => { setOpen(undefined); openChat(); } : undefined;
-  return <section className="shared-schedules" aria-label={`${agent.name} automations`}>
+  return <section className="agent-automations" aria-label={`${agent.name} automations`}>
     <header className="agent-section-heading"><div><h3>Automations</h3></div>
       <Button primary ref={newButton} className="automation-new" onClick={choose}>New automation</Button>
     </header>

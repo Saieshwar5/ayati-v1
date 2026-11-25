@@ -34,7 +34,7 @@ each agent (`relay_library_agents.level`, `use_for`):
 
 | Use for | The agent may use it when… |
 | --- | --- |
-| **People who can see it** (default) | everyone who will read the answer can open it: the asker, everyone in the conversation (every member for a public channel) and a schedule's posting conversation |
+| **People who can see it** (default) | everyone who will read the answer can open it: the asker, everyone in the conversation (every member for a public channel) and, for a task's run, the task's conversation, where its result is posted (schema 150) |
 | **All staff** | any colleague asks, without them opening the document |
 
 Customer answers ("Customers") wait for customer mode; replies that go outside the

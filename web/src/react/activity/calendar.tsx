@@ -8,8 +8,7 @@ import { days, itemState, loadCalendar, range, timeIn, weekStart, zoneLabel, typ
 /** Activity › Calendar (designs/agent-tasks), which replaces Planned: a week of what
  * agents did and will do on their own, in the workspace's time zone. Tasks are
  * made and changed by asking the agent in chat; here people look and open a task
- * to pause or stop it. Schedules (schema 147), triggers (148) and regular checks
- * (149) are tasks; the List view was removed with them. */
+ * to pause or stop it. Triggers (schema 148) and regular checks (149) are tasks too. */
 export function CalendarView({ scope, search }: { scope: Scope; search: string }) {
   const [offset, setOffset] = useState(0);
   return <section className="activity-calendar" aria-label="Calendar">

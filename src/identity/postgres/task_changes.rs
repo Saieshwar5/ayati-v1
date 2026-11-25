@@ -72,7 +72,7 @@ pub(crate) struct ContinueLater {
 
 /// Save `timing` on `task` of `job`'s agent and book its first run; returns the
 /// first run. A one-off time without a rule is a follow-up at that time. A run that
-/// started on its own (schedule, event, task run) may only create a repeating task
+/// started on its own (an event or a task run) may only create a repeating task
 /// that ends.
 pub(super) async fn schedule(
     tx: &DatabaseTransaction,

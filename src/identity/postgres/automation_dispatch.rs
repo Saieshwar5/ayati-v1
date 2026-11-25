@@ -1,5 +1,5 @@
-//! When the scheduler loop must look again. Schedules became tasks in schema 147;
-//! task runs and follow-ups are wake-ups of tasks (task_wakeups.rs).
+//! When the scheduler loop must look again. Task runs and follow-ups are
+//! wake-ups of tasks (task_wakeups.rs).
 use super::*;
 impl PgStore {
     /// How long until the scheduler next has something due: a task run or

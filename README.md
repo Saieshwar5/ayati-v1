@@ -69,9 +69,10 @@ Main product contracts:
   people ask an agent in chat ("every weekday at 9", "every 3 days until they pay") and
   it creates the task at once; Cuckoo books every run in India time unless the workspace
   chose another, skips missed and overlapping runs, pauses after three failures, and
-  Activity › Calendar shows the week. Schedules, event triggers and an assistant's
-  regular checks are all tasks (schemas 147 to 149): a trigger is how its task wakes, and
-  a regular check looks in code before the model runs.
+  Activity › Calendar shows the week. Event triggers and an assistant's regular checks
+  are tasks too (schemas 148 and 149): a trigger is how its task wakes, and a regular
+  check looks in code before the model runs. The old schedules became tasks in schema
+  147 and were dropped in schema 150.
 - [Memory](runtime/memory.md): agents keep notes as they work, for the workspace,
   their job, one room or one person, and every request uses the ones its readers
   may know; admins open the workspace's in Settings, a nightly tidy-up keeps it small.
@@ -81,8 +82,8 @@ Main product contracts:
 - [Web search](runtime/web-search.md): agents search the web and read pages through
   Cuckoo's own tools, answered by interchangeable search services and cited under
   the answer.
-- [Workspace Library](runtime/library.md), [tasks](runtime/tasks.md) (schedules became
-  tasks in schema 147; [shared schedules](runtime/shared-agent-schedules.md) is history) and
+- [Workspace Library](runtime/library.md), [tasks](runtime/tasks.md) (everything an agent
+  does on its own; the old schedules were dropped in schema 150) and
   [shared events](runtime/shared-agent-events.md).
 - [Versioned conversation context](runtime/versioned-conversation-context.md).
 - [Cuckoo Control](runtime/cuckoo-control.md): the operator console and `ayati admin`:

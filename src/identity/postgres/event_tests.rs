@@ -22,7 +22,7 @@ pub(super) async fn setup() -> Setup {
 /// The same on `db`, which may be at an older schema (upgrade tests).
 pub(super) async fn setup_on(mut db: PgStore) -> Setup {
     db.pooled = true;
-    let owner = user(&db, "schedule-author").await;
+    let owner = user(&db, "automation-author").await;
     let w = workspace(&db, &owner).await;
     let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let conn = uuid::Uuid::new_v4().to_string();

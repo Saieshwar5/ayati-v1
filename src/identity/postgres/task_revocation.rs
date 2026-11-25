@@ -11,7 +11,7 @@ pub(super) async fn inaccessible(tx: &DatabaseTransaction, w: &str) -> Result<()
         ""
     };
     let sql = format!(
-        "SELECT payload FROM relay_chat_jobs j WHERE workspace=$1 AND state<>'finished' AND (EXISTS(SELECT 1 FROM relay_task_checkpoints c WHERE c.workspace=j.workspace AND c.reply=j.reply) OR EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=j.workspace AND q.reply=j.reply) OR EXISTS(SELECT 1 FROM relay_schedule_occurrences o WHERE o.workspace=j.workspace AND o.reply=j.reply){event_clause})"
+        "SELECT payload FROM relay_chat_jobs j WHERE workspace=$1 AND state<>'finished' AND (EXISTS(SELECT 1 FROM relay_task_checkpoints c WHERE c.workspace=j.workspace AND c.reply=j.reply) OR EXISTS(SELECT 1 FROM relay_task_questions q WHERE q.workspace=j.workspace AND q.reply=j.reply) OR EXISTS(SELECT 1 FROM relay_task_wakeups k WHERE k.workspace=j.workspace AND k.reply=j.reply){event_clause})"
     );
     let jobs = rows(tx, &sql, vec![w.into()]).await?;
     for row in jobs {

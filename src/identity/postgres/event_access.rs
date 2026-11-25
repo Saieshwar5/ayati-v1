@@ -69,7 +69,7 @@ pub(super) async fn visible(
 pub(super) fn post_to(data: &Value) -> Option<&str> {
     data["chat"].as_str()
 }
-/// What a trigger needs from its person to start work, as for a schedule: they
+/// What a trigger needs from its person to start work: they
 /// look after the agent and may use it, and may post where it posts, if anywhere.
 pub(super) async fn start(
     tx: &DatabaseTransaction,

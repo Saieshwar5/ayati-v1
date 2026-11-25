@@ -10,7 +10,7 @@ const nowUrl = `http://localhost/w/${w}/?view=activity&tab=now`;
 const session = { user: { id: 'kavya', email: 'kavya@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Member' }] };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 const now = Date.now();
-const totals = { requests: 0, done: 0, failed: 0, review: 0, waiting: 0, automatic: 0, approved: 0, people: 0, channels: 0, schedule_runs: 0, per_day: [], by_agent: [] };
+const totals = { requests: 0, done: 0, failed: 0, review: 0, waiting: 0, automatic: 0, approved: 0, people: 0, channels: 0, task_runs: 0, per_day: [], by_agent: [] };
 const event = (id, reason) => ({ id, sequence: 10, at: now, trigger: 'new-orders', title: 'New Shopify order', reason, agent: 'atlas', agent_name: 'Atlas', agent_avatar: null });
 
 test("Now's line opens History on events not handled, each with its reason", async () => {

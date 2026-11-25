@@ -75,12 +75,11 @@ test('a web controller and a work controller share work through the database alo
   await reader.cancel();
   app.pass('Web streams a reply live although another process produced it');
 
-  // A task run that comes due starts on work, the only scheduler (schedules became
-  // tasks in schema 147).
+  // A task run that comes due starts on work, the only one running the scheduler loop.
   const dueOnce = async (name, dueMs) => (await dueTask(app, { chat, name, dueMs })).task;
-  const schedule = await dueOnce('Split check', Date.now() + 2500);
-  await until(() => startedRuns(app, schedule) === '1', 'The task run did not start', 20000);
-  await completed({ reply: startedRun(app, schedule) });
+  const due = await dueOnce('Split check', Date.now() + 2500);
+  await until(() => startedRuns(app, due) === '1', 'The task run did not start', 20000);
+  await completed({ reply: startedRun(app, due) });
   app.pass('A task run that comes due starts once on the work controller');
 
   // Work is lost mid-reply: web keeps serving, and a replacement finishes the reply.

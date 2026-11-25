@@ -11,7 +11,7 @@
 //!   draft before it, for a day, until the agent exists. So "make it more
 //!   formal" changes one part and keeps the rest, under the same agent id.
 //! - **Only there.** Not for another agent, not in another conversation, and
-//!   not in the threads of its schedules, checks, drafts or setup turns.
+//!   not in the threads of its tasks, checks, drafts or setup turns.
 use super::super::super::*;
 use crate::identity::chat::model::Job;
 use serde_json::json;
@@ -87,7 +87,7 @@ fn latest(parts: &Value) -> Vec<Value> {
 }
 
 /// Whether `job` is an assistant answering its own person in their own chat,
-/// outside the threads of its schedules, checks, drafts and setup turns.
+/// outside the threads of its tasks, checks, drafts and setup turns.
 async fn in_own_chat(db: &impl ConnectionTrait, job: &Job) -> Result<bool> {
     Ok(query(
         db,

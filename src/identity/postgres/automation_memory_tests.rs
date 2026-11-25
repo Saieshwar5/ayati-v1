@@ -1,5 +1,5 @@
-//! Automation memory (schema 115): event triggers run in private work rooms like
-//! schedules, and each automation chooses what a run sees of earlier runs.
+//! Automation memory (schema 115): event triggers run in private work rooms, and
+//! each automation chooses what a run sees of earlier runs.
 use super::{event_tests::setup, *};
 
 async fn messages(db: &PgStore, chat: &str) -> String {

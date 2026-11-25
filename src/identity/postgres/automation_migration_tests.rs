@@ -5,7 +5,7 @@ use sea_orm_migration::MigratorTrait;
 async fn automation_upgrade_preserves_v26_profiles_and_sample_receipts_without_dispatch() {
     let url = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&url).await.unwrap();
-    let schema = format!("relay_schedule_upgrade_{}", uuid::Uuid::new_v4().simple());
+    let schema = format!("relay_automation_upgrade_{}", uuid::Uuid::new_v4().simple());
     admin
         .db
         .execute_unprepared(&format!("CREATE SCHEMA {schema}"))
@@ -17,7 +17,7 @@ async fn automation_upgrade_preserves_v26_profiles_and_sample_receipts_without_d
         .append_pair("options", &format!("-c search_path={schema}"));
     let db = PgStore::connect(scoped.as_str()).await.unwrap();
     migration::Migrator::up(&db.db, Some(26)).await.unwrap();
-    let owner = user(&db, "schedule-upgrade-owner").await;
+    let owner = user(&db, "automation-upgrade-owner").await;
     let w = workspace(&db, &owner).await;
     let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let input = crate::identity::rehearsals::model::Start {

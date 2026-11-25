@@ -1,13 +1,12 @@
-//! A panel's fixed interval runs on its own update queue (schema 146): no schedule,
-//! no task, the next update booked one interval after each update starts, and no
-//! gap holds it back. Panels that used a schedule keep their next update time.
+//! A panel's fixed interval runs on its own update queue (schema 146): no task, the
+//! next update booked one interval after each update starts, and no gap holds it
+//! back.
 use super::super::super::activity::Filters;
 use super::super::super::home_maintenance_tests::{
-    agreement, claim, due_now, observed, panel, refresh, setup, setup_on, update,
+    agreement, claim, due_now, observed, panel, refresh, setup,
 };
 use super::super::super::tests::message;
 use super::super::super::*;
-use sea_orm_migration::MigratorTrait;
 
 async fn wanted(db: &PgStore, panel: &str) -> Value {
     query(
@@ -74,19 +73,6 @@ async fn an_interval_update_runs_on_the_panels_queue_and_books_the_next_one() {
     let due = want["due_ms"].as_i64().unwrap();
     assert!((before + 120_000..=after + 120_000).contains(&due));
     assert_eq!(panel(&db, &owner, &w).await["maintenance"]["next_ms"], due);
-    assert_eq!(
-        count(&db, "SELECT count(*) AS n FROM relay_agent_schedules").await,
-        0,
-        "no schedule"
-    );
-    assert_eq!(
-        count(
-            &db,
-            "SELECT count(*) AS n FROM relay_home_schedule_bindings"
-        )
-        .await,
-        0
-    );
     assert_eq!(db.dispatch_panel_updates().await.unwrap(), 0, "not due yet");
 
     // When it is due it starts as the owner and books the next one an interval later.
@@ -182,120 +168,4 @@ async fn an_interval_update_runs_on_the_panels_queue_and_books_the_next_one() {
         .unwrap();
     assert!(wanted(&db, &p.id).await.is_null());
     assert!(panel(&db, &owner, &w).await["maintenance"]["next_ms"].is_null());
-}
-
-#[tokio::test]
-#[ignore = "requires disposable PostgreSQL"]
-async fn schema_146_moves_a_scheduled_panel_onto_its_queue_and_its_schedule_stops() {
-    let url = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
-    let admin = PgStore::connect(&url).await.unwrap();
-    let schema = format!("relay_panel_intervals_{}", uuid::Uuid::new_v4().simple());
-    admin
-        .db
-        .execute_unprepared(&format!("CREATE SCHEMA {schema}"))
-        .await
-        .unwrap();
-    let mut scoped = reqwest::Url::parse(&url).unwrap();
-    scoped
-        .query_pairs_mut()
-        .append_pair("options", &format!("-c search_path={schema}"));
-    let db = PgStore::connect(scoped.as_str()).await.unwrap();
-    super::super::super::migration::Migrator::up(&db.db, Some(145))
-        .await
-        .unwrap();
-    let (db, owner, w, first, read, _, p) = setup_on(db).await;
-    // Current code on schema 145 books nothing on the queue.
-    db.save_home_agreement(&owner, &w, &p.id, &agreement(0, Some(60)))
-        .await
-        .unwrap();
-    assert!(wanted(&db, &p.id).await.is_null());
-
-    // The panel's interval as the schema 145 controller saved it: a bound schedule.
-    let sid = uuid::Uuid::new_v4().to_string();
-    let first_ms = now(&db).await + 60_000;
-    execute(&db.db, "INSERT INTO relay_agent_schedules(workspace,id,agent,principal,chat,name,content,first_ms,interval_seconds,timezone,request_hash,next_ms) VALUES($1,$2,$3,$4,$5,'Personal Home panel update','Refresh the controller-bound personal Home panel.',$6,60,'UTC',$2,$6)",
-        vec![w.clone().into(), sid.clone().into(), first.agent.clone().into(), owner.id.clone().into(), first.chat.clone().into(), first_ms.into()]).await.unwrap();
-    execute(
-        &db.db,
-        "INSERT INTO relay_home_schedule_bindings VALUES($1,$2,$3)",
-        vec![w.clone().into(), sid.clone().into(), p.id.clone().into()],
-    )
-    .await
-    .unwrap();
-    execute(
-        &db.db,
-        "UPDATE relay_home_maintenance SET schedule=$3 WHERE workspace=$1 AND panel=$2",
-        vec![w.clone().into(), p.id.clone().into(), sid.clone().into()],
-    )
-    .await
-    .unwrap();
-    // One update ran before the upgrade, and the schedule moved on to its next run
-    // as the schema 145 dispatcher left it.
-    let accepted = db
-        .update_home_panel(&owner, &w, &p.id, &update(1))
-        .await
-        .unwrap();
-    execute(
-        &db.db,
-        "UPDATE relay_agent_schedules SET next_ms=$2 WHERE id=$1",
-        vec![sid.clone().into(), (first_ms + 60_000).into()],
-    )
-    .await
-    .unwrap();
-    let old = runs(&db, &p.id).await;
-    assert_eq!(old[0]["reply"], accepted["reply"]);
-    assert_eq!(old.len(), 1);
-    finish(&db, &w, old[0]["reply"].as_str().unwrap(), &read, "7").await;
-    let next_ms = first_ms + 60_000;
-    assert_eq!(
-        panel(&db, &owner, &w).await["maintenance"]["next_ms"],
-        next_ms
-    );
-
-    assert!(db.verify_schema().await.is_err());
-    db.migrate().await.unwrap();
-    db.migrate().await.unwrap();
-    db.verify_schema().await.unwrap();
-
-    // Same next update, now on the panel's own queue; the schedule never runs again.
-    let want = wanted(&db, &p.id).await;
-    assert_eq!(
-        (want["reason"].as_str(), want["due_ms"].as_i64()),
-        (Some("interval"), Some(next_ms))
-    );
-    let state = panel(&db, &owner, &w).await;
-    assert_eq!(state["maintenance"]["next_ms"], next_ms);
-    assert!(state["maintenance"]["schedule"].is_null());
-    assert_eq!(state["maintenance"]["status"], "current");
-    assert_eq!(
-        state["active"]["definition"]["sections"][0]["value"], "7",
-        "the earlier scheduled update stays readable"
-    );
-    let schedule = query(
-        &db.db,
-        "SELECT state FROM relay_agent_schedules WHERE id=$1",
-        vec![sid.clone().into()],
-    )
-    .await
-    .unwrap()
-    .unwrap();
-    assert_eq!(schedule.try_get::<String>("", "state").unwrap(), "paused");
-    assert_eq!(runs(&db, &p.id).await.len(), 1);
-    assert_eq!(
-        count(
-            &db,
-            &format!("SELECT count(*) AS n FROM relay_tasks WHERE schedule='{sid}'")
-        )
-        .await,
-        0,
-        "a panel's schedule never becomes a task (schema 147)"
-    );
-
-    // When due, the panel's queue runs it and books the next one.
-    due_now(&db, &p.id).await;
-    assert_eq!(db.dispatch_panel_updates().await.unwrap(), 1);
-    let started = runs(&db, &p.id).await;
-    assert_eq!(started.len(), 2);
-    assert_eq!(started[1]["reason"], "interval");
-    assert_eq!(wanted(&db, &p.id).await["reason"], "interval");
 }

@@ -3,9 +3,9 @@
 //! Pausing stops every unfinished request at once (the same stop as a person's
 //! Stop: running attempts end at their next lease renewal and pending approvals
 //! are invalidated) and refuses new agent work until an admin resumes. While
-//! paused, schedules skip their runs and arriving events are not handled; neither
-//! is disabled. This is a separate gate from agent access on purpose: lost access
-//! permanently blocks schedules and triggers, and a pause must not.
+//! paused, task runs wait and arriving events are not handled; neither is
+//! disabled. This is a separate gate from agent access on purpose: lost access
+//! permanently blocks task runs and triggers, and a pause must not.
 use super::*;
 use serde::Deserialize;
 use serde_json::json;
@@ -35,7 +35,7 @@ pub(crate) async fn paused(db: &impl ConnectionTrait, w: &str) -> Result<bool> {
         .unwrap_or(false))
 }
 
-/// Refuses new agent work while paused, with an error schedules and triggers
+/// Refuses new agent work while paused, with an error task runs and triggers
 /// recognise (they skip rather than block).
 pub(crate) async fn ensure_running(db: &impl ConnectionTrait, w: &str) -> Result<()> {
     if paused(db, w).await? {

@@ -101,26 +101,3 @@ async fn adding_to_a_task_reaches_its_running_request() {
         "nothing running for it now"
     );
 }
-
-/// A routine an agent proposed before tasks replaced proposals (schema 144) no
-/// longer shows under its reply: schema 147 made every schedule a task, and drafts
-/// can't be saved any more.
-#[tokio::test]
-#[ignore = "requires disposable PostgreSQL"]
-async fn an_old_routine_proposal_no_longer_shows_in_chat() {
-    let (db, owner, w, _, job) = setup("allow").await;
-    execute(&db.db, "INSERT INTO relay_schedule_drafts(workspace,id,agent,job,chat,requester,name,content,first_ms,interval_seconds) VALUES($1,$2,$3,$4,$5,$6,'Monday sales summary','Send me last week''s sales summary',(extract(epoch FROM clock_timestamp())*1000)::bigint+36000000,604800)",
-        vec![job.workspace.clone().into(), uuid::Uuid::new_v4().to_string().into(), job.agent.clone().into(), job.reply.clone().into(), job.chat.clone().into(), job.requester.clone().into()]).await.unwrap();
-    db.chat_finish(&job, "Here is the summary.", "complete")
-        .await
-        .unwrap();
-    let shown = db.chat_messages(&owner, &w, &job.chat).await.unwrap();
-    let reply = shown["messages"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|m| m["id"] == job.reply.as_str())
-        .unwrap()
-        .clone();
-    assert!(reply.get("routines").is_none(), "{reply}");
-}

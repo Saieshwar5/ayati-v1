@@ -19,8 +19,7 @@ export type AgentSummary = {
   apps: ToolConnection[]; servers: ToolConnection[]; ownComputer?: OwnComputer; canAddComputer: boolean;
   triggers: EventTrigger[]; requests: AgentRequest[];
   /** Its open tasks that run on their own: repeating, with a run booked, or woken by an
-   * event trigger (designs/agent-tasks). Schedules became such tasks in schema 147,
-   * triggers got one in schema 148. */
+   * event trigger (designs/agent-tasks; triggers got one in schema 148). */
   tasks: TaskItem[];
 };
 
