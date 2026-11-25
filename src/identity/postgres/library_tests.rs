@@ -1,6 +1,8 @@
 use super::{tests::*, *};
 use crate::identity::library::model::*;
 use serde_json::json;
+#[path = "library_agent_folder_tests.rs"]
+mod agent_folders;
 #[path = "library_always_tests.rs"]
 mod always;
 #[path = "library_answer_tests.rs"]

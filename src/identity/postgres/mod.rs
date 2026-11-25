@@ -470,14 +470,11 @@ mod profile_tests;
 #[cfg(test)]
 pub(in crate::identity) mod tests;
 pub(crate) use agent_knowledge::KnowledgeInput;
-pub(crate) use library::always::AlwaysRead;
-pub(crate) use library::answers::SaveAnswer;
-pub(crate) use library::edits::Decision;
-pub(crate) use library::keeping::{Hold, Keeping};
-pub(crate) use library::meaning_folders::MeaningSwitch;
-pub(crate) use library::tables::SaveTable;
-pub(crate) use library::upkeep::{GapAction, Review};
-pub(crate) use library::watching::Watch;
+pub(crate) use library::{
+    always::AlwaysRead, answers::SaveAnswer, edits::Decision, keeping::Hold, keeping::Keeping,
+    meaning_folders::MeaningSwitch, tables::SaveTable, upkeep::GapAction, upkeep::Review,
+    watching::Watch,
+};
 pub(crate) use worker_control::model_usage::{
     ModelCall, micro_dollars as model_usage_micro_dollars,
 };

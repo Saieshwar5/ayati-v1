@@ -54,15 +54,14 @@ fn blocks(node: &Value, indent: &str, out: &mut String) {
 
 fn list(node: &Value, indent: &str, out: &mut String) {
     let kind = node["type"].as_str().unwrap_or("");
-    let mut number = node["attrs"]["start"].as_u64().unwrap_or(1);
-    for item in children(node) {
+    let first = node["attrs"]["start"].as_u64().unwrap_or(1);
+    for (number, item) in (first..).zip(children(node)) {
         let marker = match kind {
             "orderedList" => format!("{number}. "),
             "taskList" if item["attrs"]["checked"] == true => "- [x] ".into(),
             "taskList" => "- [ ] ".into(),
             _ => "- ".into(),
         };
-        number += 1;
         let mut text = vec![];
         let deeper = format!("{indent}  ");
         let mut nested = String::new();
