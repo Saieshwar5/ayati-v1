@@ -26,6 +26,12 @@ async fn sweep(app: &Shared) {
         Ok(files) => remove(app, files).await,
         Err(error) => tracing::warn!("The Library keeping sweep failed; it will retry: {error}"),
     }
+    match app.store.library_discarded_objects().await {
+        Ok(files) => remove(app, files).await,
+        Err(error) => {
+            tracing::warn!("Removing dropped Library file versions failed; it will retry: {error}")
+        }
+    }
     match app.store.library_orphaned_uploads(at).await {
         Ok(files) => remove(app, files).await,
         Err(error) => {

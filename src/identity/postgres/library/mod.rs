@@ -5,6 +5,7 @@ pub(super) mod always;
 pub(super) mod answers;
 pub(super) mod edits;
 pub(super) mod fence;
+pub(super) mod file_versions;
 pub(super) mod folders;
 pub(super) mod keeping;
 pub(super) mod meaning;

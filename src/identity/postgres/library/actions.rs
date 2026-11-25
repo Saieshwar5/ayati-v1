@@ -58,15 +58,20 @@ impl PgStore {
                 );
                 execute(&tx,"UPDATE relay_library_items SET steward=$3,access_revision=access_revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),user.id.clone().into()]).await?;
             } else if input.action == "restore_version" {
+                let kind = current["kind"].as_str().unwrap_or("");
                 ensure!(
                     current["editable"] == true
-                        && ["page", "table"].contains(&current["kind"].as_str().unwrap_or(""))
+                        && ["page", "table", "file"].contains(&kind)
                         && current["trashed"] == false,
-                    "Only page editors can restore versions"
+                    "Only editors can restore versions"
                 );
-                let version=query(&tx,"SELECT title,document,text FROM relay_library_versions WHERE workspace=$1 AND item=$2 AND revision=$3",vec![w.into(),id.into(),input.version.into()]).await?.context("Version unavailable")?;
-                execute(&tx,"UPDATE relay_library_items SET title=$3,document=$4,text=$5,revision=revision+1,updated=$6 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),version.try_get::<String>("","title")?.into(),version.try_get::<Value>("","document")?.into(),version.try_get::<String>("","text")?.into(),now().into()]).await?;
-                execute(&tx,"INSERT INTO relay_library_versions SELECT workspace,id,revision,$3,title,document,text,$4 FROM relay_library_items WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),user.id.clone().into(),now().into()]).await?;
+                if kind == "file" {
+                    super::file_versions::restore(&tx, w, id, input.version).await?;
+                } else {
+                    let version=query(&tx,"SELECT title,document,text FROM relay_library_versions WHERE workspace=$1 AND item=$2 AND revision=$3",vec![w.into(),id.into(),input.version.into()]).await?.context("Version unavailable")?;
+                    execute(&tx,"UPDATE relay_library_items SET title=$3,document=$4,text=$5,revision=revision+1,updated=$6 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),version.try_get::<String>("","title")?.into(),version.try_get::<Value>("","document")?.into(),version.try_get::<String>("","text")?.into(),now().into()]).await?;
+                }
+                super::file_versions::snapshot(&tx, w, id, &user.id, None).await?;
             } else {
                 ensure!(
                     current["manageable"] == true,
@@ -94,7 +99,10 @@ impl PgStore {
                 if input.action == "restore" {
                     execute(&tx,"UPDATE relay_library_items i SET folder=NULL,visibility='private' FROM relay_library_items f WHERE i.workspace=$1 AND i.id=$2 AND f.workspace=i.workspace AND f.id=i.folder AND f.trashed",vec![w.into(),id.into()]).await?;
                 }
-                execute(&tx,"INSERT INTO relay_library_versions SELECT workspace,id,revision,$3,title,document,text,$4 FROM relay_library_items WHERE workspace=$1 AND id=$2 AND kind IN ('page','table')",vec![w.into(),id.into(),user.id.clone().into(),now().into()]).await?;
+                // A file's versions are its stored objects; trashing isn't a new one.
+                if current["kind"] != "file" {
+                    super::file_versions::snapshot(&tx, w, id, &user.id, None).await?;
+                }
             }
             audit(
                 &tx,

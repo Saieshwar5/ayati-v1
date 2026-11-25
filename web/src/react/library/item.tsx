@@ -10,6 +10,7 @@ import { TableView } from './table-view';
 import { ReviewControl } from './upkeep';
 import { KeepingControl } from './keeping';
 import { ItemFields } from './watching';
+import { ReplaceFile } from './file-versions';
 import { PageEditor } from './editor';
 import { usePageSave } from './autosave';
 import {
@@ -262,7 +263,7 @@ function ReadyItem({
           saved={reload}
         />
       ) : (
-        <FilePreview item={item} />
+        <FilePreview item={item} history={() => setDialog('history')} replaced={reload} />
       )}
       {dialog === 'share' && item.manageable && (
         <ShareDialog item={item} close={() => setDialog(undefined)} changed={refresh} />
@@ -277,7 +278,15 @@ function ReadyItem({
     </section>
   );
 }
-function FilePreview({ item }: { item: Item }) {
+function FilePreview({
+  item,
+  history,
+  replaced,
+}: {
+  item: Item;
+  history: () => void;
+  replaced: () => void;
+}) {
   return (
     <div className="library-file">
       <div className="library-file-main">
@@ -337,6 +346,12 @@ function FilePreview({ item }: { item: Item }) {
         <a className="ui-button primary" href={downloadUrl(item.id)}>
           Download original
         </a>
+        {item.editable && (
+          <>
+            <ReplaceFile item={item} changed={replaced} />
+            <Button onClick={history}>Version history</Button>
+          </>
+        )}
         <p className="library-muted">
           Files stay private until the creator shares them. Sharing and agent access are separate.
         </p>

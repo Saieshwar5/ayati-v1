@@ -137,6 +137,7 @@ async fn bytes_of_cancelled_or_unfinished_uploads_are_released_once() {
         title: title.into(),
         size: 4,
         checksum: "a".repeat(64),
+        replaces: None,
     };
     let (cancelled, abandoned, waiting) = (
         start("cancelled.txt"),

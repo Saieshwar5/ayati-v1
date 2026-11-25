@@ -9,6 +9,8 @@ mod answers;
 mod edits;
 #[path = "library_fence_tests.rs"]
 mod fence;
+#[path = "library_file_version_tests.rs"]
+mod file_versions;
 #[path = "library_folder_tests.rs"]
 mod folders;
 #[path = "library_keeping_tests.rs"]
@@ -234,6 +236,7 @@ async fn library_file_sessions_reconcile_cancel_and_reserve_quota() {
         title: "reference.txt".into(),
         size: bytes.len() as i64,
         checksum: checksum(bytes),
+        replaces: None,
     };
     db.library_upload_start(&owner, &w, &input).await.unwrap();
     db.library_upload_start(&owner, &w, &input).await.unwrap();
@@ -275,7 +278,7 @@ async fn library_file_sessions_reconcile_cancel_and_reserve_quota() {
     );
     execute(
         &db.db,
-        "UPDATE relay_library_items SET size=$3 WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_library_versions SET size=$3 WHERE workspace=$1 AND item=$2",
         vec![
             w.clone().into(),
             db.library_list(&owner, &w, "all", "", "", 0).await.unwrap()["items"][0]["id"]
@@ -293,7 +296,7 @@ async fn library_file_sessions_reconcile_cancel_and_reserve_quota() {
     // Pending file reservations and native pages share the same item budget.
     execute(
         &db.db,
-        "UPDATE relay_library_items SET size=21 WHERE workspace=$1",
+        "UPDATE relay_library_versions SET size=21 WHERE workspace=$1",
         vec![w.clone().into()],
     )
     .await

@@ -90,7 +90,7 @@ pub(super) async fn purged(db: &impl ConnectionTrait, w: &str, id: &str) -> Resu
 pub(super) struct Purged {
     pub title: String,
     pub filed: bool,
-    pub file: Option<String>,
+    pub files: Vec<String>,
 }
 
 /// Deletes an item for good inside the caller's transaction: everything kept for it
@@ -105,6 +105,12 @@ pub(super) async fn purge(
     let Some(gone) = query(tx, "SELECT title,object_key,folder FROM relay_library_items WHERE workspace=$1 AND id=$2 AND purged IS NULL FOR UPDATE", vec![w.into(), id.into()]).await? else {
         return Ok(None);
     };
+    let mut files = super::file_versions::objects(tx, w, id).await?;
+    if let Some(file) = gone.try_get::<Option<String>>("", "object_key")?
+        && !files.contains(&file)
+    {
+        files.push(file);
+    }
     for table in ITEM_TABLES {
         // Meaning search tables exist only where pgvector is installed.
         let exists: bool = query(
@@ -128,7 +134,7 @@ pub(super) async fn purge(
     Ok(Some(Purged {
         title: gone.try_get("", "title")?,
         filed: gone.try_get::<Option<String>>("", "folder")?.is_some(),
-        file: gone.try_get("", "object_key")?,
+        files,
     }))
 }
 
@@ -267,7 +273,7 @@ impl PgStore {
                 continue;
             }
             if let Some(gone) = purge(&tx, &w, &id, at).await? {
-                files.extend(gone.file);
+                files.extend(gone.files);
                 let said = format!(
                     "Deleted \"{}\" for good under the keeping rule{}",
                     gone.title,

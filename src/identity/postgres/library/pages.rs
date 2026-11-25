@@ -84,7 +84,12 @@ impl PgStore {
         } else {
             ""
         };
-        let versions=json_rows(&tx,&format!("SELECT jsonb_build_object('revision',v.revision,'title',v.title,'created',v.created,'author',COALESCE(u.display_name,u.email){agent}) AS data FROM relay_library_versions v JOIN relay_users u ON u.id=v.author WHERE v.workspace=$1 AND v.item=$2 ORDER BY revision DESC LIMIT 50"),vec![w.into(),id.into()]).await?;
+        let size = if super::file_versions::present(&tx).await? {
+            ",'size',v.size"
+        } else {
+            ""
+        };
+        let versions=json_rows(&tx,&format!("SELECT jsonb_build_object('revision',v.revision,'title',v.title,'created',v.created,'author',COALESCE(u.display_name,u.email){agent}{size}) AS data FROM relay_library_versions v JOIN relay_users u ON u.id=v.author WHERE v.workspace=$1 AND v.item=$2 ORDER BY revision DESC LIMIT 50"),vec![w.into(),id.into()]).await?;
         tx.commit().await?;
         Ok(json!({"versions":versions}))
     }
@@ -101,7 +106,7 @@ impl PgStore {
             current["editable"] == true || current["revision"].as_i64() == Some(version),
             "History requires edit access"
         );
-        let value=query(&tx,"SELECT to_jsonb(v)-'text' AS data FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision=$3",vec![w.into(),id.into(),version.into()]).await?.context("Version unavailable")?.try_get::<Value>("","data")?;
+        let value=query(&tx,"SELECT to_jsonb(v)-'text'-'object_key' AS data FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision=$3",vec![w.into(),id.into(),version.into()]).await?.context("Version unavailable")?.try_get::<Value>("","data")?;
         tx.commit().await?;
         Ok(value)
     }
@@ -118,6 +123,18 @@ pub(super) async fn prune_versions(db: &impl ConnectionTrait, w: &str, id: &str)
     } else {
         ""
     };
-    execute(db,&format!("DELETE FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision NOT IN (SELECT revision FROM relay_library_versions WHERE workspace=$1 AND item=$2 ORDER BY revision DESC LIMIT 50) AND NOT EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=v.workspace AND s.item=v.item AND s.revision=v.revision){reads}"),vec![w.into(),id.into()]).await?;
+    // Files keep fewer versions than pages; the objects of dropped ones are discarded.
+    let files = super::file_versions::present(db).await?;
+    let keep = if files {
+        format!("CASE WHEN (SELECT kind FROM relay_library_items WHERE workspace=$1 AND id=$2)='file' THEN {} ELSE 50 END", super::file_versions::FILE_VERSIONS)
+    } else {
+        "50".into()
+    };
+    let delete = format!("DELETE FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision NOT IN (SELECT revision FROM relay_library_versions WHERE workspace=$1 AND item=$2 ORDER BY revision DESC LIMIT ({keep})) AND NOT EXISTS(SELECT 1 FROM relay_library_sources s WHERE s.workspace=v.workspace AND s.item=v.item AND s.revision=v.revision){reads}");
+    if files {
+        execute(db, &format!("WITH gone AS ({delete} RETURNING v.object_key) INSERT INTO relay_library_discarded(workspace,object_key,at) SELECT DISTINCT $1,object_key,$3::bigint FROM gone WHERE object_key IS NOT NULL ON CONFLICT DO NOTHING"), vec![w.into(), id.into(), now().into()]).await?;
+    } else {
+        execute(db, &delete, vec![w.into(), id.into()]).await?;
+    }
     Ok(())
 }

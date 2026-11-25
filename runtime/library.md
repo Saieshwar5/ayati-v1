@@ -41,7 +41,7 @@ Only admins invite or remove workspace members through Settings.
 
 - New items are private. The creator manages sharing and trash.
 - Native pages offer Can view or Can edit. Edit does not grant resharing. The
-  initial file-sharing UI offers view/download access; file replacement is deferred.
+  file-sharing UI offers view/download access; editors replace a file with a new version.
 - Workspace visibility gives current members view access; named editors can edit.
 - Another admin does not automatically read private/selected-people content.
 - Links do not grant access. There is no guest/public-link sharing.
@@ -103,8 +103,35 @@ bounded; the size limit bounds buffered downloads.
 
 Reservations expire. Stored bytes from an upload that was cancelled or never finished
 are removed by the keeping sweep once no item uses them (each upload session is closed
-as `cleaned`, so its bytes are released once). File replacement/versioning and large
-multipart transfers remain follow-up work.
+as `cleaned`, so its bytes are released once). Large multipart transfers remain
+follow-up work.
+
+### File versions (schema 152)
+
+A file keeps versions like a page. People who can edit it choose **Upload new version**
+on the file: the upload names the file and the revision they were looking at
+(`POST …/library-uploads` with `replaces: {item, revision}`), and a file that changed
+meanwhile is not overwritten. The file keeps its id, title, sharing and folder; its text
+is read and indexed again. **Version history** lists the versions with who saved them and
+their size, offers each to download (`GET …/library/{id}/download?version=N`, for
+editors) and restores one as the next revision.
+
+- The latest 20 versions of a file are kept (pages and tables keep 50); versions an
+  agent's answer cited and everything on legal hold are kept too.
+- Each version names its own stored object. The 1 GiB quota counts every kept object
+  once, so old versions use storage until they are dropped.
+- Objects of dropped versions wait in `relay_library_discarded`; the keeping sweep
+  removes them from storage once no version names them. Deleting a file for good removes
+  every version's object.
+- Moving a file to Trash or back is not a version.
+
+Checks: PostgreSQL (`postgres/library_file_version_tests.rs`: viewers can't replace, a
+stale revision is refused, the same item gets revision 2 and is re-indexed, History lists
+both with sizes, viewers read only the current one, restoring is revision 3 with the
+first object, storage counts each object once; the 21st version drops the first object
+once, and deleting for good returns the 20 kept), web
+(`tests/library-file-versions.test.mjs`: the upload names the revision read, a failed
+transfer retries as the same upload, History offers downloads and restores).
 Do not enable a bucket lifecycle rule that can expire live Library objects; use
 keeping rules (below) instead.
 

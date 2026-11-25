@@ -32,7 +32,7 @@ impl PgStore {
         );
         let mut files = vec![];
         if let Some(gone) = purge(&tx, w, id, now()).await? {
-            files.extend(gone.file);
+            files.extend(gone.files);
             audit_with_summary(
                 &tx,
                 &user.id,
@@ -59,7 +59,7 @@ impl PgStore {
         let mut files = vec![];
         for id in &ids {
             if let Some(gone) = purge(&tx, w, id, now()).await? {
-                files.extend(gone.file);
+                files.extend(gone.files);
             }
         }
         if !ids.is_empty() {

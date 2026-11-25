@@ -114,6 +114,15 @@ pub struct UploadFile {
     pub title: String,
     pub size: i64,
     pub checksum: String,
+    /// When the upload replaces a file: that file and the revision it was read at.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<Replaces>,
+}
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Replaces {
+    pub item: String,
+    pub revision: i64,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
