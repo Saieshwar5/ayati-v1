@@ -1,8 +1,8 @@
 // Work an agent does at a time, with real Goose (designs/agent-tasks/one-system.md,
-// decisions 1 and 4): a repeating task asked for in a channel starts at once;
-// each run works in its own private room, its question and the approval of its
-// write wait for the person who asked, the write happens once, and the channel gets
-// one short result. Pausing the task stops its runs and keeps what was saved. The model is scripted; Goose, the controller and
+// decisions 1 and 4): a repeating task asked for in a channel starts at once; each
+// run happens in the channel as the person who asked (the one rule, schema 151), its
+// question and the approval of its write wait for that person, the write happens
+// once, and the run's reply is in the channel. Pausing the task stops its runs and keeps what was saved. The model is scripted; Goose, the controller and
 // ayati_control are real.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,7 +13,7 @@ import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
 import { until, root } from './fixtures/polling.mjs';
 
-test('a repeating task asked for in a channel runs in its own room, asks, waits for one approval and posts one result, with real Goose', {
+test('a repeating task asked for in a channel runs in the channel, asks, waits for one approval and replies there once, with real Goose', {
   skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 240000,
 }, async t => {
   const remote = await remoteControlMcp(); t.after(() => remote.close());
@@ -33,7 +33,7 @@ test('a repeating task asked for in a channel runs in its own room, asks, waits 
   await app.request(`${control}/tools`, app.cookie, { connection, enabled: true });
   for (const [operation, mode] of [['order.read', 'allow'], ['order.update', 'ask']]) await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0 });
 
-  // Asked in the channel: the task starts at once and works in a private room.
+  // Asked in the channel: the task starts at once and runs in the channel.
   const title = 'Hourly delivery update';
   const instructions = 'Ask for the delivery method, then prepare the separately approved order update.';
   const ask = 'Every hour, prepare the delivery update for this channel';
@@ -48,17 +48,16 @@ test('a repeating task asked for in a channel runs in its own room, asks, waits 
   const asked = await app.send(ask, channel);
   await app.done(asked);
   const task = JSON.parse(app.sql(`SELECT to_jsonb(t) FROM relay_tasks t WHERE t.title='${title}'`));
-  assert.equal(task.chat, channel); assert.ok(task.room && task.room !== channel, 'a channel task works in its own room');
+  assert.equal(task.chat, channel); assert.equal(task.room, undefined, 'no work room (schema 151)');
   assert.equal(task.instructions, instructions); assert.equal(task.requester, owner.id);
-  assert.ok(!(await app.request(`${app.path}/chats`, app.cookie)).value.chats.some(chat => chat.id === task.room), 'the room never appears in Chat');
-  app.pass('A repeating task asked for in a channel starts at once, with its own private work room');
+  app.pass('A repeating task asked for in a channel starts at once and belongs to the channel');
 
-  // Its first run is made due now; Cuckoo starts it in the room.
+  // Its first run is made due now; Cuckoo starts it in the channel, as the asker.
   app.sql(`UPDATE relay_task_wakeups SET due_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE task='${task.id}' AND state='pending' AND kind='repeat'`);
   await until(() => app.sql(`SELECT count(*) FROM relay_task_wakeups WHERE task='${task.id}' AND state='started'`) === '1', 'Cuckoo did not start the run', 20000);
   const reply = app.sql(`SELECT reply FROM relay_task_wakeups WHERE task='${task.id}' AND state='started'`);
   const job = JSON.parse(app.sql(`SELECT payload FROM relay_chat_jobs WHERE reply='${reply}'`));
-  assert.equal(job.chat, task.room); assert.equal(job.requester, owner.id);
+  assert.equal(job.chat, channel); assert.equal(job.requester, owner.id);
   const before = channelMessages();
   await until(() => state(reply).state === 'waiting', 'The run\'s question did not release execution', 35000);
   assert.equal(remote.calls.length, 0);
@@ -70,12 +69,11 @@ test('a repeating task asked for in a channel runs in its own room, asks, waits 
   await app.request(`${control}/actions/${action}/decision`, app.cookie, { id: randomUUID(), decision: 'approve' });
   await until(() => state(reply).state === 'finished', 'The run did not finish', 35000);
   assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1); assert.equal(remote.records.get('one').address, 'ONE_APPROVED_TASK_UPDATE');
-  // The channel gets exactly one short result message, linking to the run.
-  await until(() => app.sql(`SELECT state FROM relay_run_posts WHERE reply='${reply}'`) === 'posted', 'The result was not posted');
-  assert.equal(channelMessages(), before + 1);
-  assert.match(app.sql(`SELECT content FROM relay_chat_messages WHERE chat='${channel}' ORDER BY sequence DESC LIMIT 1`), new RegExp(`View run\\]\\(run:${reply}\\)`));
+  // The run's reply is in the channel; nothing is copied there.
+  assert.equal(app.sql(`SELECT state FROM relay_chat_messages WHERE id='${reply}' AND chat='${channel}'`), 'complete');
+  assert.equal(channelMessages(), before);
   assert.equal(app.sql(`SELECT count(*) FROM relay_task_wakeups WHERE task='${task.id}' AND state='pending' AND kind='repeat'`), '1', 'the next run is booked');
-  app.pass('A real Goose task run works in its room; its question and its write\'s approval wait for the person who asked; the write happens once and the channel gets one short result');
+  app.pass('A real Goose task run works in the channel as the asker; its question and its write\'s approval wait for that person; the write happens once and its reply is in the channel');
 
   // Pausing the task cancels its next run; a restart runs nothing again.
   const paused = (await app.request(`${app.path}/activity/tasks/${task.id}/pause`, app.cookie, { paused: true })).value;

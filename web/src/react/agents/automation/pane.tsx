@@ -60,7 +60,7 @@ function Automations({ agent, openChat, start, changed }: { agent: Agent; openCh
         <a className="ui-button" href={calendarUrl()}>Open the Calendar</a>
       </div>
     </section>
-    <EventTriggers agent={agent.id} start={open === 'event'} finished={() => { close(); changed?.(); }} />
+    <EventTriggers agent={agent.id} agentName={agent.name} start={open === 'event'} finished={() => { close(); changed?.(); }} />
     {open === 'choose' && <NewAutomation agent={agent.name} ask={ask} close={close} choose={() => setOpen('event')} />}
   </section>;
 }

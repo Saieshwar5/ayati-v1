@@ -72,7 +72,10 @@ Main product contracts:
   Activity › Calendar shows the week. Event triggers and an assistant's regular checks
   are tasks too (schemas 148 and 149): a trigger is how its task wakes, and a regular
   check looks in code before the model runs. The old schedules became tasks in schema
-  147 and were dropped in schema 150.
+  147 and were dropped in schema 150. Since schema 151 every run happens in the task's
+  own conversation, as the person it belongs to: a channel's task reads and answers in
+  the channel, and a trigger runs where it was set up or in its person's direct chat
+  with the agent ([one rule](runtime/tasks.md#since-schema-151-one-rule-a-run-happens-in-its-conversation)).
 - [Memory](runtime/memory.md): agents keep notes as they work, for the workspace,
   their job, one room or one person, and every request uses the ones its readers
   may know; admins open the workspace's in Settings, a nightly tidy-up keeps it small.

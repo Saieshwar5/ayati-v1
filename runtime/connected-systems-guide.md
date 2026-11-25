@@ -118,9 +118,8 @@ curl -X POST https://<cuckoo>/hooks/system/<connection> \
 ## Serve many users: `subject`
 
 Put the user an event is about in `subject` (your own id, such as `stu-104`).
-With *Per subject* memory each user gets a private room, so the agent remembers
-Ravi's earlier plan and never Meena's, and different users run side by side.
-Give a tool a text input named `subject` and the owner can mark it *Needs the
+An automation runs in the conversation chosen for it (or its person's direct chat
+with the agent), one event at a time in the order they arrived. Give a tool a text input named `subject` and the owner can mark it *Needs the
 subject*: Cuckoo then fills it from the event, so the agent can only ever reach
 that user's data. Your system checks its own users; Cuckoo never does.
 

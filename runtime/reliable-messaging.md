@@ -94,8 +94,8 @@ line under the parent says how many replies are new ("2 replies · 2 new", red w
 is for you): history's unread marks, plus replies that arrive while the conversation
 is open, less those seen in the opened thread. The next history read replaces them.
 
-Unread counts only conversations Chat lists as active: archived channels and a
-schedule's work room never count. Counting starts when you could first see the
+Unread counts only conversations Chat lists as active: archived channels never
+count (work rooms, which never counted, were removed in schema 151). Counting starts when you could first see the
 conversation: for a public channel, when you joined the workspace; for a private
 conversation, the later of that and when you were added (schema 94 records both join
 times; people who stay when a channel's members change keep theirs). Members who

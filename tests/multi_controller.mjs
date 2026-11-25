@@ -51,13 +51,12 @@ test('two controllers on one database share work exactly once, across sessions, 
   app.pass('A burst across two dispatchers completes every reply exactly once');
 
   // A task run becomes due while both controllers run their scheduler loops.
-  const { task: due, room } = await dueTask(app, { chat, name: 'Two-controller check', dueMs: Date.now() + 2500 });
+  const { task: due } = await dueTask(app, { chat, name: 'Two-controller check', dueMs: Date.now() + 2500 });
   await until(() => startedRuns(app, due) === '1', 'The task run did not start', 20000);
   const occurrence = { reply: startedRun(app, due) };
-  // The run happens in the task's own work room; the conversation gets one short result.
-  assert.equal(app.sql(`SELECT chat FROM relay_chat_messages WHERE id='${occurrence.reply}'`), room);
+  // The run happens in the task's own conversation (schema 151), its reply there.
+  assert.equal(app.sql(`SELECT chat FROM relay_chat_messages WHERE id='${occurrence.reply}'`), chat);
   await until(() => app.sql(`SELECT state FROM relay_chat_messages WHERE id='${occurrence.reply}'`) === 'complete', 'The task run did not complete', 45000);
-  await until(() => app.sql(`SELECT state FROM relay_run_posts WHERE reply='${occurrence.reply}'`) === 'posted', 'The task result was not posted', 15000);
   await new Promise(resolve => setTimeout(resolve, 3000));
   assert.equal(startedRuns(app, due), '1');
   app.pass('A due task run starts once although both controllers run the scheduler');

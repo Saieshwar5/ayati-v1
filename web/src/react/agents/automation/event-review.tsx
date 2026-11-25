@@ -1,17 +1,19 @@
-import { memoryLabels } from './results-and-memory';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { identityRequest, workspaceUrl } from '../../../workspace-context';
 import { Button, Dialog } from '../../ui';
 import { useMutation, useResource } from '../../requests';
 import { subscribeChanges } from '../../chat/live';
 import { eventPath, type EventTrigger, type Delivery } from './event-model';
+import { runsInText } from './runs-in';
 export function EventReview({
   agent,
+  agentName,
   trigger,
   close,
   saved,
 }: {
   agent: string;
+  agentName: string;
   trigger: EventTrigger;
   close: () => void;
   saved: () => Promise<void>;
@@ -100,10 +102,8 @@ export function EventReview({
             <dd>{t.source_definition.event_type}</dd>
             <dt>Included fields</dt>
             <dd>{t.source_definition.fields.join(', ')}</dd>
-            <dt>Results</dt>
-            <dd>{t.chat_name ? `Activity, and a summary in ${t.chat_name}` : 'Activity only'}</dd>
-            <dt>Memory</dt>
-            <dd>{memoryLabels[t.memory ?? 'fresh'].title}</dd>
+            <dt>Runs in</dt>
+            <dd>{runsInText(agentName, t.chat_name, t.chat_direct)}</dd>
             <dt>Authorized by</dt>
             <dd>{t.principal_name}</dd>
             <dt>Exact filters</dt>

@@ -62,18 +62,17 @@ test('a trigger from an app reviews app, event, fields and audience before one e
     async ({ render, button, click, change, update }) => {
       await setup();
       const { CreateAppEvent } = await import('../src/react/agents/automation/app-event-create.tsx');
-      await render(CreateAppEvent, { agent: 'a', directory: directory([gmail]), close: () => {}, saved: async () => {} });
+      await render(CreateAppEvent, { agent: 'a', agentName: 'Pool agent', directory: directory([gmail]), close: () => {}, saved: async () => {} });
       assert.equal(field('Event').value, 'gmail.new_email');
       await change(field('Trigger name'), 'Invoices');
       await change(field('Task instructions'), 'Read the email and say whether it asks for payment.');
       await change(field('subject'), 'Invoice');
-      await click(field('Activity, and post the result to'));
-      await click(field('Remember earlier runs'));
+      await change(field('Conversation'), 'channel');
       await click(button('Review event trigger'));
       assert.equal(writes.length, 0);
       for (const text of [
-        'Activity, and a summary in Accounts',
-        'Remember earlier runs',
+        'Runs in',
+        'Each run happens there as you, like you asking Pool agent',
         'Gmail',
         'accounts@example.test',
         'New email',
@@ -92,7 +91,7 @@ test('a trigger from an app reviews app, event, fields and audience before one e
       assert.equal(writes[0].connection, 'gmail-connection');
       assert.equal(writes[0].event, 'gmail.new_email');
       assert.equal(writes[0].chat, 'channel');
-      assert.equal(writes[0].memory, 'remember');
+      assert.equal('memory' in writes[0], false, 'triggers have no Memory setting (schema 151)');
       assert.deepEqual(writes[0].filter, { subject: 'Invoice' });
       assert.equal(writes[0].connection_revision, 4);
       assert.equal(writes[0].read_revision, 7);
@@ -115,20 +114,20 @@ test('a trigger from an app reviews app, event, fields and audience before one e
   );
 });
 
-test('an app trigger keeps results in Activity and starts each run fresh unless asked', async () => {
+test('an app trigger runs in your direct chat with the agent unless a conversation is chosen', async () => {
   const writes = [];
   await reactFixture(
     async ({ render, button, click, change, update }) => {
       await setup();
       const { CreateAppEvent } = await import('../src/react/agents/automation/app-event-create.tsx');
-      await render(CreateAppEvent, { agent: 'a', directory: directory([gmail]), close: () => {}, saved: async () => {} });
-      assert.equal(field('Activity only').checked, true);
-      assert.equal(field('Fresh each run').checked, true);
-      assert.equal(field('Conversation'), undefined, 'no conversation is asked for by default');
+      await render(CreateAppEvent, { agent: 'a', agentName: 'Pool agent', directory: directory([gmail]), close: () => {}, saved: async () => {} });
+      assert.equal(field('Conversation').value, '', 'the direct chat by default');
+      assert.ok(document.body.textContent.includes('Your direct chat with Pool agent'));
+      assert.equal(document.body.textContent.includes('Memory'), false, 'no Memory control');
       await change(field('Trigger name'), 'Invoices');
       await change(field('Task instructions'), 'Say whether it asks for payment.');
       await click(button('Review event trigger'));
-      for (const text of ['Activity only', 'Fresh each run', 'never reads anyone’s conversations'])
+      for (const text of ['Runs in', 'Your direct chat with Pool agent', 'replies there once'])
         assert.ok(document.body.textContent.includes(text), text);
       await update(() => button('Activate event trigger').click());
       assert.equal(writes.length, 1);
@@ -167,6 +166,7 @@ test('apps that are not ready explain why and never load events or write', async
       const { CreateAppEvent } = await import('../src/react/agents/automation/app-event-create.tsx');
       await render(CreateAppEvent, {
         agent: 'a',
+        agentName: 'Pool agent',
         directory: directory([notSetUp, reconnect]),
         close: () => {},
         saved: async () => {},
@@ -181,7 +181,7 @@ test('apps that are not ready explain why and never load events or write', async
       assert.equal(writes, 0);
       // The trigger list says the same without opening anything.
       const { EventTriggers } = await import('../src/react/agents/automation/events.tsx');
-      await render(EventTriggers, { agent: 'a' });
+      await render(EventTriggers, { agent: 'a', agentName: 'Pool agent' });
       assert.match(document.body.textContent, /Gmail: App events aren’t set up/);
       assert.match(document.body.textContent, /Google Calendar: This account needs reconnecting/);
     },
@@ -205,6 +205,7 @@ test('a late event list for the previously chosen app never replaces the current
       const { CreateAppEvent } = await import('../src/react/agents/automation/app-event-create.tsx');
       await render(CreateAppEvent, {
         agent: 'a',
+        agentName: 'Pool agent',
         directory: directory([gmail, calendar]),
         close: () => {},
         saved: async () => {},
@@ -233,7 +234,7 @@ test('an unacknowledged app activation keeps its exact request across reopening'
     async ({ render, button, click, change }) => {
       await setup();
       const { CreateAppEvent } = await import('../src/react/agents/automation/app-event-create.tsx');
-      const props = { agent: 'a', directory: directory([gmail]), close: () => {}, saved: async () => {} };
+      const props = { agent: 'a', agentName: 'Pool agent', directory: directory([gmail]), close: () => {}, saved: async () => {} };
       await render(CreateAppEvent, props);
       await change(field('Trigger name'), 'Invoices');
       await change(field('Task instructions'), 'Check the email.');
@@ -281,7 +282,7 @@ test('removing a trigger asks first and sends one exact removal', async () => {
     async ({ render, button, click, update }) => {
       await setup();
       const { EventReview } = await import('../src/react/agents/automation/event-review.tsx');
-      await render(EventReview, { agent: 'a', trigger, close: () => closed++, saved: async () => {} });
+      await render(EventReview, { agent: 'a', agentName: 'Pool agent', trigger, close: () => closed++, saved: async () => {} });
       await click(button('Remove event trigger'));
       assert.equal(writes.length, 0);
       assert.match(document.body.textContent, /stops sending it/);

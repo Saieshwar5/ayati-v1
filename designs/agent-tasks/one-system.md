@@ -22,13 +22,27 @@ and shows on the same Calendar and agent page.
 
 ## Decisions
 
-1. **The channel rule (owner, 2026-11-24).** A task asked for in a channel or group
-   belongs to that conversation: each run's result is posted there for everyone in
-   it, but the agent works in a private work room with the person who asked
-   (`relay_tasks.room`), so the channel sees one clean message per run and nothing
-   when a run has nothing to report. Questions and approvals reach the person who
-   asked through Needs you. A task asked for in a direct chat runs in that chat, as
-   in schema 144.
+1. **One rule (owner, 2026-11-25; replaces the channel rule of 2026-11-24).** "Even
+   scheduled tasks should work similar to normal tasks; they can have entire channel
+   context room access. Even events also work the same like schedules; it should be who
+   activated the trigger." **A task run happens in the task's own conversation, as the
+   person it belongs to**, exactly like that person asking the agent there:
+
+   | What | Belongs to | Runs in | Access of |
+   | --- | --- | --- | --- |
+   | Task asked in a direct chat | the asker | that chat | the asker |
+   | Task asked in a channel or group | the asker | that channel or group (its recent messages, threads and room memory shelf, like an @mention) | the asker |
+   | Event trigger | the person who set it up | the conversation chosen when setting it up; none chosen: that person's direct chat with the agent | that person |
+   | Assistant's regular check | its person | the person's chat with the assistant, "Regular check" thread | its person |
+
+   Each run's input shows as one "↻ Following up on <task>" line (an event run: "↻
+   <task>"), then the agent's reply; a `NO_CHANGE` run shows nothing. Approvals and the
+   agent's questions go to the run's person as for their own background requests.
+   Access is checked again at every run by the ordinary intake: someone who left the
+   conversation or workspace blocks the wake-up. Work rooms, a trigger's Memory
+   setting, per-subject rooms and copied run results are gone (schema 151). Before,
+   the channel rule (2026-11-24) ran a channel's task in a private work room
+   (`relay_tasks.room`) and posted each result to the channel.
 2. **Instructions.** A task keeps what each run must do (`relay_tasks.instructions`,
    up to 10,000 characters). `create_task` and `change_task` take `instructions`; a
    converted schedule keeps its content there.
@@ -40,9 +54,9 @@ and shows on the same Calendar and agent page.
    weekly on the first run's weekday and time; whole days → daily; whole hours →
    hourly at the same minute; otherwise minutes), and its next run booked when it is
    enabled. A paused or blocked schedule becomes a paused task with its reason; a
-   completed one a done task. It keeps running in its own work room and posts
-   where it posted before (decision 1); one with no post target belongs to its work
-   room and shows only in Activity. Its earlier runs are linked to the task. The old row is marked moved and
+   completed one a done task. Since schema 151 it runs in the conversation it posted
+   to, or with no post target in its person's direct chat with the agent (decision
+   1). Its earlier runs are linked to the task. The old row is marked moved and
    no longer runs (schema 150 dropped the schedule tables).
 5. **Home panel updates are not tasks.** A panel's fixed-interval update moves from
    its schedule binding to the panel's own update queue (`relay_home_update_wanted`),
@@ -68,7 +82,8 @@ and shows on the same Calendar and agent page.
 Each step is its own schema version and commit, with its tests passing before the
 next starts.
 
-1. Task rooms, instructions, minute rules and the channel rule.
+1. Task rooms, instructions, minute rules and the channel rule (replaced by the one
+   rule in schema 151).
 2. Home panel interval updates on the panel's own queue.
 3. Schedules converted to tasks; the schedule engine, API and screens removed.
 4. Event triggers as task wake-ups.
@@ -94,3 +109,12 @@ gone, and what still read them now reads tasks and their wake-ups (Activity's `t
 type, retry, the owner view, revocation, Library use where a run posts, closing a
 workspace, and removing a member, which pauses their repeating tasks). See
 [runtime/tasks.md](../../runtime/tasks.md#since-schema-150-the-old-schedules-are-gone).
+
+Schema 151 is the one rule (`m20261125_000151_tasks_in_conversations`, 2026-11-25,
+decision 1): every task and trigger runs in a conversation as its person; a task or
+trigger whose only place was a work room moves to its person's direct chat with the
+agent (opened when there is none; a task whose person left is paused with the
+reason); `relay_tasks.room`, `relay_chats.work`, a trigger's `memory` and `room`,
+`relay_event_deliveries.room`, `relay_subject_rooms` and `relay_run_posts` are
+dropped, and `relay_event_triggers.chat` is required. See
+[runtime/tasks.md](../../runtime/tasks.md#since-schema-151-one-rule-a-run-happens-in-its-conversation).

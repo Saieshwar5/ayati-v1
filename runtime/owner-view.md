@@ -2,8 +2,7 @@
 
 Each conversation with an agent is its own room. The agent shares how to work
 across rooms (its instructions, skills and approved notes) but never what was
-said: a person's chat, a channel's brief and a work room each stay where they
-are. This holds for outside customers and for workspace members alike.
+said: a person's chat and a channel's brief each stay where they are. This holds for outside customers and for workspace members alike.
 
 One exception, built 2026-11-15: **an agent's owners and admins can ask the
 agent itself about its work in every conversation**, in their own private chat
@@ -17,7 +16,7 @@ The controller decides from the running request, never from what a message says:
 
 - the person asking is one of the agent's [owners](agent-profiles.md#who-can-talk-to-it-and-its-owners), or an admin;
 - the conversation is their direct chat with the agent, which only they read
-  (not a channel, a group, a work room or an email thread);
+  (not a channel, a group or an email thread);
 - a person's message started the request (not a task's run, an event trigger, a
   hand-off or a panel update, whose content can come from outside).
 

@@ -33,12 +33,11 @@ export function RequestTalk({ item, member }: { item: AttentionItem; member: boo
     <p className="ui-help">You are not in {item.conversation_name}. As one of this agent’s owners or an admin you can read this request; reading it is recorded in the audit log.</p>
     <div className="activity-detail-actions"><Button onClick={() => setWanted(true)}>Read the request</Button>{privately}</div>
     {mutation.status && <p role="alert">{mutation.status}</p>}</section>;
-  const room = Boolean(data?.work_room || data?.trigger?.room);
   const mine = data && data.requester === workspaceSession?.user?.id && ['queued', 'running', 'waiting', 'streaming'].includes(data.state);
   const back = `&from=activity&item=${encodeURIComponent(attentionKey(item))}`;
   return <section className="activity-talk" aria-label="Conversation">
     <header><h3>Conversation{data ? ` · ${where(data)}` : ''}</h3>
-      {data?.in_conversation && !room && <a href={conversationUrl(data) + back}>Open in Chat ›</a>}</header>
+      {data?.in_conversation && <a href={conversationUrl(data) + back}>Open in Chat ›</a>}</header>
     {state.error && <p role="alert">{state.error}</p>}
     {!data && !state.error && <p role="status">Loading the conversation…</p>}
     {data && <div className="activity-talk-messages">
@@ -47,7 +46,6 @@ export function RequestTalk({ item, member }: { item: AttentionItem; member: boo
       {!data.message && !data.reply && <p className="ui-help">No messages are saved for this request yet.</p>}
     </div>}
     {data && !data.in_conversation && <p className="ui-help">You are not in this conversation, so there is nothing to open in Chat. Your view is recorded in the audit log.</p>}
-    {data && room && <p className="ui-help">This ran in its own work room, so there is no conversation to open.</p>}
     {mine && <AddNote label="Add to this request" send={text => steerRequest(data.id, text)} sent={() => setVersion(v => v + 1)} />}
     <div className="activity-detail-actions">{privately}</div>
     {mutation.status && <p role="alert">{mutation.status}</p>}

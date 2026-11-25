@@ -169,7 +169,7 @@ test('turning on events shows the key once and recent events show field names, n
   );
 });
 
-test('a system automation saves its type, fields, memory and result fields as one exact request', async () => {
+test('a system automation saves its type, fields, where it runs and result fields as one exact request', async () => {
   const writes = [];
   await reactFixture(
     async ({ render, button, click, change, update }) => {
@@ -192,9 +192,9 @@ test('a system automation saves its type, fields, memory and result fields as on
       assert.equal(sent.system, 'sys-1');
       assert.equal(sent.event, 'exam.result_published');
       assert.deepEqual(sent.fields, ['scores']);
-      assert.equal('memory' in sent, false, 'fresh each run by default');
-      assert.equal('chat' in sent, false, 'Activity only by default');
-      assert.match(document.body.textContent, /Saved\. Each exam\.result_published event/);
+      assert.equal('memory' in sent, false, 'no Memory setting (schema 151)');
+      assert.equal('chat' in sent, false, 'the direct chat by default');
+      assert.match(document.body.textContent, /Saved\. Each exam\.result_published event from .* starts Study Coach in your direct chat with it/);
     },
     {
       url,
@@ -212,7 +212,7 @@ test('a system automation saves its type, fields, memory and result fields as on
   );
 });
 
-test('a tool with a subject input can be marked "Needs the subject"; automations can remember per subject', async () => {
+test('a tool with a subject input can be marked "Needs the subject"', async () => {
   const { initialChoices } = await import('../src/react/agents/systems/model.ts');
   const { chosen } = await import('../src/react/agents/systems/review-tools.tsx');
   const tools = [...listed, { name: 'get_profile', title: 'get_profile', description: '', suggested: 'read', supported: true, reason: null, fields: ['subject'] }];
@@ -224,6 +224,4 @@ test('a tool with a subject input can be marked "Needs the subject"; automations
   const kept = initialChoices(tools, [{ name: 'get_profile', kind: 'read', rule: 'ask', subject: true }]);
   assert.equal(kept.get_profile.subject, true);
   assert.equal(kept.get_marks.on, false, 'a saved review keeps other tools off');
-  const { memoryLabels } = await import('../src/react/agents/automation/results-and-memory.tsx');
-  assert.equal(memoryLabels.subject.title, 'Per subject');
 });

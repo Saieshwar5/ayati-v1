@@ -9,6 +9,12 @@ wake-up's reply) has the type `task` ("Task runs" in History, `task_runs` in the
 totals), request details name its task under Started by, and an old schedule run
 reads as an ordinary request of the task it became.
 
+Since schema 151 every task and trigger run happens in its conversation, as its person
+([tasks](tasks.md#since-schema-151-one-rule-a-run-happens-in-its-conversation)): request
+details show **Ran in** with that conversation and **Open conversation**, the task page
+shows **Runs in**, and a trigger's run shows its trigger and who set it up. The work-room
+flag (`work_room`) and the trigger's Memory, posted and post-reason fields are gone.
+
 ## Views
 
 Five since 2026-11-21 ([Design A](../designs/activity-next/README.md)); before that six.
@@ -229,7 +235,7 @@ busiest labelled, a tooltip on hover or focus) and requests by agent (top 12), e
   agent reads them (`my_goals`) and reports progress and an early risk (`update_goal
   {goal, current, risk?}`); Review shows a progress bar and the risk.
 - **Weekly review**: "Turn on" makes a weekly routine for the agent (run as the person
-  who turned it on, in its own work room) in which it writes `write_review {done,
+  who turned it on, in their direct chat with the agent since schema 151) in which it writes `write_review {done,
   went_wrong, learned, suggestion?}`, once per request. Review lists the last 30 days'
   reviews with any suggested change and a link to set up the agent.
 

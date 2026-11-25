@@ -20,14 +20,10 @@ export type ActivityItem = {
   requester: string; requester_name: string | null; summary: string; state: string; latest_update: string;
   created_ms: number; finished_ms: number | null; can_cancel: boolean; approvals: { id: string; title: string; state: string }[];
 };
-/** The event trigger a run came from (schema 115), and whether its result was posted. */
+/** The event trigger a run came from; the run happened in its conversation (schema 151). */
 export type RunTrigger = { id: string; name: string; agent: string; state: string; revision: number; principal: string;
-  post_to: string | null; posted: 'posted' | 'skipped' | null; post_reason: string | null;
-  /** The run happened in the trigger's own work room, which isn't a conversation. */
-  room: boolean; source: string | null; memory: 'fresh' | 'remember' | 'subject' };
+  runs_in: string | null; source: string | null; task: string | null };
 export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; trigger?: RunTrigger | null;
-  /** It ran in a task's or trigger's own work room, which isn't a conversation. */
-  work_room?: boolean;
   /** What the person added while it ran (Phase 4), and whether the agent saw it. */
   added?: { text: string; from: string; at: number; seen: boolean; carried: string | null }[];
   /** Tokens through the model gateway (core-agent CA3); zero calls without it. */
@@ -117,8 +113,11 @@ export function status(item: { state: string; approvals?: { state: string }[] })
   }
 }
 export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', task: 'Task run', trigger: 'Trigger', handoff: 'Hand-off', panel: 'Panel update' };
+/** The conversation a request happened in; a task's or trigger's run happens in its
+ * conversation too (schema 151). */
+export const conversationLabel = (item: ActivityItem) => item.conversation_kind === 'direct' ? 'direct chat' : `#${item.conversation_name}`;
 const place = (item: ActivityItem) => item.kind === 'panel' ? 'Home panel' : item.kind === 'task' ? `Task · ${item.task?.title ?? item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
-  : item.conversation_kind === 'direct' ? 'direct chat' : `#${item.conversation_name}`;
+  : conversationLabel(item);
 export const where = (item: ActivityItem) => [place(item), doorLabel(item.door)].filter(Boolean).join(' · ');
 export const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 export function dayLabel(ms: number): string {
@@ -160,7 +159,9 @@ export function foldPanelUpdates(items: ActivityItem[]): HistoryEntry[] {
 export type TaskStatus = 'open' | 'working' | 'waiting' | 'needs_fixing' | 'scheduled' | 'late' | 'paused' | 'done' | 'failed' | 'cancelled' | 'not_task';
 /** A task on a message; schema 144 adds who it is for, whether it repeats and its next run. */
 export type TaskRef = { id: string; title: string; kind: 'automatic' | 'commitment'; status: TaskStatus;
-  requester?: string; repeats?: boolean; paused?: boolean; next_text?: string | null };
+  requester?: string; repeats?: boolean; paused?: boolean; next_text?: string | null;
+  /** On a wake-up's input in Chat: what woke the task (a run, an event, a follow-up, the next part). */
+  wakeup?: 'repeat' | 'event' | 'follow_up' | 'continue' };
 /** A task's lifetime (designs/agent-tasks): its rule as a sentence and its next run. */
 export type TaskLifetime = { rule_text: string | null; next_ms: number | null; next_text: string | null; timezone: string;
   runs: number; max_runs: number | null; paused: boolean };

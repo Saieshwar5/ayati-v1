@@ -67,21 +67,21 @@ test('event review shows account projection audience and principal before an exa
     async ({ render, button, click, change, update }) => {
       await setup();
       const { CreateEvent } = await import('../src/react/agents/automation/event-create.tsx');
-      await render(CreateEvent, { agent: 'a', directory, close: () => {}, saved: async () => {} });
+      await render(CreateEvent, { agent: 'a', agentName: 'Pool agent', directory, close: () => {}, saved: async () => {} });
       await change(field('Trigger name'), 'Review delays');
       await change(field('Task instructions'), 'Review this event and ask before changing orders.');
       await change(field('status'), 'delayed');
-      await click(field('Activity, and post the result to'));
+      await change(field('Conversation'), 'channel');
       await click(button('Review event trigger'));
       assert.equal(writes.length, 0);
       for (const text of [
-        'Fresh each run',
+        'Runs in',
         'orders@example.test',
         'order_id, status',
         'Delivery operations',
         'owner@example.test',
         'status = delayed',
-        'current members',
+        'replies there once',
       ])
         assert.ok(document.body.textContent.includes(text));
       await update(() => {
@@ -116,7 +116,7 @@ test('uncertain event activation preserves its exact ID and payload across reope
     async ({ render, button, click, change }) => {
       await setup();
       const { CreateEvent } = await import('../src/react/agents/automation/event-create.tsx');
-      const props = { agent: 'a', directory, close: () => {}, saved: async () => {} };
+      const props = { agent: 'a', agentName: 'Pool agent', directory, close: () => {}, saved: async () => {} };
       await render(CreateEvent, props);
       await change(field('Trigger name'), 'Delay review');
       await change(field('Task instructions'), 'Check the supplied fields.');
@@ -147,7 +147,7 @@ test('trigger review fetches instructions without mutation and pauses with one e
     async ({ render, button, update }) => {
       await setup();
       const { EventReview } = await import('../src/react/agents/automation/event-review.tsx');
-      await render(EventReview, { agent: 'a', trigger, close: () => {}, saved: async () => {} });
+      await render(EventReview, { agent: 'a', agentName: 'Pool agent', trigger, close: () => {}, saved: async () => {} });
       assert.match(document.body.textContent, /PRIVATE_EVENT_TASK/);
       assert.equal(writes.length, 0);
       await update(() => {
@@ -179,7 +179,7 @@ test('unavailable provider setup explains the missing source and starts no write
     async ({ render, button }) => {
       await setup();
       const { EventTriggers } = await import('../src/react/agents/automation/events.tsx');
-      await render(EventTriggers, { agent: 'a' });
+      await render(EventTriggers, { agent: 'a', agentName: 'Pool agent' });
       assert.equal(button('Create event trigger'), undefined, 'new triggers start from New automation');
       assert.match(document.body.textContent, /An operator sets one up and an admin approves it/);
       assert.equal(writes, 0);
@@ -200,7 +200,7 @@ test('editing an uncertain activation explicitly creates a new request and retai
     async ({ render, button, click, change }) => {
       await setup();
       const { CreateEvent } = await import('../src/react/agents/automation/event-create.tsx');
-      const props = { agent: 'a', directory, close: () => {}, saved: async () => {} };
+      const props = { agent: 'a', agentName: 'Pool agent', directory, close: () => {}, saved: async () => {} };
       await render(CreateEvent, props);
       await change(field('Trigger name'), 'First delay trigger');
       await change(field('Task instructions'), 'Review the event.');
@@ -241,6 +241,7 @@ test('late event-state acknowledgments after unmount cannot refresh a previous a
       const { EventReview } = await import('../src/react/agents/automation/event-review.tsx');
       await render(EventReview, {
         agent: 'a',
+        agentName: 'Pool agent',
         trigger,
         close: () => {},
         saved: async () => {

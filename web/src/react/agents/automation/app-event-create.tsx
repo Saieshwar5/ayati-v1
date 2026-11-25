@@ -3,7 +3,7 @@ import { identityRequest, storageScope, workspaceSession } from '../../../worksp
 import { Button, Dialog } from '../../ui';
 import { useMutation, useResource } from '../../requests';
 import { eventPath, loadAppEvents, type AppTriggerInput, type Events } from './event-model';
-import { MemoryChoice, ResultsChoice, memoryLabels, type Memory } from './results-and-memory';
+import { RunsInChoice, runsInHelp, runsInText } from './runs-in';
 
 function pending(key: string): AppTriggerInput | undefined {
   try {
@@ -28,15 +28,18 @@ function pending(key: string): AppTriggerInput | undefined {
 const tooLong = (text: string, bytes: number) => new TextEncoder().encode(text).length > bytes;
 
 /** "When something happens in an app": a connected app, one of its events,
- * optional exact filters on its fields, then the usual instructions and
- * destination. The server subscribes at the app's provider on activation. */
+ * optional exact filters on its fields, then the usual instructions and the
+ * conversation it runs in. The server subscribes at the app's provider on
+ * activation. */
 export function CreateAppEvent({
   agent,
+  agentName,
   directory,
   close,
   saved,
 }: {
   agent: string;
+  agentName: string;
   directory: Events;
   close: () => void;
   saved: () => Promise<void>;
@@ -56,11 +59,10 @@ export function CreateAppEvent({
   const events = useResource(load);
   const [chosen, choose] = useState(original?.event ?? '');
   const event = events.data?.find((e) => e.id === chosen) ?? events.data?.[0];
-  // Runs happen in a private work room (schema 115); posting a summary is optional.
-  const [post, setPost] = useState(Boolean(original?.chat));
+  // A run happens in the chosen conversation, or the person's direct chat with the
+  // agent when none is chosen (schema 151).
   const [destination, setDestination] = useState(original?.chat ?? '');
-  const place = post ? (app?.conversations.find((c) => c.id === destination) ?? app?.conversations[0]) : undefined;
-  const [memory, setMemory] = useState<Memory>(original?.memory ?? 'fresh');
+  const place = destination ? app?.conversations.find((c) => c.id === destination) : undefined;
   const [name, setName] = useState(original?.name ?? ''),
     [task, setTask] = useState(original?.instructions ?? '');
   const [filters, setFilters] = useState<Record<string, string>>(
@@ -95,7 +97,7 @@ export function CreateAppEvent({
   const inspect = () =>
     void m.run(async () => {
       if (!app || !ready || !event || !app.authority) throw new Error('Choose a connected app that is ready.');
-      if (post && !place) throw new Error('Choose a conversation you may post to, or keep results in Activity only.');
+      if (destination && !place) throw new Error(`Choose a conversation where you may ask ${agentName}, or your direct chat with it.`);
       if (!name.trim() || tooLong(name, 100) || !task.trim() || tooLong(task, 4000))
         throw new Error('Use a name up to 100 bytes and task instructions up to 4,000 bytes.');
       const filter = Object.fromEntries(
@@ -107,7 +109,6 @@ export function CreateAppEvent({
         connection: app.connection,
         event: event.id,
         ...(place ? { chat: place.id } : {}),
-        ...(memory === 'remember' ? { memory } : {}),
         name,
         instructions: task,
         filter,
@@ -157,7 +158,7 @@ export function CreateAppEvent({
             </Button>
           </>
         ) : (
-          <Button primary disabled={m.busy || !ready || !event || (post && !place)} onClick={inspect}>
+          <Button primary disabled={m.busy || !ready || !event || Boolean(destination && !place)} onClick={inspect}>
             Review event trigger
           </Button>
         )
@@ -200,12 +201,8 @@ export function CreateAppEvent({
             <dd>{reviewedEvent?.title ?? review.event}</dd>
             <dt>Included fields</dt>
             <dd>{reviewedEvent?.fields.join(', ')}</dd>
-            <dt>Results</dt>
-            <dd>
-              {review.chat ? `Activity, and a summary in ${reviewedPlace?.name ?? 'a conversation no longer available'}` : 'Activity only'}
-            </dd>
-            <dt>Memory</dt>
-            <dd>{memoryLabels[review.memory ?? 'fresh'].title}</dd>
+            <dt>Runs in</dt>
+            <dd>{review.chat ? (reviewedPlace?.name ?? 'A conversation no longer available') : runsInText(agentName)}</dd>
             <dt>Authorized by</dt>
             <dd>{workspaceSession?.user?.display_name ?? workspaceSession?.user?.email ?? 'You'}</dd>
             <dt>Exact text filters</dt>
@@ -215,12 +212,7 @@ export function CreateAppEvent({
                 .join('; ') || 'Every event of this kind'}
             </dd>
           </dl>
-          <p>
-            Each run happens in its own private room and appears in Activity. It never reads anyone’s conversations.
-            {review.chat
-              ? ' A short result is posted to the conversation you chose; its current members are the audience.'
-              : ' Only you, the agent’s owners and admins see what it found.'}
-          </p>
+          <p>{runsInHelp(agentName)} Its runs also show in Activity.</p>
           <p>
             Activating asks the app to send these events to Cuckoo. Automatic reading needs{' '}
             {app?.read_title ? `“${app.read_title}”` : 'the read action'} set to Allow on the agent’s Tools tab. Every
@@ -280,15 +272,12 @@ export function CreateAppEvent({
                   ))}
                 </select>
               </label>
-              <ResultsChoice
-                name="app-event"
-                post={post}
-                setPost={setPost}
-                chat={place?.id ?? app?.conversations[0]?.id ?? ''}
+              <RunsInChoice
+                chat={destination}
                 setChat={setDestination}
                 conversations={app?.conversations ?? []}
+                agentName={agentName}
               />
-              <MemoryChoice name="app-event" value={memory} change={setMemory} />
               <label className="ui-field">
                 Trigger name
                 <input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />

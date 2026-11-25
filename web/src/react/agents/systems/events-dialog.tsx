@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { Button, Dialog } from '../../ui';
 import { useMutation, useResource } from '../../requests';
-import { forgetSubject, loadSystemEvents, sendTestEvent, switchEvents, validType, type System } from './model';
+import { loadSystemEvents, sendTestEvent, switchEvents, validType, type System } from './model';
 
 /** A system's events (C2): turn them on with a key shown once, see what
  * arrived (field names only, never values) and send a test event. */
@@ -14,7 +14,6 @@ export function EventsDialog({ agent, system, canChange, close, changed }: {
   const [confirmOff, setConfirmOff] = useState(false);
   const [type, setType] = useState('');
   const [sample, setSample] = useState('{}');
-  const [forget, setForget] = useState('');
   const m = useMutation();
   const turn = (on: boolean) => void m.run(async () => {
     const answer = await switchEvents(agent, system.id, on);
@@ -30,12 +29,6 @@ export function EventsDialog({ agent, system, canChange, close, changed }: {
     const answer = await sendTestEvent(agent, system.id, type, parsed as Record<string, unknown>);
     await refresh();
     m.setStatus(answer.matched ? `Test event sent; ${answer.matched} ${answer.matched === 1 ? 'automation runs' : 'automations run'}. See Activity.` : 'Test event sent. No automation listens to this type yet.');
-  });
-  const forgetOne = () => void m.run(async () => {
-    if (!forget.trim()) throw new Error('Name the subject to forget, such as stu-104.');
-    const answer = await forgetSubject(agent, system.id, forget.trim());
-    setForget('');
-    m.setStatus(answer.forgotten ? `Forgot ${forget.trim()}. Its next event starts fresh.` : `Nothing was remembered about ${forget.trim()}.`);
   });
   const copy = (text: string) => void navigator.clipboard?.writeText(text).catch(() => {});
   return <Dialog drawer title={`${system.name} · Events`} close={close} busy={m.busy} status={m.status}
@@ -73,11 +66,6 @@ Content-Type: application/json
         <datalist id={`types-${system.id}`}>{data.types.map(t => <option key={t.type} value={t.type} />)}</datalist>
         <label className="ui-field">Sample data (JSON)<textarea rows={3} value={sample} onChange={event => setSample(event.target.value)} /></label>
         <Button disabled={m.busy} onClick={test}>Send test event</Button>
-      </fieldset>}
-      {canChange && <fieldset className="system-test"><legend>Forget a subject</legend>
-        <p className="ui-help">Clears what {system.name}’s automations remember about one subject, such as a student who left.</p>
-        <label className="ui-field">Subject<input value={forget} placeholder="stu-104" onChange={event => setForget(event.target.value)} /></label>
-        <Button disabled={m.busy} onClick={forgetOne}>Forget this subject</Button>
       </fieldset>}
     </div>}
   </Dialog>;

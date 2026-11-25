@@ -35,10 +35,11 @@ function RepeatingTaskLine({ task }: { task: TaskRef }) {
   </div>;
 }
 
-/** A follow-up the agent booked for itself: one light line in the conversation,
- * so it doesn't read as if the person had asked again. */
+/** A task's wake-up input (a run, an event, a follow-up, the next part): one light
+ * line in whatever conversation the task runs in (schema 151), so it doesn't read
+ * as if the person had asked again. An event run names its trigger's task. */
 export function FollowUpLine({ element, id, task, time }: { element: Ref<HTMLElement>; id: string; task: TaskRef; time: ReactNode }) {
   return <article ref={element} tabIndex={-1} data-message-id={id} className="chat-follow-up" aria-label="Agent follow-up">
-    <p><span aria-hidden="true">↻</span> Following up on <a href={taskUrl(task.id)}>{task.title}</a> {time}</p>
+    <p><span aria-hidden="true">↻</span> {task.wakeup === 'event' ? '' : 'Following up on '}<a href={taskUrl(task.id)}>{task.title}</a> {time}</p>
   </article>;
 }

@@ -1,6 +1,37 @@
 # Shared connected-system events
 
-## Since schema 148: each trigger has a task
+## Since schema 151: a trigger runs in its conversation, as its person
+
+Built 2026-11-25 (the owner's one rule, [one system](../designs/agent-tasks/one-system.md)
+decision 1; see [tasks](tasks.md#since-schema-151-one-rule-a-run-happens-in-its-conversation)).
+
+- **Runs in.** A trigger runs in the conversation chosen when it is set up, as the
+  person who set it up, through the same intake as that person asking the agent there
+  (`event_dispatch`, `background_in`). With none chosen it runs in that person's direct
+  chat with the agent (`shared_rooms::direct_room`, opened at setup), so
+  `relay_event_triggers.chat` is always set; an assistant's run is a thread there, as
+  before. The run's input reads "↻ <task>" in the conversation and the agent's reply
+  follows it; `NO_CHANGE` shows nothing. Nothing is posted or copied.
+- **Authority.** Setting up and every run need the person to look after the agent, use
+  it, and be able to ask it in that conversation (`automation_access::may_ask_in`);
+  this replaces "may post there". Someone who left the conversation starts nothing.
+- **Admission.** One unfinished run per trigger; later deliveries wait, in order. The
+  per-subject variant (different subjects side by side) existed for per-subject rooms
+  and is gone. A delivery keeps its `subject` for tools marked "Needs the subject".
+- **Removed.** The Memory setting (`relay_event_triggers.memory`, `room`), the room a
+  delivery ran in, per-subject rooms and "Forget this subject", posted results
+  (`relay_run_posts`) and their guard. The web "Where results go" control is
+  **Runs in** (a conversation picker; empty: "Your direct chat with <agent>").
+- **Migration.** A trigger that posted somewhere runs there; one that posted nowhere
+  runs in its person's direct chat (its task too); one whose person left is blocked.
+  Its saved input loses `memory`.
+
+Checks: PostgreSQL `tasks::conversation_tests` (in its conversation or the direct chat,
+a person who left runs nothing), `tasks::conversation_migration_tests`,
+`tasks::trigger_tests`, `systems::subjects_tests`; web `agent-events`,
+`agent-app-events`, `agent-systems`.
+
+## Since schema 148: each trigger has a task (runs moved to its conversation in schema 151)
 
 Built 2026-11-24, step 4 of [one system](../designs/agent-tasks/one-system.md) (decision
 6). Everything an agent does on its own is a [task](tasks.md); a trigger is how its task
@@ -41,7 +72,7 @@ Checks: PostgreSQL `tasks::trigger_tests` (migration from schema 147, runs in th
 and posting, quiet runs, waiting deliveries, pause, resume and end both ways, the
 Calendar); web `agent-tasks`, `agent-profile`.
 
-## Since schema 115: trigger runs happen in work rooms, with a Memory setting
+## Since schema 115: trigger runs happen in work rooms, with a Memory setting (removed in schema 151)
 
 Built 2026-11-14 (step E2 of the owner-approved plan "How work reaches agents", D247).
 Event triggers now behave like schedules (schema 56):

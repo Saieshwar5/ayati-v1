@@ -411,12 +411,12 @@ checked with a real model: whether its lines are good is unproven.
 ## One room (second piece)
 
 - **Schedules and triggers run in its room.** An assistant's schedule or event
-  trigger never opens a work room. Its first run adds one line to the room
+  trigger runs in its room (since schema 151 every task and trigger runs in its
+  conversation, and work rooms are gone). Its first run adds one line to the room
   ("Schedule: Delivery review", "Trigger: New mail"), and every run is a thread
   under that line (`relay_assistant_threads`): the request and the assistant's
-  reply. A run reads the room and the earlier runs. Its Memory setting is not
-  used, because there is one room. Triggers with per-subject memory keep their
-  subject rooms.
+  reply. A run reads the room and the earlier runs. (The Memory setting and
+  per-subject rooms were removed in schema 151.)
 - **It remembers what its tools told it.** For other agents, a reply built from
   a tool call or an event is left out of later context, because being in a
   conversation is not permission to reuse a source. In an assistant's own room
@@ -652,7 +652,7 @@ visit.
   chat, another member unable to talk to it or see it; renaming, and refusals
   for opening it to others, adding an owner and a channel.
 - PostgreSQL `assistants::tests`, second piece: a schedule's runs as one thread in
-  the room with no work room, the second run reading the first; a tool-built
+  the room, the second run reading the first; a tool-built
   reply remembered by an assistant and still left out for another agent.
 - Web `tests/navigation.test.mjs` (the first section, not repeated under Direct
   messages, the chat's line) and `tests/assistant-people.test.mjs` (no Only me

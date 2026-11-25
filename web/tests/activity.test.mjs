@@ -194,7 +194,7 @@ test('"See what it did" on an agent reply opens its request details', async () =
   } });
 });
 
-test('a link to a task run opens it: the task that started it, who it is for, and no conversation to open', async () => {
+test('a link to a task run opens it: the task that started it, who it is for, and the conversation it ran in', async () => {
   const run = '22222222-2222-4222-8222-222222222222';
   const task = { id: 'chase-task', title: 'Monday invoice chase', kind: 'commitment', status: 'scheduled' };
   await reactFixture(async ({ render }) => {
@@ -202,12 +202,14 @@ test('a link to a task run opens it: the task that started it, who it is for, an
     const drawer = document.querySelector('dialog');
     assert.match(drawer.textContent, /Started byTask · Monday invoice chase/);
     assert.ok(drawer.querySelector('a[href$="task=chase-task"]'), 'its task, where its other runs are');
-    assert.equal(drawer.querySelector('a[href*="view=chat"]'), null, 'a work room is not a conversation');
+    assert.ok(drawer.querySelector('a[href*="view=chat"]'), 'it ran in a conversation, which opens');
     assert.match(drawer.textContent, /ForKavya Nair/);
+    assert.match(drawer.textContent, /Ran in#sales/);
+    assert.ok(!drawer.textContent.includes('work room') && !drawer.textContent.includes('Memory'));
   }, { url: `${url}&run=${run}`, fetch: async (path) => {
     const shared = common(path); if (shared) return shared;
-    if (path.includes(`/activity/requests/${run}`)) return response({ ...item(run, 'Monday invoice chase', { kind: 'task', task, chat: 'room', conversation_name: 'Monday invoice chase', conversation_kind: 'direct' }),
-      message: 'Task run 3 · Monday invoice chase', reply: 'Sent 14 reminders.', steps: [], fix: null, disagreement: null, work_room: true });
+    if (path.includes(`/activity/requests/${run}`)) return response({ ...item(run, 'Monday invoice chase', { kind: 'task', task }),
+      message: 'Task run 3 · Monday invoice chase', reply: 'Sent 14 reminders.', steps: [], fix: null, disagreement: null });
     return response({ items: [], next_before: null });
   } });
 });

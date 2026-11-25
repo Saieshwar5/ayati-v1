@@ -1,5 +1,59 @@
 # Tasks (schema 58; lifetimes, schema 144)
 
+## Since schema 151: one rule, a run happens in its conversation
+
+Built 2026-11-25 ([one system](../designs/agent-tasks/one-system.md), decision 1, the
+owner's one rule). **A task run happens in the task's own conversation, as the person
+it belongs to**, exactly like that person asking the agent there.
+
+| What | Belongs to | Runs in | Access of |
+| --- | --- | --- | --- |
+| Task asked in a direct chat | the asker | that chat | the asker |
+| Task asked in a channel or group | the asker | that channel or group | the asker |
+| Event trigger | the person who set it up | the conversation chosen for it; none chosen: their direct chat with the agent | that person |
+| Assistant's regular check | its person | their chat with the assistant, "Regular check" thread | its person |
+| Weekly review | the person who turned it on | their direct chat with the agent | that person |
+
+- **What a run sees.** It is an ordinary background request in that conversation
+  (`chat_intake::background_in`, `relay_task_wakeups.reply`): its history is the
+  conversation's recent messages, other people's included, and it reads the room's
+  memory shelf in a channel or the person's shelf in a direct chat. A note it keeps
+  wider than here still waits for a person (`background`). Event replies stay out of
+  later history, as before (they carry event data).
+- **What the conversation shows.** The run's input reads as one line, "↻ Following up
+  on <task>" (an event run: "↻ <task>"), for every kind of wake-up (`follow_up.wakeup`
+  says which), then the agent's reply, in the main timeline. A run that answers
+  `NO_CHANGE` shows nothing. Nothing is copied anywhere.
+- **Who it reaches.** Questions go to the run's person (Needs you); approvals to whoever
+  decides them, as for any background request there.
+- **Access, every run.** The ordinary intake checks the person may still ask the agent
+  in that conversation; someone who left it is blocked ("Follow-up blocked: …") and
+  the task needs fixing. A trigger's person must be able to ask the agent where it
+  runs (`automation_access::may_ask_in`), which replaces "may post there".
+- **Library.** A "viewers" document may be used in a run only if everyone in the run's
+  conversation may see it (`relay_library_agent_use`).
+- **Migration** `m20261125_000151_tasks_in_conversations`: a task in a real conversation
+  stays there and loses `room`; a task or trigger whose only place was a work room (no
+  post target, Activity only, a weekly review) moves to its person's direct chat with
+  the agent, opened when there is none; a task whose person left the workspace is
+  paused ("…no longer in the workspace, so it has no conversation to run in.") and a
+  trigger whose person left is blocked. Triggers lose `memory` (and it leaves their
+  saved input), `room` and the per-subject rooms; their `chat` is required. Work rooms
+  keep their old messages but no people or agents (their queued requests are
+  cancelled), and `relay_chats.work`, `relay_tasks.room`, `relay_event_deliveries.room`,
+  `relay_subject_rooms` and `relay_run_posts` are dropped.
+- **Removed:** work rooms (`work_rooms.rs`), posted run results and their guard,
+  the trigger Memory setting, "Per subject" rooms and "Forget this subject", and the
+  per-subject parallel runs: one trigger's deliveries run one at a time, in order.
+
+Checks: PostgreSQL `tasks::conversation_tests` (a channel task's run is a job in the
+channel as the asker with the channel's history and room shelf, its reply in the
+channel and nothing copied, a question reaching only the asker; NO_CHANGE shows
+nothing; someone who left the channel is blocked; a trigger runs in its conversation
+or its person's direct chat; a trigger whose person left runs nothing) and
+`tasks::conversation_migration_tests` (a populated schema 150 workspace upgraded); web
+`agent-app-events`, `agent-events`, `agent-systems`, `activity` and `activity-tasks`.
+
 ## Since schema 150: the old schedules are gone
 
 Built 2026-11-25. Migration `m20261125_000150_drop_schedules` drops the schedule tables
@@ -8,8 +62,8 @@ Built 2026-11-25. Migration `m20261125_000150_drop_schedules` drops the schedule
 (`relay_tasks.schedule`, `relay_review_routines.schedule`,
 `relay_home_maintenance.schedule`), their triggers and functions, and the `schedule`
 task origin (converted tasks are `origin='person'`, automatic ones `request`). Tasks
-converted in schema 147 keep their rules, runs (linked through `relay_chat_jobs.task`),
-rooms and posting; an old run reads as an ordinary request of its task and no longer
+converted in schema 147 keep their rules and runs (linked through `relay_chat_jobs.task`)
+and, since schema 151, run in their conversation; an old run reads as an ordinary request of its task and no longer
 shows on the Calendar. A Home panel still linked to a paused or blocked schedule has its
 update agreement paused for review.
 
@@ -19,7 +73,7 @@ What schedules answered now comes from tasks:
   Activity's type is `task` ("Task runs", `task_runs` in the totals); it can't be retried
   from Activity; the owner view refuses it; revoking access stops it.
 - **Library use** in a task's run must suit everyone in the task's conversation, where
-  its result is posted (`relay_library_agent_use`).
+  it runs since schema 151 (`relay_library_agent_use`).
 - **Removing a member** pauses their open repeating tasks (a rule or a booked follow-up;
   "Paused because the person it was for left the workspace.") and the handover summary
   counts them as repeating tasks paused for review.
@@ -68,10 +122,9 @@ a commitment task with `origin='schedule'` (`person` since schema 150):
   `from` the same minute (every 2 hours from 09:30 → `from` 01:30); anything else → a
   minute rule with the exact period (it may exceed 1,440 minutes; Cuckoo reads and shows
   it, "Every 36 hours", though an agent can still only give 15 to 1,440). One-time: no rule.
-- **Where it runs and posts** (the channel rule): with a post target, `chat` = that
-  conversation and `room` = its work room (opened if it never ran); without one, `chat` =
-  its work room and `room` empty, so it shows only in Activity. Each run's result is
-  posted as before; a run that answers `NO_CHANGE` posts nothing.
+- **Where it ran** (the channel rule, replaced in schema 151): with a post target, `chat` =
+  that conversation and `room` = its work room; without one, `chat` = its work room.
+  Since schema 151 it runs in that conversation, or in its person's direct chat.
 - **State.** Enabled: its next run booked at the old `next_ms` (`repeat`, or `follow_up`
   for a one-time one, whose brief now carries the instructions). Paused: a paused task
   ("Paused before it became a task."). Blocked: paused with the schedule's reason.
@@ -81,16 +134,14 @@ a commitment task with `origin='schedule'` (`person` since schema 150):
 - **The schedule row** got `task` and was marked `state='completed'`; schema 150 dropped
   the schedule tables.
 - **Weekly reviews** (Activity › Insights) are tasks: turning one on makes a weekly task
-  "Weekly review" for that person in its own work room (`relay_review_routines.task`);
-  off pauses it, on resumes it.
-- **Posting rights.** A task's posts need its person to be allowed to ask the agent there,
-  not to look after the agent (triggers still need that).
+  "Weekly review" for that person (in their direct chat with the agent since schema
+  151; `relay_review_routines.task`); off pauses it, on resumes it.
 
 Removed: the schedule dispatcher, the schedule create/details/state/runs API (the
 agent's conversations for posting moved to `GET …/agent-profiles/{a}/post-targets`),
 schedule proposals in Chat and their cards, schedule items in Needs fixing, Coming up and
 Planned, the schedule half of New automation (At a time now opens Chat) and the agent
-page's schedule list. Checks: `work_rooms::tests`, `getting_better` weekly review; the
+page's schedule list. Checks: `getting_better` weekly review; the
 conversion is now checked through schema 150 (above).
 
 ## Since schema 144: tasks with a lifetime
