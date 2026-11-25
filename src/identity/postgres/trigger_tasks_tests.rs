@@ -1,7 +1,7 @@
 //! Schema 148: every event trigger has a task. A delivered event starts a run of
-//! it in the trigger's room, counted and shown with the task's runs; its result is
-//! posted where the trigger posts, and NO_CHANGE posts nothing. Pausing, resuming
-//! and ending the task and the trigger go together.
+//! it in the trigger's conversation (schema 151), counted and shown with the task's
+//! runs; NO_CHANGE shows nothing. Pausing, resuming and ending the task and the
+//! trigger go together.
 use super::super::event_tests::{Setup, setup, setup_on};
 use super::super::*;
 use crate::identity::chat::model::Job;
@@ -28,10 +28,9 @@ async fn value(db: &PgStore, sql: &str, args: Vec<sea_orm::Value>) -> Value {
         .unwrap()
 }
 
-/// Trigger `id`'s task with its wake-ups, and the trigger's room.
+/// Trigger `id`'s task with its wake-ups, and the trigger's conversation.
 async fn task_of(db: &PgStore, id: &str) -> Value {
-    value(db, "SELECT to_jsonb(t)||jsonb_build_object('trigger_room',x.room,
-          'room_work',(SELECT c.work FROM relay_chats c WHERE c.workspace=t.workspace AND c.id=COALESCE(t.room,t.chat)),
+    value(db, "SELECT to_jsonb(t)||jsonb_build_object('trigger_chat',x.chat,
           'wakeups',(SELECT COALESCE(jsonb_agg(jsonb_build_object('kind',k.kind,'state',k.state,'run',k.run,'reply',k.reply,'quiet',k.quiet) ORDER BY k.run),'[]') FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id))
         FROM relay_event_triggers x JOIN relay_tasks t ON t.workspace=x.workspace AND t.id=x.task WHERE x.id=$1", vec![id.into()]).await
 }
@@ -48,16 +47,10 @@ async fn trigger_state(db: &PgStore, id: &str) -> String {
     .to_owned()
 }
 
-async fn posted(db: &PgStore, reply: &str) -> Option<String> {
-    query(&db.db, "SELECT m.content FROM relay_run_posts p JOIN relay_chat_messages m ON m.workspace=p.workspace AND m.id=p.message WHERE p.reply=$1",
-        vec![reply.into()]).await.unwrap().map(|r| r.try_get("", "content").unwrap())
-}
-
-/// Save a copy of the setup's trigger under a new id with `memory` and `chat`.
-async fn another(s: &mut Setup, name: &str, memory: Option<&str>, chat: Option<String>) -> String {
+/// Save a copy of the setup's trigger under a new id running in `chat`.
+async fn another(s: &mut Setup, name: &str, chat: Option<String>) -> String {
     s.input.id = uuid::Uuid::new_v4().to_string();
     s.input.name = name.into();
-    s.input.memory = memory.map(str::to_string);
     s.input.chat = chat;
     s.save().await;
     s.input.id.clone()
@@ -65,7 +58,7 @@ async fn another(s: &mut Setup, name: &str, memory: Option<&str>, chat: Option<S
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn schema_148_gives_every_trigger_a_task_whose_runs_post_where_it_posted() {
+async fn schema_148_gives_every_trigger_a_task_whose_runs_happen_in_its_conversation() {
     let url = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&url).await.unwrap();
     let schema = format!("relay_trigger_tasks_{}", uuid::Uuid::new_v4().simple());
@@ -85,15 +78,9 @@ async fn schema_148_gives_every_trigger_a_task_whose_runs_post_where_it_posted()
     let mut s = setup_on(db).await;
     let c = s.c.clone();
 
-    // A remembering trigger that posts to the conversation ran once before the
-    // upgrade, with an automatic task as event runs had.
-    let remember = another(
-        &mut s,
-        "Review order change",
-        Some("remember"),
-        Some(c.clone()),
-    )
-    .await;
+    // A trigger in the conversation ran once before the upgrade, with an
+    // automatic task as event runs had.
+    let remember = another(&mut s, "Review order change", Some(c.clone())).await;
     s.accept("first", "delayed").await;
     assert_eq!(s.db.dispatch_events().await.unwrap(), 1);
     let old = claim_latest(&s.db).await;
@@ -107,12 +94,12 @@ async fn schema_148_gives_every_trigger_a_task_whose_runs_post_where_it_posted()
     s.db.chat_finish(&old, "One order is late.", "complete")
         .await
         .unwrap();
-    // A fresh one that posts nowhere and is paused, a blocked one, a removed one.
-    let paused = another(&mut s, "Quiet check", None, None).await;
+    // One in the person's direct chat that is paused, a blocked one, a removed one.
+    let paused = another(&mut s, "Quiet check", None).await;
     s.state(&s.change(1, false)).await;
-    let blocked = another(&mut s, "Blocked check", None, Some(c.clone())).await;
+    let blocked = another(&mut s, "Blocked check", Some(c.clone())).await;
     execute(&s.db.db, "UPDATE relay_event_triggers SET state='blocked',detail='Source access changed.' WHERE id=$1", vec![blocked.clone().into()]).await.unwrap();
-    let removed = another(&mut s, "Old check", None, None).await;
+    let removed = another(&mut s, "Old check", None).await;
     let mut end = s.change(1, false);
     end.remove = true;
     s.state(&end).await;
@@ -137,12 +124,8 @@ async fn schema_148_gives_every_trigger_a_task_whose_runs_post_where_it_posted()
     );
     assert_eq!(r["instructions"], "Review this change and report blockers.");
     assert_eq!(r["requester"], s.owner.id.as_str());
-    assert_eq!(r["chat"], c.as_str(), "it belongs where the trigger posts");
-    assert_eq!(
-        r["room"], r["trigger_room"],
-        "and works in the trigger's room"
-    );
-    assert_eq!(r["room_work"], true);
+    assert_eq!(r["chat"], c.as_str(), "it belongs where the trigger runs");
+    assert!(r.get("room").is_none(), "no work room (schema 151)");
     assert_eq!(r["runs"], 1);
     assert_eq!(
         r["wakeups"],
@@ -169,7 +152,12 @@ async fn schema_148_gives_every_trigger_a_task_whose_runs_post_where_it_posted()
         "the emptied automatic task is gone"
     );
     let p = task_of(&s.db, &paused).await;
-    assert!(p["room"].is_null() && p["room_work"] == true && p["trigger_room"].is_null());
+    assert_eq!(p["chat"], p["trigger_chat"]);
+    assert_ne!(
+        p["chat"],
+        c.as_str(),
+        "the person's direct chat with the agent"
+    );
     assert_eq!(p["paused_reason"], "Its event trigger is paused.");
     let b = task_of(&s.db, &blocked).await;
     assert_eq!(
@@ -179,11 +167,15 @@ async fn schema_148_gives_every_trigger_a_task_whose_runs_post_where_it_posted()
     let d = task_of(&s.db, &removed).await;
     assert_eq!(d["outcome"], "done");
 
-    // The next delivery is the task's next run, in its room, and posts its result.
+    // The next delivery is the task's next run, in its conversation, as its person;
+    // the reply stays there and nothing is copied.
     s.accept("second", "delayed").await;
     assert_eq!(s.db.dispatch_events().await.unwrap(), 1);
     let run = claim_latest(&s.db).await;
-    assert_eq!(run.chat, r["room"].as_str().unwrap());
+    assert_eq!(
+        (run.chat.as_str(), run.requester.as_str()),
+        (c.as_str(), s.owner.id.as_str())
+    );
     assert!(
         run.prompt.contains("This run belongs to your task") && run.prompt.contains("NO_CHANGE"),
         "{}",
@@ -192,16 +184,32 @@ async fn schema_148_gives_every_trigger_a_task_whose_runs_post_where_it_posted()
     s.db.chat_finish(&run, "Two orders are late.", "complete")
         .await
         .unwrap();
-    let shown = posted(&s.db, &run.reply).await.unwrap();
-    assert!(shown.starts_with("**Review order change**") && shown.contains("Two orders are late."));
-    // A run with nothing to report posts nothing and shows as no change.
+    let reply = value(
+        &s.db,
+        "SELECT to_jsonb(m) FROM relay_chat_messages m WHERE id=$1",
+        vec![run.reply.clone().into()],
+    )
+    .await;
+    assert_eq!(
+        (reply["chat"].as_str(), reply["content"].as_str()),
+        (Some(c.as_str()), Some("Two orders are late."))
+    );
+    // A run with nothing to report shows nothing and counts as no change.
     s.accept("third", "delayed").await;
     assert_eq!(s.db.dispatch_events().await.unwrap(), 1);
     let quiet = claim_latest(&s.db).await;
     s.db.chat_finish(&quiet, "NO_CHANGE", "complete")
         .await
         .unwrap();
-    assert!(posted(&s.db, &quiet.reply).await.is_none());
+    assert_eq!(
+        value(
+            &s.db,
+            "SELECT to_jsonb(state) FROM relay_chat_messages WHERE id=$1",
+            vec![quiet.reply.clone().into()]
+        )
+        .await,
+        "deleted"
+    );
     let after = task_of(&s.db, &remember).await;
     assert_eq!(after["runs"], 3);
     assert_eq!(after["wakeups"][2]["quiet"], true);

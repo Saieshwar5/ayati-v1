@@ -205,7 +205,7 @@ pub(super) async fn instructions(
     w: &str,
     task: &str,
 ) -> Result<Option<String>> {
-    if !super::wakeups::rooms(tx).await? {
+    if !super::wakeups::instructions_ready(tx).await? {
         return Ok(None);
     }
     Ok(query(
@@ -435,8 +435,9 @@ impl PgStore {
 }
 
 /// After a task run finished: a run that answered NO_CHANGE is kept out of the
-/// conversation and recorded as "no change"; returns whether it was. A run of an
-/// event trigger's task (schema 148) posts from `work_rooms::post_result`.
+/// conversation and recorded as "no change"; returns whether it was. Any other
+/// reply simply stays where the run happened, in the task's conversation
+/// (schema 151): nothing is copied anywhere.
 pub(crate) async fn after_finish(
     tx: &DatabaseTransaction,
     job: &Job,
@@ -445,41 +446,26 @@ pub(crate) async fn after_finish(
     if !super::wakeups::lifetimes(tx).await? {
         return Ok(false);
     }
-    if content.lines().next().map(str::trim) == Some("NO_CHANGE") {
-        let quiet = query(
-            tx,
-            "UPDATE relay_task_wakeups SET quiet=TRUE WHERE workspace=$1 AND reply=$2 AND kind IN ('repeat','event') RETURNING message",
-            vec![job.workspace.clone().into(), job.reply.clone().into()],
-        )
-        .await?;
-        let Some(row) = quiet else { return Ok(false) };
-        let message: Option<String> = row.try_get("", "message")?;
-        execute(
-            tx,
-            "UPDATE relay_chat_messages SET content='',attachments='[]',state='deleted' WHERE workspace=$1 AND id IN ($2,$3)",
-            vec![
-                job.workspace.clone().into(),
-                job.reply.clone().into(),
-                message.unwrap_or_default().into(),
-            ],
-        )
-        .await?;
-        return Ok(true);
+    if content.lines().next().map(str::trim) != Some("NO_CHANGE") {
+        return Ok(false);
     }
-    // A task a channel asked for works in its room and posts each run's result to
-    // the channel (schema 145, the owner's channel rule).
-    if super::wakeups::rooms(tx).await?
-        && let Some(row) = query(
-            tx,
-            "SELECT t.title,t.requester,t.chat FROM relay_task_wakeups k JOIN relay_tasks t ON t.workspace=k.workspace AND t.id=k.task
-             WHERE k.workspace=$1 AND k.reply=$2 AND k.kind<>'event' AND t.room=$3 AND t.chat<>t.room",
-            vec![job.workspace.clone().into(), job.reply.clone().into(), job.chat.clone().into()],
-        )
-        .await?
-    {
-        let (title, requester, chat): (String, String, String) =
-            (row.try_get("", "title")?, row.try_get("", "requester")?, row.try_get("", "chat")?);
-        super::super::work_rooms::post(tx, job, content, &title, &requester, &chat, false).await?;
-    }
-    Ok(false)
+    let quiet = query(
+        tx,
+        "UPDATE relay_task_wakeups SET quiet=TRUE WHERE workspace=$1 AND reply=$2 AND kind IN ('repeat','event') RETURNING message",
+        vec![job.workspace.clone().into(), job.reply.clone().into()],
+    )
+    .await?;
+    let Some(row) = quiet else { return Ok(false) };
+    let message: Option<String> = row.try_get("", "message")?;
+    execute(
+        tx,
+        "UPDATE relay_chat_messages SET content='',attachments='[]',state='deleted' WHERE workspace=$1 AND id IN ($2,$3)",
+        vec![
+            job.workspace.clone().into(),
+            job.reply.clone().into(),
+            message.unwrap_or_default().into(),
+        ],
+    )
+    .await?;
+    Ok(true)
 }

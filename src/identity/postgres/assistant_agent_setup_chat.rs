@@ -95,7 +95,7 @@ async fn in_own_chat(db: &impl ConnectionTrait, job: &Job) -> Result<bool> {
          JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id AND x.agent=$2
          JOIN relay_chat_people p ON p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3
          JOIN relay_assistants s ON s.workspace=c.workspace AND s.agent=x.agent AND s.user_id=p.user_id
-         WHERE c.workspace=$1 AND c.id=$4 AND c.kind='direct' AND NOT c.work
+         WHERE c.workspace=$1 AND c.id=$4 AND c.kind='direct'
            AND NOT EXISTS(SELECT 1 FROM relay_chat_messages m
              JOIN relay_assistant_threads t ON t.workspace=m.workspace AND t.agent=$2 AND t.thread=m.thread
              WHERE m.workspace=$1 AND m.id=$5)",

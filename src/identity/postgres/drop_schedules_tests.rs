@@ -1,7 +1,8 @@
 //! Schema 150 drops the old schedule tables. A workspace with schedules from before
 //! schema 147 upgrades through 147 (each becomes a task with its earlier runs) to
 //! 150: no schedule table, column, function or trigger is left, and the converted
-//! tasks keep their rules, runs and posting place and run through the task engine.
+//! tasks keep their rules and runs and run through the task engine, since schema
+//! 151 in their conversation.
 use super::super::home_maintenance_tests::{claim, setup_on};
 use super::super::*;
 use crate::identity::chat::model::NewMessage;
@@ -42,16 +43,16 @@ async fn schedule_objects(db: &PgStore) -> Vec<String> {
 /// The task a schedule named `title` became.
 async fn task(db: &PgStore, title: &str) -> Value {
     query(&db.db, "SELECT to_jsonb(t)||jsonb_build_object('next',(SELECT jsonb_build_object('kind',k.kind,'due_ms',k.due_ms) FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id AND k.state='pending'),
-          'room_work',(SELECT c.work FROM relay_chats c WHERE c.workspace=t.workspace AND c.id=COALESCE(t.room,t.chat)),
-          'room_people',(SELECT jsonb_agg(p.user_id) FROM relay_chat_people p WHERE p.workspace=t.workspace AND p.chat=COALESCE(t.room,t.chat)),
-          'room_agents',(SELECT jsonb_agg(x.agent) FROM relay_chat_agents x WHERE x.workspace=t.workspace AND x.chat=COALESCE(t.room,t.chat))) AS v
+          'chat_direct',(SELECT c.kind='direct' AND c.direct_key IS NOT NULL FROM relay_chats c WHERE c.workspace=t.workspace AND c.id=t.chat),
+          'chat_people',(SELECT jsonb_agg(p.user_id) FROM relay_chat_people p WHERE p.workspace=t.workspace AND p.chat=t.chat),
+          'chat_agents',(SELECT jsonb_agg(x.agent) FROM relay_chat_agents x WHERE x.workspace=t.workspace AND x.chat=t.chat)) AS v
         FROM relay_tasks t WHERE t.title=$1", vec![title.into()])
         .await.unwrap().map(|r| r.try_get("", "v").unwrap()).unwrap_or(Value::Null)
 }
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting() {
+async fn schema_150_drops_schedules_and_converted_tasks_keep_running_in_their_conversation() {
     let url = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&url).await.unwrap();
     let schema = format!("relay_drop_schedules_{}", uuid::Uuid::new_v4().simple());
@@ -216,16 +217,14 @@ async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting
     // The daily one ran once before the upgrade, in its work room, and the run had
     // an automatic task as schedule runs did.
     let tx = db.workspace_tx(&w).await.unwrap();
-    let room = super::super::work_rooms::open(
+    let room = super::conversation_migration_tests::work_room(
         &tx,
         &w,
         "Daily delivery review",
-        "Runs of a schedule",
         &owner.id,
         &a,
     )
-    .await
-    .unwrap();
+    .await;
     execute(
         &tx,
         "UPDATE relay_agent_schedules SET room=$2 WHERE id=$1",
@@ -268,7 +267,8 @@ async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting
         .await
         .unwrap();
 
-    // Through schema 149 the schedules become tasks; 150 drops what is left of them.
+    // Through schema 149 the schedules become tasks; 150 drops what is left of them;
+    // 151 runs each in its conversation.
     super::super::migration::Migrator::up(&db.db, Some(3))
         .await
         .unwrap();
@@ -324,22 +324,19 @@ async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting
         );
         assert!(t["instructions"].as_str().unwrap().starts_with("Do the "));
     }
-    // Where it runs and posts: with a post target, the conversation it posted to
-    // and its own room; without one, its room only (Activity).
+    // Where it runs: with a post target, the conversation it posted to; without
+    // one, the person's direct chat with the agent (schema 151).
     let d = task(&db, "Daily delivery review").await;
-    assert_eq!(
-        (d["chat"].as_str(), d["room"].as_str()),
-        (Some(c.as_str()), Some(room.as_str()))
-    );
+    assert_eq!(d["chat"].as_str(), Some(c.as_str()));
+    assert!(d.get("room").is_none());
     assert_eq!(
         (d["title"].as_str(), d["runs"].as_i64()),
         (Some("Daily delivery review"), Some(1))
     );
     let wk = task(&db, "Weekly sales summary").await;
-    assert!(wk["room"].is_null());
-    assert_eq!(wk["room_work"], true);
+    assert_eq!(wk["chat_direct"], true);
     assert_eq!(
-        (wk["room_people"].clone(), wk["room_agents"].clone()),
+        (wk["chat_people"].clone(), wk["chat_agents"].clone()),
         (json!([owner.id]), json!([a]))
     );
     assert_eq!(wk["runs"], 0);
@@ -354,7 +351,7 @@ async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting
         (b["paused_reason"].as_str(), b["next"].is_null()),
         (Some("Routine access changed."), true)
     );
-    assert!(b["room"].as_str().is_some() && b["chat"] == c.as_str());
+    assert_eq!(b["chat"], c.as_str());
     let done = task(&db, "Launch note").await;
     assert_eq!(done["outcome"], "done");
     assert!(done["closed_ms"].as_i64().is_some() && done["next"].is_null());
@@ -388,8 +385,8 @@ async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting
     assert_eq!(details["task"]["id"], d["id"]);
     assert!(details.get("schedule").is_none());
 
-    // Its next run starts through the task engine in its room and posts its result
-    // where it posted before.
+    // Its next run starts through the task engine in its conversation; the reply
+    // stays there and nothing is copied.
     execute(
         &db.db,
         "UPDATE relay_task_wakeups SET state='cancelled' WHERE state='pending' AND task<>$1",
@@ -415,7 +412,8 @@ async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting
         "task",
         "Activity shows it as a task's run"
     );
-    assert_eq!(run.chat, room);
+    assert_eq!(run.chat, c);
+    assert_ne!(run.chat, room);
     assert!(
         run.prompt
             .contains("What to do each run: Do the daily delivery review."),
@@ -425,13 +423,17 @@ async fn schema_150_drops_schedules_and_converted_tasks_keep_running_and_posting
     db.chat_finish(&run, "Two deliveries are late.", "complete")
         .await
         .unwrap();
-    let posted = query(&db.db, "SELECT m.content FROM relay_run_posts p JOIN relay_chat_messages m ON m.workspace=p.workspace AND m.id=p.message WHERE p.reply=$1 AND p.chat=$2",
-        vec![reply.clone().into(), c.clone().into()]).await.unwrap().unwrap().try_get::<String>("", "content").unwrap();
-    assert!(
-        posted.starts_with("**Daily delivery review**")
-            && posted.contains("Two deliveries are late."),
-        "{posted}"
-    );
+    let posted = query(
+        &db.db,
+        "SELECT content FROM relay_chat_messages WHERE id=$1 AND chat=$2",
+        vec![reply.clone().into(), c.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get::<String>("", "content")
+    .unwrap();
+    assert_eq!(posted, "Two deliveries are late.");
     let after = task(&db, "Daily delivery review").await;
     assert_eq!(after["runs"], 2);
     assert_eq!(

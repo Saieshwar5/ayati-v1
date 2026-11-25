@@ -81,7 +81,7 @@ impl PgStore {
             &tx,
             "SELECT m.sequence,m.kind,m.content FROM relay_chat_messages m
              JOIN relay_chat_agents x ON x.workspace=m.workspace AND x.chat=m.chat AND x.agent=$2
-             JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat AND c.kind='direct' AND NOT c.work
+             JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat AND c.kind='direct'
              WHERE m.workspace=$1 AND m.sequence>$4 AND m.state IN ('sent','complete') AND btrim(m.content)<>''
                AND ((m.kind='user' AND m.author=$3) OR (m.kind='agent' AND m.author=$2))
                AND NOT EXISTS(SELECT 1 FROM relay_assistant_threads t WHERE t.workspace=m.workspace AND t.agent=$2

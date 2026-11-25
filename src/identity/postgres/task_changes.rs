@@ -154,36 +154,6 @@ pub(super) async fn schedule(
         ],
     )
     .await?;
-    // The owner's channel rule (schema 145): a task a channel or group asked for
-    // works in a private room with the person who asked and posts each run's
-    // result to the conversation.
-    if super::wakeups::rooms(tx).await? {
-        let place = query(tx, "SELECT t.room IS NULL AND c.kind<>'direct' AND NOT c.work AS needs,t.title,t.requester,t.agent
-            FROM relay_tasks t JOIN relay_chats c ON c.workspace=t.workspace AND c.id=t.chat WHERE t.workspace=$1 AND t.id=$2",
-            vec![w.into(), task.into()]).await?.context("Task unavailable")?;
-        if place.try_get::<bool>("", "needs")? {
-            let (title, person, agent): (String, String, String) = (
-                place.try_get("", "title")?,
-                place.try_get("", "requester")?,
-                place.try_get("", "agent")?,
-            );
-            let room = super::super::work_rooms::open(
-                tx,
-                w,
-                &title,
-                "Runs of a task asked for in a conversation",
-                &person,
-                &agent,
-            )
-            .await?;
-            execute(
-                tx,
-                "UPDATE relay_tasks SET room=$3 WHERE workspace=$1 AND id=$2",
-                vec![w.into(), task.into(), room.into()],
-            )
-            .await?;
-        }
-    }
     match (&timing.repeat, first) {
         (Some(_), Some(first)) => {
             cancel_runs(tx, w, task).await?;
@@ -449,7 +419,7 @@ pub(super) async fn set_instructions(
     text: &str,
 ) -> Result<()> {
     ensure!(
-        super::wakeups::rooms(tx).await?,
+        super::wakeups::instructions_ready(tx).await?,
         "Task instructions need a newer workspace schema"
     );
     execute(

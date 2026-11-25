@@ -16,7 +16,7 @@ pub(crate) const REJECTED_WAIT_MS: i64 = 30 * 86_400_000;
 /// A skill nobody loaded for this long, created this long ago, may be retired.
 pub(crate) const UNUSED_MS: i64 = 60 * 86_400_000;
 /// Conversations two or more people read: their text may shape a skill.
-const SHARED: &str = "c.kind<>'direct' AND NOT c.work AND (c.visibility='public' OR (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id)>1)";
+const SHARED: &str = "c.kind<>'direct' AND (c.visibility='public' OR (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id)>1)";
 
 /// One earlier request of a routine job type.
 #[derive(Debug, Clone)]

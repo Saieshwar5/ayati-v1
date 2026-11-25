@@ -1,10 +1,9 @@
 //! Subjects (schema 118, C3 of the connected systems plan, D249). An event's
-//! `subject` names one user of the outside system. Cuckoo does three things
-//! with it: a private room per agent, system and subject ("Per subject"
-//! memory); one unfinished run per automation and subject, so different
-//! subjects run side by side and one subject's events stay in order; and for
-//! tools marked "Needs the subject" Cuckoo fills the `subject` input from the
-//! event and hides it from the agent, so it can't ask for another subject's data.
+//! `subject` names one user of the outside system. For tools marked "Needs the
+//! subject" Cuckoo fills the `subject` input from the event and hides it from the
+//! agent, so it can't ask for another subject's data. Schema 151 removed the
+//! per-subject rooms ("Per subject" memory) and per-subject parallel runs: a
+//! trigger runs in its conversation, one delivery at a time.
 use crate::identity::chat::model::Job;
 use crate::identity::control::model::ActionRequest;
 use crate::identity::postgres::*;
@@ -13,51 +12,12 @@ use serde_json::json;
 pub(crate) async fn ready(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(
         db,
-        "SELECT to_regclass('relay_subject_rooms') IS NOT NULL AS ready",
+        "SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass('relay_event_deliveries') AND attname='subject' AND NOT attisdropped) AS ready",
         vec![],
     )
     .await?
     .context("Missing schema check")?
     .try_get("", "ready")?)
-}
-
-/// The room for a "Per subject" run: the agent's room for this system and
-/// subject, opened at its first run. `None` when the event named no subject.
-pub(crate) async fn room(
-    tx: &DatabaseTransaction,
-    w: &str,
-    trigger: &Value,
-    subject: Option<&str>,
-) -> Result<Option<String>> {
-    let Some(subject) = subject else {
-        return Ok(None);
-    };
-    let agent = trigger["agent"].as_str().context("Missing agent")?;
-    let connection = trigger["connection"].as_str().context("Missing system")?;
-    if let Some(row) = query(tx, "SELECT room FROM relay_subject_rooms WHERE workspace=$1 AND agent=$2 AND connection=$3 AND subject=$4",
-        vec![w.into(), agent.into(), connection.into(), subject.into()]).await?
-    {
-        return Ok(Some(row.try_get("", "room")?));
-    }
-    let name: String = format!(
-        "{} · {subject}",
-        trigger["input"]["name"].as_str().unwrap_or("Event")
-    )
-    .chars()
-    .take(160)
-    .collect();
-    let room = super::super::work_rooms::open(
-        tx,
-        w,
-        &name,
-        "Runs about one subject of a connected system",
-        trigger["principal"].as_str().context("Missing person")?,
-        agent,
-    )
-    .await?;
-    execute(tx, "INSERT INTO relay_subject_rooms(workspace,agent,connection,subject,room) VALUES($1,$2,$3,$4,$5)",
-        vec![w.into(), agent.into(), connection.into(), subject.into(), room.clone().into()]).await?;
-    Ok(Some(room))
 }
 
 /// Whether `operation` of `connection` is a connected system's tool marked
@@ -138,55 +98,6 @@ impl PgStore {
     /// Fills a marked tool's subject before the action is proposed.
     pub(crate) async fn fill_subject(&self, job: &Job, request: &mut ActionRequest) -> Result<()> {
         fill(&self.db, job, request).await
-    }
-
-    /// "Forget this subject": its rooms with this system's agents stop being
-    /// remembered. Their messages are cleared and the next event starts fresh.
-    pub(crate) async fn forget_subject(
-        &self,
-        user: &User,
-        w: &str,
-        agent: &str,
-        system: &str,
-        subject: &str,
-    ) -> Result<Value> {
-        ensure!(
-            !subject.is_empty() && subject.len() <= 128 && !subject.chars().any(char::is_control),
-            "Name the subject to forget"
-        );
-        let tx = self.workspace_tx(w).await?;
-        super::connect::may_change(&tx, user, w, agent).await?;
-        super::connect::saved(&tx, w, agent, system).await?;
-        // Saved context is immutable except when forgetting (schema 120).
-        let forgetting = super::super::context_compaction::forgetting_ready(&tx).await?;
-        if forgetting {
-            execute(
-                &tx,
-                "SELECT set_config('relay.forget_context','on',true)",
-                vec![],
-            )
-            .await?;
-        }
-        let rooms = rows(&tx, "DELETE FROM relay_subject_rooms WHERE workspace=$1 AND connection=$2 AND subject=$3 RETURNING room",
-            vec![w.into(), system.into(), subject.into()]).await?;
-        for row in &rooms {
-            let room: String = row.try_get("", "room")?;
-            execute(&tx, "UPDATE relay_chat_messages SET content='Forgotten at the request of the system it came from.',attachments='[]'::jsonb WHERE workspace=$1 AND chat=$2",
-                vec![w.into(), room.clone().into()]).await?;
-            if forgetting {
-                super::super::context_compaction::forget_room(&tx, w, &room).await?;
-            }
-        }
-        audit(
-            &tx,
-            &user.id,
-            Some(w),
-            "connected_system_subject_forgotten",
-            &format!("{agent}/{system}"),
-        )
-        .await?;
-        tx.commit().await?;
-        Ok(json!({"forgotten":rooms.len()}))
     }
 }
 

@@ -4,8 +4,8 @@
 //! run and the later runs of each repeating task's rule. An event trigger's runs
 //! show as runs of its task (schema 148). Event triggers and paused tasks have no
 //! time and are listed beside it. It shows the tasks of agents the
-//! person looks after and the ones they asked for, and triggers that post where
-//! they can read.
+//! person looks after and the ones they asked for, and triggers that run where
+//! they can read (schema 151: in the trigger's conversation).
 use super::activity::now::fixing::{FIXERS, exists};
 use super::tasks::rules::{Rule, next_due};
 use super::*;
@@ -15,7 +15,7 @@ use serde_json::json;
 const WINDOW_MS: i64 = 42 * 86_400_000;
 /// Later runs drawn per repeating task.
 const PER_TASK: usize = 60;
-const POSTS_VISIBLY: &str = "(x.principal=$2 OR EXISTS(SELECT 1 FROM relay_chats c WHERE c.workspace=x.workspace AND c.id=x.chat
+const RUNS_VISIBLY: &str = "(x.principal=$2 OR EXISTS(SELECT 1 FROM relay_chats c WHERE c.workspace=x.workspace AND c.id=x.chat
   AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2))))";
 const MY_TASK: &str = "(t.requester=$2 OR t.agent IN (SELECT id FROM f))";
 
@@ -132,7 +132,7 @@ impl PgStore {
         untimed.extend(json_rows(&tx, &format!("{FIXERS} SELECT jsonb_build_object('kind','trigger','trigger',x.id,'task',to_jsonb(x)->>'task','agent',x.agent,'agent_name',a.name,
               'title',COALESCE(x.input->>'name',x.source_definition->>'name'),'detail',x.source_definition->>'name') AS data
             FROM relay_event_triggers x JOIN relay_shared_agents a ON a.workspace=x.workspace AND a.id=x.agent
-            WHERE x.workspace=$1 AND x.state='enabled' AND {mine} AND {POSTS_VISIBLY} AND $5::bigint>0 AND $6::bigint>0
+            WHERE x.workspace=$1 AND x.state='enabled' AND {mine} AND {RUNS_VISIBLY} AND $5::bigint>0 AND $6::bigint>0
             ORDER BY a.name,x.created_ms LIMIT 100"), args()).await?);
         tx.commit().await?;
         items.sort_by_key(|item| item["at"].as_i64().unwrap_or(0));

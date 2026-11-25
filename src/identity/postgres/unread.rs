@@ -3,7 +3,7 @@
 //! A message is unread for a person when someone else sent it, it is sent or
 //! complete, the person has no seen receipt for it, and the person could see it
 //! when it arrived. The conversation must be one Chat lists as active: archived
-//! channels and a task's work room never count. The message must not be
+//! channels never count. The message must not be
 //! older than the person's access: for a public channel, joining the workspace;
 //! for a private conversation, the later of joining the workspace and being
 //! added to it. A person who joins today starts with nothing unread.
@@ -93,7 +93,6 @@ impl PgStore {
         let tx = self.read_tx(w).await?;
         role(&tx, w, &user.id).await?;
         // The same conversations Chat lists (chats_in), minus archived ones.
-        let hidden = super::work_rooms::hidden(&tx).await?;
         // `muted` is the person's bell at Nothing: their own choice for the
         // conversation, or else their default (direct messages always notify).
         // A conversation has one kind and one saved level per person, so the
@@ -106,7 +105,7 @@ impl PgStore {
                'muted',coalesce(n.level,CASE WHEN c.kind='direct' THEN 'all' ELSE $3 END)='none') AS data
              FROM {UNREAD_FROM}
              LEFT JOIN relay_chat_notify n ON n.workspace=c.workspace AND n.chat=c.id AND n.user_id=$2
-             WHERE c.workspace=$1{hidden} AND {unread}
+             WHERE c.workspace=$1 AND {unread}
              GROUP BY m.chat,c.kind,n.level",
             for_me = super::channel_threads::for_me("$2", super::channel_threads::ready(&tx).await?),
             unread = unread_where()
@@ -138,10 +137,9 @@ pub(super) async fn mark_page(
     if ids.is_empty() {
         return Ok(());
     }
-    let hidden = super::work_rooms::hidden(tx).await?;
     let sql = format!(
         "SELECT m.id FROM {UNREAD_FROM}
-         WHERE c.workspace=$1 AND c.id=$3{hidden} AND {unread}
+         WHERE c.workspace=$1 AND c.id=$3 AND {unread}
          AND m.id IN (SELECT jsonb_array_elements_text($4::jsonb))",
         unread = unread_where()
     );

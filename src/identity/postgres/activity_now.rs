@@ -249,20 +249,11 @@ impl PgStore {
             // What the person added while it ran, and whether the agent saw it.
             object.insert("added".into(), json!(self.steers_for(&tx, w, reply).await?));
             object.insert("in_conversation".into(), json!(in_conversation));
-            // A task's or trigger's run in its own work room has no conversation to open.
-            let chat = object
-                .get("chat")
-                .and_then(Value::as_str)
-                .unwrap_or_default()
-                .to_string();
-            object.insert(
-                "work_room".into(),
-                json!(super::super::work_rooms::is_room(&tx, w, &chat).await?),
-            );
-            // An event trigger's run: its trigger, and whether its result was posted.
+            // An event trigger's run: its trigger. Like every task run it happened in
+            // its conversation (schema 151), which `chat` names.
             object.insert(
                 "trigger".into(),
-                json!(super::super::automation_memory::run_source(&tx, w, reply).await?),
+                json!(super::super::event_access::run_source(&tx, w, reply).await?),
             );
         }
         tx.commit().await?;

@@ -77,19 +77,6 @@ async fn copy(
     message: &str,
 ) -> Result<(Value, Vec<String>)> {
     let exclusions = super::conversation_context::source_exclusions(tx).await?;
-    let subject_rooms = if query(
-        tx,
-        "SELECT to_regclass('relay_subject_rooms') IS NOT NULL AS present",
-        vec![],
-    )
-    .await?
-    .context("Missing schema check")?
-    .try_get::<bool>("", "present")?
-    {
-        " AND NOT EXISTS(SELECT 1 FROM relay_subject_rooms s WHERE s.workspace=m.workspace AND s.room=m.chat)"
-    } else {
-        ""
-    };
     let row = query(
         tx,
         &format!(
@@ -100,7 +87,7 @@ async fn copy(
              LEFT JOIN relay_users u ON u.id=m.author AND m.kind='user'
              LEFT JOIN relay_shared_agents a ON a.workspace=m.workspace AND a.id=m.author AND m.kind='agent'
              WHERE m.workspace=$1 AND m.chat=$2 AND m.id=$3 AND m.state IN ('sent','complete')
-               AND btrim(m.content)<>''{subject_rooms}{exclusions}"
+               AND btrim(m.content)<>''{exclusions}"
         ),
         vec![w.into(), chat.into(), message.into()],
     )

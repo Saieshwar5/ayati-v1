@@ -73,7 +73,7 @@ pub(super) async fn messages(tx: &DatabaseTransaction, w: &str, task: &str) -> R
          FROM relay_chat_messages m JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat
          JOIN relay_chat_people p ON p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2
          JOIN relay_users u ON u.id=m.author
-         WHERE m.workspace=$1 AND m.sequence>$3 AND m.kind='user' AND m.author<>$2 AND m.state='sent' AND NOT c.work
+         WHERE m.workspace=$1 AND m.sequence>$3 AND m.kind='user' AND m.author<>$2 AND m.state='sent'
            AND ((c.kind='direct' AND NOT EXISTS(SELECT 1 FROM relay_chat_agents x WHERE x.workspace=c.workspace AND x.chat=c.id))
              OR strpos(m.content,'](mention:user:'||$2||')')>0)
          ORDER BY m.sequence DESC LIMIT 20",
@@ -190,7 +190,7 @@ async fn place(
            (SELECT c.id FROM relay_chats c
              JOIN relay_chat_agents a ON a.workspace=c.workspace AND a.chat=c.id AND a.agent=$2
              JOIN relay_chat_people p ON p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3
-             WHERE c.workspace=$1 AND c.kind='direct' AND NOT c.work ORDER BY c.id LIMIT 1)) AS chat",
+             WHERE c.workspace=$1 AND c.kind='direct' ORDER BY c.id LIMIT 1)) AS chat",
         vec![w.into(), agent.into(), person.into()],
     )
     .await?

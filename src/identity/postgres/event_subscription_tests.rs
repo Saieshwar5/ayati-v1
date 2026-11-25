@@ -167,7 +167,6 @@ impl Setup {
             connection: self.connection.clone(),
             event: "gmail.new_email".into(),
             chat: Some(self.chat.clone()),
-            memory: None,
             name: "Invoice mail".into(),
             instructions: "Read the new email and say whether it asks for payment.".into(),
             connection_revision: choice["authority"]["connection_revision"]

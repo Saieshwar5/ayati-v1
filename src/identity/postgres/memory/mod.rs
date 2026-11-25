@@ -4,8 +4,8 @@
 //! - **Workspace:** facts about the business. Every shared agent reads it, an
 //!   assistant reads it too; only admins open and change it.
 //! - **Job:** what one agent learned about its own work, in every conversation.
-//! - **Room:** what one agent learned in one channel, group, work room or
-//!   outside thread, used only there.
+//! - **Room:** what one agent learned in one channel, group or outside
+//!   thread, used only there.
 //! - **Person:** what one agent learned with one person in their private
 //!   conversation, used only when that person asks there.
 //!
@@ -161,7 +161,7 @@ pub(crate) async fn access(db: &impl ConnectionTrait, job: &Job) -> Result<Acces
     let w = &job.workspace;
     let row = query(
         db,
-        "SELECT c.kind,c.visibility='public' AS public,c.work,
+        "SELECT c.kind,c.visibility='public' AS public,
            (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id) AS people,
            COALESCE((SELECT work_class FROM relay_chat_jobs j WHERE j.workspace=c.workspace AND j.reply=$3),'interactive') AS class,
            EXISTS(SELECT 1 FROM relay_assistants a WHERE a.workspace=c.workspace AND a.agent=$4) AS assistant,
@@ -181,7 +181,6 @@ pub(crate) async fn access(db: &impl ConnectionTrait, job: &Job) -> Result<Acces
     .context("Conversation missing")?;
     let kind: String = row.try_get("", "kind")?;
     let public: bool = row.try_get("", "public")?;
-    let work: bool = row.try_get("", "work")?;
     let people: i64 = row.try_get("", "people")?;
     let background = row.try_get::<String>("", "class")? == "background";
     let assistant: bool = row.try_get("", "assistant")?;
@@ -203,7 +202,7 @@ pub(crate) async fn access(db: &impl ConnectionTrait, job: &Job) -> Result<Acces
         // People outside the workspace read the reply: only this thread's own notes.
         let room = Shelf::room(agent, &job.chat);
         (vec![room.clone()], room)
-    } else if shared || work {
+    } else if shared {
         let room = Shelf::room(agent, &job.chat);
         (
             vec![room.clone(), Shelf::job(agent), Shelf::workspace()],
@@ -218,7 +217,7 @@ pub(crate) async fn access(db: &impl ConnectionTrait, job: &Job) -> Result<Acces
     };
     let waits_because = if outside {
         Some("outside")
-    } else if background || work {
+    } else if background {
         Some("background")
     } else if !public || kind == "direct" || restricted {
         Some("private_source")

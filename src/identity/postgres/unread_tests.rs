@@ -73,17 +73,6 @@ async fn unread_counts_only_conversations_chat_lists_as_active() {
         .await
         .unwrap();
     assert_eq!(count(&db, &member, &w, &c).await, 1, "restored");
-
-    // A task's work room never appears in Chat, so its results never count.
-    let tx = db.db.begin().await.unwrap();
-    let room =
-        super::super::work_rooms::open(&tx, &w, "Daily", "Runs of a task", &member.id, "agent-one")
-            .await
-            .unwrap();
-    execute(&tx, "INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at) VALUES($1,$2,$3,'agent-one','agent','Run result','complete',$4)",
-        vec![uuid::Uuid::new_v4().to_string().into(), w.clone().into(), room.clone().into(), now().into()]).await.unwrap();
-    tx.commit().await.unwrap();
-    assert_eq!(count(&db, &member, &w, &room).await, 0, "work room");
 }
 
 #[tokio::test]

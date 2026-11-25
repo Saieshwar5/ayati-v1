@@ -1,5 +1,5 @@
-//! Subjects (schema 118): a room per subject, subjects side by side, the
-//! subject filled into marked tools, and forgetting a subject.
+//! Subjects (schema 118): the subject filled into marked tools. Since schema 151 a
+//! trigger's events run one at a time in its conversation, whatever their subject.
 use super::events_tests::{automation, result};
 use super::tests::{choice, reviewed, studyhub};
 use super::*;
@@ -10,15 +10,13 @@ use crate::identity::control::model::ActionRequest;
 struct Subjects {
     db: PgStore,
     owner: User,
-    w: String,
-    agent: String,
     system: String,
     key: String,
     _fake: FakeSystem,
 }
 
-/// StudyHub with get_profile marked "Needs the subject", events on, and a
-/// "Per subject" automation.
+/// StudyHub with get_profile marked "Needs the subject", events on, and an
+/// automation.
 async fn connected() -> Subjects {
     fake_system::secrets();
     let fake = FakeSystem::start().await;
@@ -38,16 +36,12 @@ async fn connected() -> Subjects {
         .as_str()
         .unwrap()
         .to_owned();
-    let mut per_subject = automation(&input.id, &["exam"]);
-    per_subject.memory = Some("subject".into());
-    db.create_system_trigger(&owner, &w, &agent, &per_subject)
+    db.create_system_trigger(&owner, &w, &agent, &automation(&input.id, &["exam"]))
         .await
         .unwrap();
     Subjects {
         db,
         owner,
-        w,
-        agent,
         system: input.id,
         key,
         _fake: fake,
@@ -80,82 +74,28 @@ impl Subjects {
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn each_subject_has_its_own_room_and_subjects_run_side_by_side() {
+async fn a_triggers_events_run_one_at_a_time_in_its_conversation_whatever_their_subject() {
     let s = connected().await;
     s.send("ravi-1", "stu-104").await;
     s.send("meena-1", "stu-221").await;
-    s.send("ravi-2", "stu-104").await;
     assert_eq!(
         s.db.dispatch_events().await.unwrap(),
-        2,
-        "two subjects start together"
+        1,
+        "one run at a time"
     );
-    let (ravi, meena) = (
-        s.job("ravi-1").await.unwrap(),
-        s.job("meena-1").await.unwrap(),
-    );
+    let ravi = s.job("ravi-1").await.unwrap();
     assert!(
-        s.job("ravi-2").await.is_none(),
-        "one subject's events wait their turn"
+        s.job("meena-1").await.is_none(),
+        "later events wait their turn"
     );
-    assert_ne!(ravi.chat, meena.chat, "each subject has its own room");
     s.finish(&ravi).await;
     assert_eq!(s.db.dispatch_events().await.unwrap(), 1);
-    let again = s.job("ravi-2").await.unwrap();
+    let meena = s.job("meena-1").await.unwrap();
     assert_eq!(
-        again.chat, ravi.chat,
-        "a subject's later run sees its earlier ones"
+        meena.chat, ravi.chat,
+        "every run is in the trigger's conversation"
     );
-    let room: Vec<Value> = json_rows(
-        &s.db.db,
-        "SELECT jsonb_build_object('c',content) AS data FROM relay_chat_messages WHERE chat=$1",
-        vec![meena.chat.clone().into()],
-    )
-    .await
-    .unwrap();
-    assert!(
-        !json!(room)
-            .to_string()
-            .contains(&format!("PLAN FOR {}", ravi.reply)),
-        "subjects never see each other"
-    );
-
-    // Forgetting a subject clears its room, including the agent's saved input
-    // and a working summary there; its next event starts fresh.
-    s.finish(&again).await;
-    execute(&s.db.db, "INSERT INTO relay_context_attempts(workspace,task,claim,agent,chat,requester,generation,prepared,evidence)
-        VALUES($1,$2,'c1',$3,$4,$5,'[]','{\"request\":\"PLAN FOR stu-104\"}','{}')",
-        vec![s.w.clone().into(), again.reply.clone().into(), s.agent.clone().into(), again.chat.clone().into(), again.requester.clone().into()]).await.unwrap();
-    execute(&s.db.db, "INSERT INTO relay_working_context(workspace,agent,chat,requester,revision,task,claim,generation,cutoff,brief)
-        VALUES($1,$2,$3,$4,1,$5,'c1','[]',1,'{\"objective\":\"stu-104 plan\"}')",
-        vec![s.w.clone().into(), s.agent.clone().into(), again.chat.clone().into(), again.requester.clone().into(), again.reply.clone().into()]).await.unwrap();
-    let forgotten =
-        s.db.forget_subject(&s.owner, &s.w, &s.agent, &s.system, "stu-104")
-            .await
-            .unwrap();
-    assert_eq!(forgotten["forgotten"], 1);
-    let cleared = json_rows(
-        &s.db.db,
-        "SELECT jsonb_build_object('c',content) AS data FROM relay_chat_messages WHERE chat=$1",
-        vec![ravi.chat.clone().into()],
-    )
-    .await
-    .unwrap();
-    assert!(!json!(cleared).to_string().contains("PLAN FOR"));
-    for table in ["relay_context_attempts", "relay_working_context"] {
-        let left = query(
-            &s.db.db,
-            &format!("SELECT count(*) AS n FROM {table} WHERE workspace=$1 AND chat=$2"),
-            vec![s.w.clone().into(), ravi.chat.clone().into()],
-        )
-        .await
-        .unwrap()
-        .unwrap();
-        assert_eq!(left.try_get::<i64>("", "n").unwrap(), 0, "{table}");
-    }
-    s.send("ravi-3", "stu-104").await;
-    assert_eq!(s.db.dispatch_events().await.unwrap(), 1);
-    assert_ne!(s.job("ravi-3").await.unwrap().chat, ravi.chat);
+    assert_eq!(meena.requester, s.owner.id);
 }
 
 #[tokio::test]

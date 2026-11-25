@@ -1,6 +1,7 @@
 //! Event triggers as task wake-ups (schema 148, designs/agent-tasks/one-system.md,
 //! decision 6). Each trigger has a task; a delivered event starts a run of it. The
-//! trigger keeps its reviewed source, fields, filter and memory and is set up on
+//! trigger keeps its reviewed source, fields and filter, runs in its conversation
+//! as its person (schema 151) and is set up on
 //! the agent page. A trigger's state reaches its task in the database
 //! (`relay_event_trigger_task_state`); the task's own Pause and End reach the
 //! trigger here. Resuming needs the trigger's access reviewed again, which only the

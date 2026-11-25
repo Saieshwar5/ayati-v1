@@ -22,6 +22,12 @@ mod check_tests;
 #[path = "task_checks.rs"]
 pub(crate) mod checks;
 #[cfg(test)]
+#[path = "tasks_in_conversations_migration_tests.rs"]
+mod conversation_migration_tests;
+#[cfg(test)]
+#[path = "tasks_in_conversations_tests.rs"]
+mod conversation_tests;
+#[cfg(test)]
 #[path = "drop_schedules_tests.rs"]
 mod conversion_tests;
 #[cfg(test)]
@@ -176,8 +182,8 @@ pub(super) async fn ensure_automatic(
 }
 
 /// A repeating task Cuckoo makes for `person` when they turn something on (an
-/// agent's weekly review): it works in its own new work room and shows only in
-/// Activity. Its first run is booked at `first_ms`. Returns the task's id.
+/// agent's weekly review): it runs in the person's direct chat with the agent
+/// (schema 151). Its first run is booked at `first_ms`. Returns the task's id.
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn create_repeating(
     tx: &DatabaseTransaction,
@@ -189,11 +195,11 @@ pub(super) async fn create_repeating(
     rule: &rules::Rule,
     first_ms: i64,
 ) -> Result<String> {
-    let room = super::work_rooms::open(tx, w, title, "Runs of a task", person, agent).await?;
+    let chat = super::shared_rooms::direct_room(tx, w, person, agent).await?;
     let id = uuid::Uuid::new_v4().to_string();
     execute(tx, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,created_by,instructions,repeat,anchor_ms)
         VALUES($1,$2,$3,'commitment','person',$4,$5,$6,$5,$7,$8,$9)",
-        vec![w.into(), id.clone().into(), agent.into(), title.into(), person.into(), room.into(), instructions.into(),
+        vec![w.into(), id.clone().into(), agent.into(), title.into(), person.into(), chat.into(), instructions.into(),
             serde_json::to_value(rule)?.into(), first_ms.into()]).await?;
     runs::book_run(tx, w, &id, first_ms).await?;
     Ok(id)

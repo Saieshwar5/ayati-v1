@@ -9,7 +9,7 @@
 //!
 //! - the requester is one of the agent's owners, or an admin;
 //! - the conversation is their direct chat with the agent, which only they
-//!   read (not a channel, a group, a work room or an email thread);
+//!   read (not a channel, a group or an email thread);
 //! - a person's message started the request (not a task's run, an event trigger,
 //!   a hand-off or a panel update, whose content may come from outside).
 //!
@@ -81,7 +81,7 @@ async fn view(db: &impl ConnectionTrait, job: &Job) -> Result<Option<&'static st
     }
     // Their direct chat with the agent, which only they read, and a request a
     // person's message started.
-    let private: bool = query(db, "SELECT (c.kind='direct' AND NOT COALESCE((to_jsonb(c)->>'work')::boolean,false)
+    let private: bool = query(db, "SELECT (c.kind='direct'
           AND (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id)=1
           AND EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)
           AND EXISTS(SELECT 1 FROM relay_chat_agents x WHERE x.workspace=c.workspace AND x.chat=c.id AND x.agent=$4)

@@ -337,8 +337,8 @@ impl PgStore {
                 .and_then(|o| o["title"].as_str())
                 .unwrap_or("its read action")
                 .to_owned();
-            // Runs happen in a work room (schema 115); a conversation is only
-            // an optional place to post results.
+            // A run happens in the chosen conversation, or the person's direct
+            // chat with the agent (schema 151).
             if authority.is_null() {
                 choice["state"] = json!("needs_allow");
                 choice["detail"] = json!(format!(

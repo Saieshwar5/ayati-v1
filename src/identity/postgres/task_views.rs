@@ -261,8 +261,10 @@ pub(in crate::identity::postgres) async fn hydrate(
     if ids.is_empty() || !super::available(tx).await? {
         return Ok(());
     }
-    // A follow-up the agent booked reads as the agent following up, not as the person.
-    let woken = rows(tx, "SELECT k.message,jsonb_build_object('id',t.id,'title',t.title,'kind',t.kind,'status',relay_task_status(t.workspace,t.id)) AS task
+    // Every wake-up's input (a run, an event, a follow-up, the next part) reads as
+    // one line about its task, not as the person asking (schema 151: in any
+    // conversation). `wakeup` says which.
+    let woken = rows(tx, "SELECT k.message,jsonb_build_object('id',t.id,'title',t.title,'kind',t.kind,'status',relay_task_status(t.workspace,t.id),'wakeup',COALESCE(to_jsonb(k)->>'kind','follow_up')) AS task
         FROM relay_task_wakeups k JOIN relay_tasks t ON t.workspace=k.workspace AND t.id=k.task
         WHERE k.workspace=$1 AND k.message IN (SELECT jsonb_array_elements_text($2::jsonb))",
         vec![w.into(), json!(ids).into()]).await?;

@@ -1,6 +1,6 @@
 //! Agents learn from their work (schema 121, knowledge K1). Once a day per
 //! agent, Cuckoo reads signals from its work in shared conversations (channels
-//! and groups of two or more people; never private chats, work rooms or
+//! and groups of two or more people; never private chats or
 //! anything from outside): how people answered its replies, their reactions,
 //! and approvals they rejected. A model proposes up to five lessons about how
 //! to work, which are filtered for personal details and must cite the signals
@@ -23,8 +23,8 @@ const LOOK_BACK_MS: i64 = 7 * 24 * 3_600_000;
 const MOST_OPEN: i64 = 20;
 const LESSONS_PER_RUN: usize = 5;
 const EXCERPT: i64 = 800;
-/// Only channels and groups people share: never a private chat or work room.
-const SHARED: &str = "c.kind<>'direct' AND NOT c.work AND (c.visibility='public' OR (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id)>1)";
+/// Only channels and groups people share: never a private chat.
+const SHARED: &str = "c.kind<>'direct' AND (c.visibility='public' OR (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id)>1)";
 
 pub(crate) async fn ready(db: &impl ConnectionTrait) -> Result<bool> {
     Ok(query(

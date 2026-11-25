@@ -29,6 +29,7 @@ mod agent_request_tests;
 mod agent_requests;
 #[cfg(test)]
 mod agent_tools_tests;
+pub(crate) mod allowed_apps;
 mod approval_authority;
 mod approval_delivery;
 #[cfg(test)]
@@ -48,10 +49,6 @@ mod attention_tests;
 mod automation_access;
 mod automation_dispatch;
 mod automation_memory;
-#[cfg(test)]
-mod automation_memory_tests;
-pub(crate) use automation_memory::MEMORY;
-pub(crate) mod allowed_apps;
 mod automation_migration;
 #[cfg(test)]
 mod automation_migration_tests;
@@ -324,7 +321,7 @@ pub(crate) mod transcripts;
 mod unread;
 mod web_reads;
 mod work;
-mod work_rooms;
+mod work_rooms_migration;
 pub(crate) mod work_signals;
 pub(crate) mod worker_control;
 #[cfg(test)]

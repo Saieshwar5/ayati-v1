@@ -156,3 +156,27 @@ impl MigrationTrait for DropSchedules {
         ))
     }
 }
+
+/// Schema 151: a task run happens in the task's own conversation, as its person;
+/// work rooms, trigger memory and posted results are dropped (the owner's one rule,
+/// designs/agent-tasks/one-system.md, decision 1).
+pub(crate) struct TasksInConversations;
+impl MigrationName for TasksInConversations {
+    fn name(&self) -> &str {
+        "m20261125_000151_tasks_in_conversations"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for TasksInConversations {
+    async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("tasks_in_conversations.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Tasks moved into their conversations in a forward migration".into(),
+        ))
+    }
+}

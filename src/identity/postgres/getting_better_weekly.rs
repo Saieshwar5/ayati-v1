@@ -1,6 +1,6 @@
 //! The weekly review (Phase 5): a task "Weekly review" for the agent, for the person
-//! who turned it on, that runs every week in its own work room and shows only in
-//! Activity. Turning it off pauses the task; on again resumes it.
+//! who turned it on, that runs every week in their direct chat with the agent
+//! (schema 151). Turning it off pauses the task; on again resumes it.
 use super::super::super::super::tasks::{create_repeating, rules::Rule, runs::set_paused};
 use super::super::super::super::*;
 use serde_json::json;

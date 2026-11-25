@@ -63,7 +63,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::connector_providers::migration::ConnectorProviders),
             Box::new(super::communications::migration::CommunicationGateway),
             Box::new(super::shared_rooms::migration::SharedRooms),
-            Box::new(super::work_rooms::migration::WorkRooms),
+            Box::new(super::work_rooms_migration::WorkRooms),
             Box::new(super::home_frame_migration::HomeFrame),
             Box::new(super::tasks::migration::Tasks),
             Box::new(super::home_update_runs::living::migration::HomeLiving),
@@ -158,6 +158,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::tasks::migration::TriggerTasks),
             Box::new(super::tasks::migration::CheckTasks),
             Box::new(super::tasks::migration::DropSchedules),
+            Box::new(super::tasks::migration::TasksInConversations),
         ]
     }
 }

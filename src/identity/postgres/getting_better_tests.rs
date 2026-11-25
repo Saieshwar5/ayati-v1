@@ -113,7 +113,8 @@ async fn goals_reviews_and_measures_follow_the_agents_work() {
     assert_eq!(agent["tasks"], 1);
     assert_eq!(agent["open"], 1);
     assert!(agent["requests"].as_i64().unwrap() >= 1);
-    // Weekly review: a weekly task in its own room the manager can turn off again.
+    // Weekly review: a weekly task in the manager's direct chat with the agent
+    // (schema 151), which they can turn off again.
     let on = db
         .set_weekly_review(&owner, &w, &job.agent, true)
         .await
@@ -121,7 +122,7 @@ async fn goals_reviews_and_measures_follow_the_agents_work() {
     let task = on["task"].as_str().unwrap().to_string();
     let made = query(
         &db.db,
-        "SELECT t.repeat->>'unit' AS unit,t.instructions LIKE 'Write your weekly review%' AS review,c.work,
+        "SELECT t.repeat->>'unit' AS unit,t.instructions LIKE 'Write your weekly review%' AS review,c.kind='direct' AS direct,
           (SELECT k.due_ms FROM relay_task_wakeups k WHERE k.task=t.id AND k.state='pending')-(extract(epoch FROM clock_timestamp())*1000)::bigint AS wait
          FROM relay_tasks t JOIN relay_chats c ON c.workspace=t.workspace AND c.id=t.chat WHERE t.id=$1",
         vec![task.clone().into()],
@@ -131,7 +132,7 @@ async fn goals_reviews_and_measures_follow_the_agents_work() {
     .unwrap();
     assert_eq!(made.try_get::<String>("", "unit").unwrap(), "week");
     assert!(
-        made.try_get::<bool>("", "review").unwrap() && made.try_get::<bool>("", "work").unwrap()
+        made.try_get::<bool>("", "review").unwrap() && made.try_get::<bool>("", "direct").unwrap()
     );
     let wait = made.try_get::<i64>("", "wait").unwrap();
     assert!((604_700_000..=604_800_000).contains(&wait), "{wait}");

@@ -7,13 +7,10 @@ pub(crate) struct Trigger {
     pub id: String,
     pub source: String,
     pub binding: String,
-    /// Where to also post a short result, if anywhere. Runs happen in a private
-    /// work room (schema 115); older triggers keep their conversation here.
+    /// The conversation the trigger runs in, as its person (schema 151); none
+    /// means the person's direct chat with the agent.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chat: Option<String>,
-    /// `fresh` (the default) or `remember`: what a run sees of earlier runs.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub memory: Option<String>,
     pub name: String,
     pub instructions: String,
     pub connection_revision: i64,
@@ -29,12 +26,6 @@ impl Trigger {
         {
             crate::identity::automations::model::uuid(id)?;
         }
-        ensure!(
-            self.memory
-                .as_deref()
-                .is_none_or(|m| crate::identity::postgres::MEMORY.contains(&m)),
-            "Choose what the automation remembers: fresh or remember"
-        );
         ensure!(
             self.binding.len() == 43
                 && self.connection_revision > 0
@@ -83,8 +74,6 @@ pub(crate) struct FromApp {
     pub event: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chat: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub memory: Option<String>,
     pub name: String,
     pub instructions: String,
     pub connection_revision: i64,
@@ -100,7 +89,6 @@ impl FromApp {
             source: source.to_owned(),
             binding: binding.to_owned(),
             chat: self.chat.clone(),
-            memory: self.memory.clone(),
             name: self.name.clone(),
             instructions: self.instructions.clone(),
             connection_revision: self.connection_revision,
