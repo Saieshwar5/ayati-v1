@@ -241,8 +241,9 @@ export function ShareDialog({
           <p>No available workspace agents. Create or request access to one in Agents.</p>
         )}
         <small>
-          People who can see it: the agent uses it only when everyone who will read the answer can
-          open it. All staff: any colleague's question can use it, without opening the document.
+          Agents are given access in the same words as people. For people who can see it: the
+          agent uses it only when everyone who will read the answer can open it. For anyone in the
+          company: any colleague's question can use it, without them opening the document.
         </small>
       </section>
       <section className="library-link">

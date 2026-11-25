@@ -25,6 +25,7 @@ const views = [
   { id: 'private', label: 'Private' },
   { id: 'shared', label: 'Shared' },
   { id: 'starred', label: 'Starred' },
+  { id: 'agents', label: 'Made by agents' },
   { id: 'review', label: 'Due for review' },
   { id: 'trash', label: 'Trash' },
 ];

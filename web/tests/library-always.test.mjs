@@ -26,7 +26,7 @@ test('the owner chooses, orders and saves the documents an agent always reads', 
     }
     assert.match(document.body.textContent, /9,000 of 8,000 characters · the end of the list is cut short/);
     await click(button('Move Tone guide up'));
-    assert.deepEqual([...document.querySelectorAll('.library-always li')].map(li => li.textContent.split('Policies')[0].split('People')[0]), ['Tone guide', 'Returns policy']);
+    assert.deepEqual([...document.querySelectorAll('.library-always li')].map(li => li.textContent.split('Policies')[0].split('For people')[0]), ['Tone guide', 'Returns policy']);
     await update(() => { button('Save documents').click(); button('Save documents').click(); });
     assert.equal(sent.length, 1, 'one save per click burst');
     assert.deepEqual(sent[0], { items: ['tone', 'returns'], expected: [] });

@@ -113,6 +113,10 @@ impl PgStore {
             }
         }
         value["agents"] = json!(agents);
+        // An agent has this open on its computer in a request that is still running.
+        if query(&tx, "SELECT to_regclass('relay_library_opened') IS NOT NULL AS present", vec![]).await?.context("Schema check")?.try_get::<bool>("", "present")? {
+            value["working"] = json!(json_rows(&tx, "SELECT DISTINCT to_jsonb(a.name) AS data FROM relay_library_opened o JOIN relay_chat_jobs j ON j.workspace=o.workspace AND j.reply=o.reply AND j.state='running' JOIN relay_shared_agents a ON a.workspace=o.workspace AND a.id=o.agent WHERE o.workspace=$1 AND o.item=$2", vec![w.into(), id.into()]).await?);
+        }
         tx.commit().await?;
         nested::admin_opened(self, user, w, &value).await?;
         Ok(value)
@@ -127,7 +131,7 @@ impl PgStore {
         offset: i64,
     ) -> Result<Value> {
         ensure!(
-            ["all", "private", "shared", "starred", "trash", "review", "everything"]
+            ["all", "private", "shared", "starred", "trash", "review", "everything", "agents"]
                 .contains(&view)
                 && search.len() <= 180
                 && folder.len() <= 64
@@ -158,7 +162,7 @@ impl PgStore {
         // every item wherever it is filed.
         let due = upkeep::DUE;
         let sql = format!(
-            "SELECT (to_jsonb(i)-'document'-'text'-'object_key') || jsonb_build_object({SHARED},'review_due',{due},'agent_count',(SELECT count(*) FROM relay_library_agents a WHERE a.workspace=s.workspace AND a.item=s.id),'item_count',CASE WHEN i.kind='folder' THEN (SELECT count(*) FROM relay_library_items c WHERE c.workspace=i.workspace AND c.folder=i.id AND NOT c.trashed) END) AS data FROM {SOURCE} WHERE i.workspace=$1 AND {reach} AND i.trashed=($3='trash') AND (to_jsonb(i)->>'purged') IS NULL AND ($3 NOT IN ('all','everything') OR $4!='' OR i.folder IS NOT DISTINCT FROM NULLIF($6,'')) AND ($3 NOT IN ('private','shared') OR (CASE WHEN $3='private' THEN s.visibility='private' ELSE s.visibility!='private' END)) AND ($3!='review' OR {due}) AND ($3!='starred' OR EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)) AND ($4='' OR strpos(lower(i.title || ' ' || i.text),lower($4))>0) ORDER BY (i.kind='folder' AND $3 IN ('all','everything') AND $4='') DESC,i.updated DESC,i.id LIMIT 51 OFFSET $5"
+            "SELECT (to_jsonb(i)-'document'-'text'-'object_key') || jsonb_build_object({SHARED},'review_due',{due},'agent_count',(SELECT count(*) FROM relay_library_agents a WHERE a.workspace=s.workspace AND a.item=s.id),'item_count',CASE WHEN i.kind='folder' THEN (SELECT count(*) FROM relay_library_items c WHERE c.workspace=i.workspace AND c.folder=i.id AND NOT c.trashed) END) AS data FROM {SOURCE} WHERE i.workspace=$1 AND {reach} AND i.trashed=($3='trash') AND (to_jsonb(i)->>'purged') IS NULL AND ($3 NOT IN ('all','everything') OR $4!='' OR i.folder IS NOT DISTINCT FROM NULLIF($6,'')) AND ($3 NOT IN ('private','shared') OR (CASE WHEN $3='private' THEN s.visibility='private' ELSE s.visibility!='private' END)) AND ($3!='review' OR {due}) AND ($3!='agents' OR EXISTS(SELECT 1 FROM relay_library_versions v WHERE v.workspace=i.workspace AND v.item=i.id AND v.agent IS NOT NULL)) AND ($3!='starred' OR EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)) AND ($4='' OR strpos(lower(i.title || ' ' || i.text),lower($4))>0) ORDER BY (i.kind='folder' AND $3 IN ('all','everything') AND $4='') DESC,i.updated DESC,i.id LIMIT 51 OFFSET $5"
         );
         let mut items = json_rows(
             &tx,

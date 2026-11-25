@@ -117,6 +117,19 @@ async fn a_page_is_opened_as_markdown_and_saved_back_as_its_next_version() {
         (saved["state"].as_str(), saved["revision"].as_i64()),
         (Some("edited"), Some(2))
     );
+    // While the request runs people see the agent working on it, and what an agent
+    // changed is listed under Made by agents.
+    let seen = db
+        .library_get(&b.s.owner, &b.s.w, &b.s.returns)
+        .await
+        .unwrap();
+    assert_eq!(seen["working"].as_array().unwrap().len(), 1, "{seen}");
+    let made = db
+        .library_list(&b.s.owner, &b.s.w, "agents", "", "", 0)
+        .await
+        .unwrap();
+    assert_eq!(made["items"].as_array().unwrap().len(), 1);
+    assert_eq!(made["items"][0]["title"], "Returns policy");
     let page = db
         .library_get(&b.s.owner, &b.s.w, &b.s.returns)
         .await

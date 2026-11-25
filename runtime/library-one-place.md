@@ -30,32 +30,29 @@ checking who will read an answer before an agent may use a document for it.
 | A3 | Admins can open everything, audited (schema 153) | Built and tested |
 | B4 | Open on the computer and Save back (schema 154) | Built and tested with the stand-in computer |
 | B5 | Five agent tools instead of ten | Next: `open_document` and `save_file` exist beside the old tools |
-| B6 | A computer for every agent | Not started |
+| B6 | A computer for every agent | Built: on by default, effective where computers are set up |
 | C7 | Each agent's own folder (schema 155) | Built and tested; made when the agent first saves a file |
 | C8 | Chat attachments as Library items | Built and tested for attachments sent to an agent; text for search and local-server storage not yet |
 | D9 | Exact search mode | Built and tested (`exact: true`); folder, kind and date filters not yet |
 | D10 | Meaning search per folder, off by default (schema 156) | Built and tested; agents propose, the manager decides |
-| D11 | Descriptions instead of automatic summaries | Partly: automatic summaries now only in meaning-search folders; the description line is not built |
-| D12 | Unanswered questions counted per question | Not started |
-| E13 | One share dialog for people and agents | Not started |
-| E14 | Folder tree, "Made by agents", working note | Not started |
-| F15 | Keeping rule on agents' folders | Not started |
+| D11 | Descriptions instead of automatic summaries (schema 158) | Built and tested: a description line by editors and by agents in save_file, searched with the text |
+| D12 | Unanswered questions counted per question (schema 157) | Built and tested |
+| E13 | One share dialog for people and agents | Partly: agents are given access in people's words (Can view, Can edit, asks first); people and agents are still two lists |
+| E14 | Folder tree, "Made by agents", working note | Built: Made by agents view and the working note; no folder tree in the sidebar |
+| F15 | Keeping rule on agents' folders | Built: one year by default |
 | F16 | Files above 25 MiB | Not started (the item limit is now 10,000) |
 | F17 | Remove the old tools and paths | Not started |
 
-## Next, in order
+## Left to do
 
-1. **C8** chat attachments stored as Library items in the conversation's subfolder (the
-   chat and Library file stores are separate today, so "stored once" needs one store).
-2. **B6** computers on for every agent by default.
-3. **E13/E14** one share dialog for people and agents; an agent's folder on its page;
-   "Made by agents"; the working note.
-4. **D11/D12** the description line; unanswered questions counted per question.
-5. **B5/F17** remove the old tools (`suggest_edit`, `edit_document`, `save_document`,
-   `set_table_row`, `set_document_fields`, `lookup`, `file_document`) once the new ones
-   have run with a real model; the second receipt table; orphan take-over screens.
-6. **F15/F16** a keeping rule on agents' folders; files above 25 MiB; the 1,000-item
-   limit, which agents' folders will reach sooner.
+1. **B5/F17** remove the old agent tools (`suggest_edit`, `edit_document`, `save_document`,
+   `set_table_row`, `set_document_fields`, `lookup`, `file_document`). They are still used
+   by watched folders, table lookups in company rules and their tests, and the new tools
+   have not run with a real model, so they stay until that is checked.
+2. **F16** files above 25 MiB: needs streamed uploads and streamed copies to the computer.
+3. **E13** people and agents in one list in the share dialog.
+4. **C8** read an attachment's text for search; attachments on a local development server.
+5. An agent's folder shown on the agent's page; a folder tree in the Library sidebar.
 
 ## Known gaps in what is built
 

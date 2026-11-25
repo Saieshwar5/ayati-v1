@@ -238,6 +238,12 @@ function ReadyItem({
           {error || mutation.status}
         </p>
       )}
+      {item.working && item.working.length > 0 && (
+        <p className="library-notice" role="status">
+          {item.working.join(', ')} {item.working.length === 1 ? 'is' : 'are'} working on this
+          now. A change you save first is kept; the agent then opens it again.
+        </p>
+      )}
       {item.granted === false && (
         <p className="library-notice" role="status">
           This was not shared with you. You can open it as a workspace admin, and the Audit log

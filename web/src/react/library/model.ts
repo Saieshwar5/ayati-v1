@@ -7,7 +7,9 @@ export type AgentGrant = {
   use_for: 'viewers' | 'staff';
 };
 export const levelName = (value: string) =>
-  ({ read: 'Read', suggest: 'Suggest edits', edit: 'Edit', save: 'Edit and save here' })[value] ??
+  ({ read: 'Can view', suggest: 'Can edit, asks first', edit: 'Can edit', save: 'Can edit and add files' })[
+    value
+  ] ??
   value;
 export type Item = {
   id: string;
@@ -38,6 +40,8 @@ export type Item = {
   granted?: boolean;
   item_count?: number;
   review_due?: boolean;
+  /** Agents that have this open on their computer in a running request. */
+  working?: string[];
   /** One line saying what the item is, searched with its text. */
   description?: string;
 };
@@ -51,7 +55,7 @@ export const itemUrl = (id?: string) =>
 export const folderUrl = (id: string) =>
   workspaceUrl(`/?view=library&folder=${encodeURIComponent(id)}`);
 export const useForName = (value: string) =>
-  ({ viewers: 'People who can see it', staff: 'All staff' })[value] ?? value;
+  ({ viewers: 'For people who can see it', staff: 'For anyone in the company' })[value] ?? value;
 export const downloadUrl = (id: string, inline = false) =>
   `/api/identity${base}/${id}/download${inline ? '?inline=true' : ''}`;
 export const draftKey = (id: string) => storageScope(`cuckoo.library.draft.${id}`);

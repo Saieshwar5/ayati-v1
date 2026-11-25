@@ -29,7 +29,7 @@ test('a folder is shared with an agent to answer all staff, and people can edit 
     await click(document.querySelector('input[type=checkbox]'));
     const useFor = document.querySelector('[aria-label="Use for, Nova"]');
     assert.equal(useFor.value, 'viewers', 'the safest audience is the default');
-    assert.deepEqual([...useFor.options].map(o => o.textContent), ['People who can see it', 'All staff']);
+    assert.deepEqual([...useFor.options].map(o => o.textContent), ['For people who can see it', 'For anyone in the company']);
     await change(useFor, 'staff');
     await click(button('Save changes'));
     assert.deepEqual(payload.agents, [{ agent: 'nova', level: 'suggest', use_for: 'staff' }]);
@@ -94,7 +94,7 @@ test('an open folder lists its own items and says its sharing applies to them', 
     await render(LibraryPage, { href: `${url}&folder=sales` });
     assert.ok(listed.some(path => path.includes('folder=sales')));
     assert.equal(document.querySelector('.library-folder-header h2').textContent, 'Sales');
-    assert.match(document.querySelector('.library-folder-header').textContent, /Workspace · 1 agent \(all staff\)\. Everything here follows the folder's sharing\./);
+    assert.match(document.querySelector('.library-folder-header').textContent, /Workspace · 1 agent \(for anyone in the company\)\. Everything here follows the folder's sharing\./);
     assert.ok(document.querySelector('nav[aria-label="Folder path"] a'));
     assert.ok([...document.querySelectorAll('button')].some(b => b.textContent === '＋ New folder'), 'folders go inside folders');
     assert.equal(document.querySelector('.library-name a').textContent, 'Quote template');

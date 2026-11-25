@@ -80,7 +80,7 @@ test('folders offer every agent level, pages no "save here", files only reading'
     } });
     return options;
   };
-  assert.deepEqual(await levels('folder'), ['suggest', 'Read', 'Suggest edits', 'Edit', 'Edit and save here']);
-  assert.deepEqual(await levels('page'), ['suggest', 'Read', 'Suggest edits', 'Edit']);
+  assert.deepEqual(await levels('folder'), ['suggest', 'Can view', 'Can edit, asks first', 'Can edit', 'Can edit and add files']);
+  assert.deepEqual(await levels('page'), ['suggest', 'Can view', 'Can edit, asks first', 'Can edit']);
   assert.equal(await levels('file'), null);
 });
