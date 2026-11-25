@@ -4,6 +4,8 @@ use serde_json::Value;
 
 pub const MAX_FILE: usize = 25 * 1024 * 1024;
 pub const WORKSPACE_QUOTA: i64 = 1024 * 1024 * 1024;
+/// Items a workspace may hold, counting folders, agents' folders and kept Trash.
+pub const MAX_ITEMS: i64 = 10_000;
 
 #[derive(Debug)]
 pub struct Denied;

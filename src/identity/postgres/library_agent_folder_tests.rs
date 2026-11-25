@@ -1,6 +1,7 @@
 //! Schema 155: a new file with no folder named goes to the agent's own folder, in the
 //! subfolder of the conversation it was made for, which only that conversation's
 //! people, the agent's owners and admins open.
+use super::super::{tests::*, *};
 use super::folders::share;
 use super::workbench::{asked, bench, run, tool};
 use crate::identity::library::model::*;
@@ -112,4 +113,88 @@ async fn a_new_file_with_no_folder_goes_to_the_agents_folder_for_that_conversati
             .await
             .is_err()
     );
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_file_attached_when_asking_is_kept_in_that_conversations_folder() {
+    let b = bench().await;
+    let db = &b.s.db;
+    let room = chat(db, &b.s.member, &b.s.w, vec![], vec![b.s.agent.clone()]).await;
+    let object = crate::identity::collaboration::Object {
+        id: uuid::Uuid::new_v4().to_string(),
+        name: "invoice.txt".into(),
+        mime: "text/plain".into(),
+        size: 13,
+        checksum: checksum(b"Invoice 2041\n"),
+    };
+    db.save_object(&b.s.member, &b.s.w, &room, &object, false)
+        .await
+        .unwrap();
+    // Chat stores the bytes; the Library item names them and stores nothing more.
+    let key = format!("chat/{}/{}", b.s.w, object.id);
+    db.library_files
+        .put(&key, b"Invoice 2041\n".as_slice().into())
+        .await
+        .unwrap();
+    let mut asking = message("What is this invoice?", Some(&b.s.agent));
+    asking.attachments = vec![object.id.clone()];
+    db.chat_send(&b.s.member, &b.s.w, &room, &asking)
+        .await
+        .unwrap();
+    let job = db.claim_job().await.unwrap().unwrap();
+    let kept = db
+        .library_list(&b.s.member, &b.s.w, "shared", "", "", 0)
+        .await
+        .unwrap();
+    let file = kept["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|i| i["title"] == "invoice.txt")
+        .expect("kept in the Library")
+        .clone();
+    let id = file["id"].as_str().unwrap();
+    // The agent opens it on its computer for this conversation, and for nobody else.
+    let opened = tool(&b, &job, "open_document", json!({"id": id})).await;
+    assert_eq!(opened["state"], "opened", "{opened}");
+    assert_eq!(
+        run(&b, &job, "cat library/invoice.txt").await,
+        "Invoice 2041\n"
+    );
+    let outsider = user(db, "folder-outsider").await;
+    join(db, &b.s.owner, &b.s.w, &outsider, "Member").await;
+    db.chat_grant(&b.s.owner, &b.s.w, &outsider.id, &b.s.agent, true)
+        .await
+        .unwrap();
+    let other = asked(&b, &outsider, "Anything new?").await;
+    assert_eq!(
+        tool(&b, &other, "open_document", json!({"id": id})).await["state"],
+        "not_found",
+        "another conversation"
+    );
+    assert_eq!(
+        super::super::library::file_versions::storage_used(&db.db, &b.s.w)
+            .await
+            .unwrap(),
+        0,
+        "Chat's bytes, not the Library's"
+    );
+    // Deleting the Library item for good leaves Chat's file alone.
+    let trash = ItemAction {
+        request: uuid::Uuid::new_v4().to_string(),
+        revision: 1,
+        action: "trash".into(),
+        version: None,
+    };
+    db.library_action(&b.s.owner, &b.s.w, id, &trash)
+        .await
+        .unwrap();
+    assert!(
+        db.library_delete_forever(&b.s.owner, &b.s.w, id)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(db.library_files.get(&key).await.is_ok());
 }

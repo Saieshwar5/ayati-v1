@@ -251,8 +251,8 @@ impl PgStore {
             return Ok(refused);
         }
         ensure!(
-            count < 1000,
-            "This workspace's initial Library limit is 1,000 items"
+            count < MAX_ITEMS,
+            "This workspace's Library limit is 10,000 items"
         );
         let Some(stored) = self.store_object(w, bytes).await? else {
             return Ok(invalid(

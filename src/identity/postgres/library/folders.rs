@@ -66,8 +66,8 @@ impl PgStore {
         .context("Library count unavailable")?
         .try_get("", "n")?;
         ensure!(
-            count < 1000,
-            "This workspace's initial Library limit is 1,000 items"
+            count < MAX_ITEMS,
+            "This workspace's Library limit is 10,000 items"
         );
         // A folder made inside another follows that folder's sharing until it is shared.
         if let Some(parent) = &input.folder {

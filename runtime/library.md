@@ -29,7 +29,7 @@ restore creates a new revision. Native pages export structured JSON.
 
 List/search filter current access before pagination. Results contain at most 50
 items per page. Search matches titles and prepared text, including supported file
-excerpts. Stars are personal. The first release limits a workspace to 1,000 items,
+excerpts. Stars are personal. A workspace holds up to 10,000 items,
 including retained trash. Trash remains recoverable and is not automatically
 purged. File bytes in trash continue to count toward the 1 GiB file quota.
 Native page/history database storage is separate from that binary-file quota.

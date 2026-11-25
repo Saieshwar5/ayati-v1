@@ -66,6 +66,8 @@ CREATE FUNCTION relay_library_access(TEXT, TEXT, TEXT) RETURNS TEXT LANGUAGE sql
   ELSE relay_library_granted($1,$2,$3) END
 $$;
 
+-- An agent uses a document for people it was shared with. An admin's access to
+-- everything is for opening things themselves, which is audited, not for agents.
 CREATE OR REPLACE FUNCTION relay_library_agent_use(TEXT, TEXT, TEXT, TEXT) RETURNS TEXT LANGUAGE sql STABLE AS $$
  SELECT g.use_for
  FROM relay_chat_jobs j
@@ -77,10 +79,10 @@ CREATE OR REPLACE FUNCTION relay_library_agent_use(TEXT, TEXT, TEXT, TEXT) RETUR
   AND NOT EXISTS(SELECT 1 FROM relay_communication_inbox x
    WHERE x.workspace=$1 AND x.reply=$4 AND x.transport<>'chat')
   AND (g.use_for='staff' OR (g.use_for='viewers'
-   AND relay_library_access($1,$2,j.payload->>'requester') IS NOT NULL
+   AND relay_library_granted($1,$2,j.payload->>'requester') IS NOT NULL
    AND NOT EXISTS(
     SELECT 1 FROM relay_members p
-    WHERE p.workspace=$1 AND relay_library_access($1,$2,p.user_id) IS NULL
+    WHERE p.workspace=$1 AND relay_library_granted($1,$2,p.user_id) IS NULL
      AND EXISTS(SELECT 1 FROM relay_chats c
       WHERE c.workspace=$1 AND c.id=m.chat
        AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people cp

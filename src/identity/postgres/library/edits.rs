@@ -266,8 +266,8 @@ impl PgStore {
         .context("Count")?
         .try_get("", "n")?;
         ensure!(
-            count < 1000,
-            "This workspace's initial Library limit is 1,000 items"
+            count < MAX_ITEMS,
+            "This workspace's Library limit is 10,000 items"
         );
         let id = uuid::Uuid::new_v4().to_string();
         execute(&tx, "INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,document,text,created,updated,folder) VALUES($1,$2,'page',$3,$4,$4,$5,$6,$7,$7,$8)", vec![job.workspace.clone().into(), id.clone().into(), input.title.trim().into(), job.requester.clone().into(), document.clone().into(), text.clone().into(), now().into(), input.folder.clone().into()]).await?;

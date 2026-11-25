@@ -47,8 +47,8 @@ impl PgStore {
         } else {
             let count:i64=query(&tx,"SELECT (SELECT count(*) FROM relay_library_items WHERE workspace=$1)+(SELECT count(*) FROM relay_library_uploads WHERE workspace=$1 AND state='pending' AND expires>$2) AS n",vec![w.into(),now().into()]).await?.unwrap().try_get("","n")?;
             ensure!(
-                count < 1000,
-                "This workspace's initial Library limit is 1,000 items"
+                count < MAX_ITEMS,
+                "This workspace's Library limit is 10,000 items"
             );
         }
         ensure!(

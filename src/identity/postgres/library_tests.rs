@@ -316,7 +316,7 @@ async fn library_file_sessions_reconcile_cancel_and_reserve_quota() {
     )
     .await
     .unwrap();
-    execute(&db.db,"INSERT INTO relay_library_uploads(workspace,id,actor,title,size,checksum,object_key,expires) SELECT $1,gen_random_uuid()::text,$2,'reserved.txt',1,$3,'library/capacity/'||n::text,$4 FROM generate_series(1,999) n",vec![w.clone().into(),owner.id.clone().into(),checksum(b"x").into(),(now()+86400).into()]).await.unwrap();
+    execute(&db.db,"INSERT INTO relay_library_uploads(workspace,id,actor,title,size,checksum,object_key,expires) SELECT $1,gen_random_uuid()::text,$2,'reserved.txt',1,$3,'library/capacity/'||n::text,$4 FROM generate_series(1,$5) n",vec![w.clone().into(),owner.id.clone().into(),checksum(b"x").into(),(now()+86400).into(),(MAX_ITEMS - 1).into()]).await.unwrap();
     assert!(
         db.library_save(&owner, &w, &page("Cannot exceed reserved capacity"))
             .await

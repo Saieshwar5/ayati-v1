@@ -82,8 +82,8 @@ impl PgStore {
             .context("Count")?
             .try_get("", "n")?;
             ensure!(
-                count < 1000,
-                "This workspace's initial Library limit is 1,000 items"
+                count < MAX_ITEMS,
+                "This workspace's Library limit is 10,000 items"
             );
             if let Some(folder) = &input.folder {
                 super::folders::open_folder(&tx, user, w, folder).await?;

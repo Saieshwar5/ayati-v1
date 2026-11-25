@@ -32,7 +32,7 @@ checking who will read an answer before an agent may use a document for it.
 | B5 | Five agent tools instead of ten | Next: `open_document` and `save_file` exist beside the old tools |
 | B6 | A computer for every agent | Not started |
 | C7 | Each agent's own folder (schema 155) | Built and tested; made when the agent first saves a file |
-| C8 | Chat attachments as Library items | Not started |
+| C8 | Chat attachments as Library items | Built and tested for attachments sent to an agent; text for search and local-server storage not yet |
 | D9 | Exact search mode | Built and tested (`exact: true`); folder, kind and date filters not yet |
 | D10 | Meaning search per folder, off by default (schema 156) | Built and tested; agents propose, the manager decides |
 | D11 | Descriptions instead of automatic summaries | Partly: automatic summaries now only in meaning-search folders; the description line is not built |
@@ -40,7 +40,7 @@ checking who will read an answer before an agent may use a document for it.
 | E13 | One share dialog for people and agents | Not started |
 | E14 | Folder tree, "Made by agents", working note | Not started |
 | F15 | Keeping rule on agents' folders | Not started |
-| F16 | Files above 25 MiB | Not started |
+| F16 | Files above 25 MiB | Not started (the item limit is now 10,000) |
 | F17 | Remove the old tools and paths | Not started |
 
 ## Next, in order

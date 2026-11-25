@@ -95,8 +95,9 @@ async fn folder(
         name
     };
     let id = uuid::Uuid::new_v4().to_string();
-    // No steward: nobody keeps it privately. A conversation's subfolder has its own sharing.
-    execute(tx, "INSERT INTO relay_library_items(workspace,id,kind,title,created_by,created,updated,folder,shares) VALUES($1,$2,'folder',$3,$4,$5,$5,$6,$7)", vec![w.into(), id.clone().into(), name.trim().into(), by.into(), now().into(), parent.map(str::to_owned).into(), parent.is_some().into()]).await?;
+    // No steward: nobody keeps it privately. A conversation's subfolder has its own
+    // sharing, with the people in the conversation: it lists as shared for them.
+    execute(tx, "INSERT INTO relay_library_items(workspace,id,kind,title,created_by,created,updated,folder,shares,visibility) VALUES($1,$2,'folder',$3,$4,$5,$5,$6,$7,CASE WHEN $7 THEN 'selected' ELSE 'private' END)", vec![w.into(), id.clone().into(), name.trim().into(), by.into(), now().into(), parent.map(str::to_owned).into(), parent.is_some().into()]).await?;
     execute(tx, "INSERT INTO relay_library_agents(workspace,item,agent,level,use_for) VALUES($1,$2,$3,'save','viewers')", vec![w.into(), id.clone().into(), agent.into()]).await?;
     execute(
         tx,
@@ -117,4 +118,42 @@ pub(super) async fn for_conversation(
 ) -> Result<String> {
     let top = folder(tx, w, agent, "", None, by).await?;
     folder(tx, w, agent, chat, Some(&top), by).await
+}
+
+/// Files a person attached when asking an agent are kept in the agent's folder for that
+/// conversation (C8), so the agent can open them on its computer. The item names the
+/// chat file's own stored bytes: nothing is stored twice, and Chat keeps owning them.
+pub(in crate::identity::postgres) async fn keep_attachments(
+    tx: &DatabaseTransaction,
+    w: &str,
+    chat: &str,
+    by: &str,
+    agent: &str,
+    attachments: &[String],
+) -> Result<()> {
+    if attachments.is_empty() || !present(tx).await? {
+        return Ok(());
+    }
+    let place = for_conversation(tx, w, agent, chat, by).await?;
+    for object in attachments {
+        let key = format!("chat/{w}/{object}");
+        let count: i64 = query(
+            tx,
+            "SELECT count(*) AS n FROM relay_library_items WHERE workspace=$1",
+            vec![w.into()],
+        )
+        .await?
+        .context("Count")?
+        .try_get("", "n")?;
+        // A full Library never stops a message; the file stays in Chat only.
+        if count >= MAX_ITEMS {
+            return Ok(());
+        }
+        let id = uuid::Uuid::new_v4().to_string();
+        let made = execute(tx, "INSERT INTO relay_library_items(workspace,id,kind,title,created_by,text,object_key,mime,size,checksum,readiness,created,updated,folder) SELECT o.workspace,$3,'file',o.name,$4,'',$5,o.mime,o.size,o.checksum,'unsupported',$6,$6,$7 FROM relay_objects o WHERE o.workspace=$1 AND o.id=$2 AND NOT EXISTS(SELECT 1 FROM relay_library_items i WHERE i.workspace=o.workspace AND i.folder=$7 AND i.object_key=$5)", vec![w.into(), object.clone().into(), id.clone().into(), by.into(), key.into(), now().into(), place.clone().into()]).await?;
+        if made == 1 {
+            file_versions::snapshot(tx, w, &id, by, None).await?;
+        }
+    }
+    Ok(())
 }

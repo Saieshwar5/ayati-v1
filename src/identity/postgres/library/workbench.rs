@@ -123,7 +123,11 @@ impl PgStore {
                 let key = found["object_key"]
                     .as_str()
                     .context("Stored file missing")?;
-                let bytes = self.library_files.get(key).await?;
+                let Ok(bytes) = self.library_files.get(key).await else {
+                    return Ok(
+                        json!({"state":"unavailable","message":"This file's stored copy can't be reached from here. Tell the person."}),
+                    );
+                };
                 ensure!(
                     bytes.len() as i64 == found["size"].as_i64().unwrap_or(-1)
                         && checksum(&bytes) == found["checksum"],

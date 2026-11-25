@@ -286,8 +286,20 @@ colleague can't open it, the agent won't open it for them, and their own file go
 another subfolder; both sit in the agent's folder, which the colleague can't open; the
 folders refuse sharing, moving and Trash).
 
-Not built yet: chat attachments landing in these folders (C8), and the screens that show
-an agent's folder on its page.
+**Attachments.** A file attached to a message that asks an agent is kept in that
+agent's subfolder for the conversation, as a Library file the agent can open on its
+computer (`open_document`). The item names Chat's own stored bytes (`chat/<workspace>/<id>`):
+nothing is stored twice, the bytes don't count toward the Library quota, and deleting the
+Library item never deletes Chat's file. Limits: it works where Chat stores files in the
+shared file storage (hosted); on a local development server Chat keeps files elsewhere and
+the agent is told the copy can't be reached. The text of an attachment is not read for
+search yet; the agent reads it on its computer. Attachments in conversations without an
+agent stay out of the Library.
+
+An agent uses a document only for people it was shared with (`relay_library_granted`): an
+admin's access to everything is for opening things themselves, which is audited.
+
+Not built yet: the screens that show an agent's folder on its page.
 
 **Fencing (schema 71).** Library edits and sharing changes no longer raise the
 workspace-wide context epoch, which used to hide every earlier agent answer in the

@@ -390,6 +390,15 @@ impl PgStore {
                 self.queue_reply(tx, user, workspace, chat, input, agent, class)
                     .await?,
             );
+            super::library::agent_folders::keep_attachments(
+                tx,
+                workspace,
+                chat,
+                &user.id,
+                agent,
+                &input.attachments,
+            )
+            .await?;
         }
         if class == WorkClass::Interactive {
             super::communications::inbox::record_chat(
