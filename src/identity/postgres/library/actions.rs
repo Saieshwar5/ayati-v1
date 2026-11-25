@@ -14,7 +14,8 @@ impl PgStore {
                 "trash",
                 "restore",
                 "restore_version",
-                "claim"
+                "claim",
+                "follow_folder"
             ]
             .contains(&input.action.as_str()),
             "Unknown Library action"
@@ -45,7 +46,26 @@ impl PgStore {
             if current["revision"].as_i64() != Some(input.revision) {
                 return Err(Conflict.into());
             }
-            if input.action == "claim" {
+            if input.action == "follow_folder" {
+                // A subfolder gives up its own sharing and follows the folder it is in.
+                ensure!(
+                    current["manageable"] == true
+                        && current["kind"] == "folder"
+                        && !current["folder"].is_null(),
+                    "Only a subfolder's manager can make it follow its folder"
+                );
+                for table in ["relay_library_people", "relay_library_agents"] {
+                    execute(
+                        &tx,
+                        &format!("DELETE FROM {table} WHERE workspace=$1 AND item=$2"),
+                        vec![w.into(), id.into()],
+                    )
+                    .await?;
+                }
+                execute(&tx,"UPDATE relay_library_items SET shares=false,visibility='private',access_revision=access_revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
+                super::nested::touch_inside(&tx, w, id).await?;
+                super::super::task_revocation::inaccessible(&tx, w).await?;
+            } else if input.action == "claim" {
                 ensure!(
                     current["steward"].is_null() && current["trashed"] == false,
                     "This item already has a sharing manager"

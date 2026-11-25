@@ -41,8 +41,9 @@ impl PgStore {
             current["manageable"] == true,
             "Only the creator can manage sharing"
         );
+        // A subfolder may have sharing of its own; other items follow their folder.
         ensure!(
-            current["folder"].is_null(),
+            current["folder"].is_null() || current["kind"] == "folder",
             "This item follows its folder's sharing; share the folder or move the item out"
         );
         let payload = json!({"share":id,"input":input});
@@ -107,9 +108,9 @@ impl PgStore {
             )
             .await?;
         }
-        execute(&tx,"UPDATE relay_library_items SET visibility=$3,access_revision=access_revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),input.visibility.clone().into()]).await?;
-        // Items in a folder follow it: their source receipts must see the change too.
-        execute(&tx,"UPDATE relay_library_items SET access_revision=access_revision+1 WHERE workspace=$1 AND folder=$2",vec![w.into(),id.into()]).await?;
+        execute(&tx,"UPDATE relay_library_items SET visibility=$3,shares=(folder IS NOT NULL),access_revision=access_revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),input.visibility.clone().into()]).await?;
+        // Everything inside follows it: their source receipts must see the change too.
+        nested::touch_inside(&tx, w, id).await?;
         let result = json!({"ok":true});
         remember(&tx, user, w, &input.request, payload, &result).await?;
         let mut said = vec![];

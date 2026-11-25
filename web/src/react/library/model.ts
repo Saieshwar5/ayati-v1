@@ -32,6 +32,10 @@ export type Item = {
   /** The folder this item is filed in; its sharing comes from there. */
   folder?: string | null;
   folder_title?: string | null;
+  /** The item whose sharing this one follows: itself, or a folder above it. */
+  source?: string;
+  /** False when an admin can open it only because admins can open everything. */
+  granted?: boolean;
   item_count?: number;
   review_due?: boolean;
 };

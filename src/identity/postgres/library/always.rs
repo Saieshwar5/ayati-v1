@@ -42,7 +42,7 @@ pub(crate) struct AlwaysRead {
 
 /// Documents given to the agent (directly or through their folder) that this person
 /// can open: what its owner and admins may choose from.
-const GIVEN: &str = "SELECT jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'folder',CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END,'use_for',g.use_for,'characters',(SELECT COALESCE(sum(char_length(p.text)),0) FROM relay_library_passages p WHERE p.workspace=i.workspace AND p.item=i.id AND p.revision=i.revision)) AS data FROM relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2 WHERE i.workspace=$1 AND i.kind<>'folder' AND NOT i.trashed AND NOT s.trashed AND relay_library_access(i.workspace,i.id,$3) IS NOT NULL";
+const GIVEN: &str = "SELECT jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'folder',(SELECT f.title FROM relay_library_items f WHERE f.workspace=i.workspace AND f.id=i.folder),'use_for',g.use_for,'characters',(SELECT COALESCE(sum(char_length(p.text)),0) FROM relay_library_passages p WHERE p.workspace=i.workspace AND p.item=i.id AND p.revision=i.revision)) AS data FROM relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2 WHERE i.workspace=$1 AND i.kind<>'folder' AND NOT i.trashed AND NOT s.trashed AND relay_library_access(i.workspace,i.id,$3) IS NOT NULL";
 
 async fn current(db: &impl ConnectionTrait, w: &str, agent: &str) -> Result<Vec<String>> {
     rows(

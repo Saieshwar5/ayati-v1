@@ -10,7 +10,8 @@ D242), schemas 69–74.
 
 Built 2026-11-05 from the Library plan (slice LB1, draft decision D242).
 
-**Folders.** One level: a folder holds pages and files, not other folders. Anyone can
+**Folders.** Folders hold pages, files, tables and, since schema 153, other folders
+(below). Anyone can
 create one (`POST /api/identity/workspaces/{w}/library-folders` with `{id, request,
 title}`); it is private to its creator until shared. Everything in a folder follows the
 folder's sharing: people (Only me, Selected people, Workspace; Can view or Can edit) and
@@ -65,6 +66,27 @@ for this answer**, links Cuckoo makes from its receipts, not the model, naming t
 read ("Support handbook › Refunds · revision 3"); documents only previewed by search
 aren't cited. Chat opens them in the same tab at the cited revision. Cited revisions are kept with page history.
 Agents given anything in the Library get one instruction line about these tools.
+
+### Folders inside folders (schema 153)
+
+- A folder can be made inside a folder the person can edit (`library-folders` with
+  `folder`), up to five levels, and moved like any item (never into itself).
+- An item follows **the nearest folder above it that has its own sharing**: a top-level
+  folder, or a subfolder shared on its own. A new subfolder follows its parent;
+  **Share separately** on it gives it sharing of its own, and **Follow <folder>**
+  (`action: follow_folder`) removes that again. Both raise the access revision of
+  everything inside, so answers that used those items are fenced as for any sharing change.
+- A folder lists what is directly in it. A legal hold on any folder above an item holds
+  it; the keeping rule of the nearest folder that has one applies.
+- `relay_library_source(workspace, item)` names the item whose sharing applies;
+  `relay_library_path` the folders above it. Moving offers top-level folders only for now.
+
+Checks: PostgreSQL (`postgres/library_nested_tests.rs`: sharing the top folder reaches a
+page two levels down and fences it, a viewer can't add a subfolder, a subfolder shared
+separately hides its pages and following again shows them, each level lists its own
+items; no loops, five levels, a hold and keeping rule from folders above), web
+(`tests/library-folders.test.mjs`: the path, "follows the sharing of", Share separately,
+a folder made inside names its parent).
 
 ### Passages and full-text search (schema 70, LB2a)
 

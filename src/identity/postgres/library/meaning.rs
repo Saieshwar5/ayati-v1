@@ -114,10 +114,10 @@ pub(super) async fn nearest(
     let Some(schema) = vectors(tx).await? else {
         return Ok(vec![]);
     };
-    json_rows(tx,&format!("WITH hits AS MATERIALIZED (SELECT p.item,p.position,p.section,p.text,p.revision,i.title,i.access_revision,CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END AS folder,e.embedding OPERATOR({schema}.<=>) $4::{schema}.vector AS distance
+    json_rows(tx,&format!("WITH hits AS MATERIALIZED (SELECT p.item,p.position,p.section,p.text,p.revision,i.title,i.access_revision,(SELECT f.title FROM relay_library_items f WHERE f.workspace=i.workspace AND f.id=i.folder) AS folder,e.embedding OPERATOR({schema}.<=>) $4::{schema}.vector AS distance
   FROM relay_library_embeddings e JOIN relay_library_passages p ON p.workspace=e.workspace AND p.item=e.item AND p.position=e.position AND p.revision=e.revision
   JOIN relay_library_items i ON i.workspace=p.workspace AND i.id=p.item AND NOT i.trashed AND i.revision=p.revision
-  JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) AND NOT s.trashed
+  JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) AND NOT s.trashed
   JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2
   WHERE e.workspace=$1 AND e.model=$6 AND ($5='' OR s.id=$5) ORDER BY distance,p.item,p.position LIMIT 200),
  usable AS (SELECT item FROM (SELECT DISTINCT item FROM hits) d WHERE relay_library_agent_use($1,d.item,$2,$3) IS NOT NULL)

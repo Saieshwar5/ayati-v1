@@ -26,9 +26,9 @@ checking who will read an answer before an agent may use a document for it.
 | Part | What | Status |
 | --- | --- | --- |
 | A1 | File versions and one history (schema 152) | Built and tested |
-| A2 | Folders inside folders | Next |
-| A3 | Admins can open everything, audited | Not started |
-| B4 | Open on the computer and Save back | Not started |
+| A2 | Folders inside folders (schema 153) | Built and tested |
+| A3 | Admins can open everything, audited (schema 153) | Built and tested |
+| B4 | Open on the computer and Save back | Next |
 | B5 | Five agent tools instead of ten | Not started |
 | B6 | A computer for every agent | Not started |
 | C7 | Each agent's own folder | Not started |

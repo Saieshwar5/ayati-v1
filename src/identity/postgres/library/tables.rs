@@ -171,7 +171,7 @@ impl PgStore {
     pub(crate) async fn library_set_row(&self, job: &Job, input: &SetRow) -> Result<Value> {
         let tx = self.workspace_tx(&job.workspace).await?;
         super::super::control_actions::authorize(&tx, job, true).await?;
-        let found = json_rows(&tx, "SELECT jsonb_build_object('title',i.title,'revision',i.revision,'table',i.document,'level',g.level,'access',relay_library_access(i.workspace,i.id,$3)) AS data FROM relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$4 WHERE i.workspace=$1 AND i.id=$2 AND i.kind='table' AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$4,$5) IS NOT NULL", vec![job.workspace.clone().into(), input.table.clone().into(), job.requester.clone().into(), job.agent.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
+        let found = json_rows(&tx, "SELECT jsonb_build_object('title',i.title,'revision',i.revision,'table',i.document,'level',g.level,'access',relay_library_access(i.workspace,i.id,$3)) AS data FROM relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$4 WHERE i.workspace=$1 AND i.id=$2 AND i.kind='table' AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$4,$5) IS NOT NULL", vec![job.workspace.clone().into(), input.table.clone().into(), job.requester.clone().into(), job.agent.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
         let Some(found) = found else {
             tx.commit().await?;
             return Ok(

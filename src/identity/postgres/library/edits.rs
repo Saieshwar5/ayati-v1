@@ -72,7 +72,7 @@ pub(super) async fn standing(
     job: &Job,
     item: &str,
 ) -> Result<Option<(u8, Option<String>, Value)>> {
-    let row = json_rows(tx, "SELECT jsonb_build_object('level',g.level,'access',relay_library_access(i.workspace,i.id,$3),'kind',i.kind,'title',i.title,'revision',i.revision,'folder',i.folder,'document',i.document) AS data FROM relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$4 WHERE i.workspace=$1 AND i.id=$2 AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$4,$5) IS NOT NULL", vec![job.workspace.clone().into(), item.into(), job.requester.clone().into(), job.agent.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
+    let row = json_rows(tx, "SELECT jsonb_build_object('level',g.level,'access',relay_library_access(i.workspace,i.id,$3),'kind',i.kind,'title',i.title,'revision',i.revision,'folder',i.folder,'document',i.document) AS data FROM relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$4 WHERE i.workspace=$1 AND i.id=$2 AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$4,$5) IS NOT NULL", vec![job.workspace.clone().into(), item.into(), job.requester.clone().into(), job.agent.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
     Ok(row.map(|r| {
         (
             rank(r["level"].as_str().unwrap_or("")),

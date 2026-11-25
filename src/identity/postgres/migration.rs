@@ -160,6 +160,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::tasks::migration::DropSchedules),
             Box::new(super::tasks::migration::TasksInConversations),
             Box::new(super::library::file_versions::LibraryFileVersions),
+            Box::new(super::library::nested::LibraryNested),
         ]
     }
 }

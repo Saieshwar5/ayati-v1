@@ -88,6 +88,9 @@ pub struct CreateFolder {
     pub id: String,
     pub request: String,
     pub title: String,
+    /// The folder to create it in, or none for the top level.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

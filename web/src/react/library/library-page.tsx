@@ -28,6 +28,11 @@ const views = [
   { id: 'review', label: 'Due for review' },
   { id: 'trash', label: 'Trash' },
 ];
+/** Admins also see what agents couldn't answer, and everything in the Library. */
+const adminViews = [
+  { id: 'gaps', label: 'Unanswered' },
+  { id: 'everything', label: 'Everything' },
+];
 export function LibraryPage({ href }: { href: string }) {
   const selected = new URL(href).searchParams.get('item');
   const folder = new URL(href).searchParams.get('folder');
@@ -161,11 +166,9 @@ export function LibraryPage({ href }: { href: string }) {
               >
                 ↑ Upload
               </Button>
-              {!folder && (
-                <Button disabled={!listing.data?.available} onClick={() => setNaming(true)}>
-                  ＋ New folder
-                </Button>
-              )}
+              <Button disabled={!listing.data?.available} onClick={() => setNaming(true)}>
+                ＋ New folder
+              </Button>
               <Button disabled={!listing.data?.available || mutation.busy} onClick={createTable}>
                 ＋ New table
               </Button>
@@ -178,7 +181,7 @@ export function LibraryPage({ href }: { href: string }) {
             <aside className="library-sidebar">
               <span className="library-eyebrow">Browse</span>
               <nav aria-label="Library views">
-                {[...views, ...(currentWorkspace()?.role === 'Admin' ? [{ id: 'gaps', label: 'Unanswered' }] : [])].map((option) => (
+                {[...views, ...(currentWorkspace()?.role === 'Admin' ? adminViews : [])].map((option) => (
                   <Button
                     key={option.id}
                     aria-current={view === option.id ? 'page' : undefined}
@@ -198,7 +201,8 @@ export function LibraryPage({ href }: { href: string }) {
               <p>
                 Start small.
                 <br />
-                New pages and files are private until you share them.
+                New pages and files are private until you share them. Workspace admins can open
+                everything in the Library.
               </p>
               {listing.data?.storage === 'local' && <small>Local development file storage</small>}
             </aside>
@@ -426,7 +430,7 @@ export function LibraryPage({ href }: { href: string }) {
               )}
             </main>
           </div>
-          {naming && <NewFolderDialog close={() => setNaming(false)} />}
+          {naming && <NewFolderDialog folder={folder ?? undefined} close={() => setNaming(false)} />}
         </>
       )}
     </div>

@@ -43,7 +43,13 @@ Only admins invite or remove workspace members through Settings.
 - Native pages offer Can view or Can edit. Edit does not grant resharing. The
   file-sharing UI offers view/download access; editors replace a file with a new version.
 - Workspace visibility gives current members view access; named editors can edit.
-- Another admin does not automatically read private/selected-people content.
+- **Admins can open and manage everything** (schema 153), including items marked Only
+  me: open, edit, share, move, trash and delete. What was not shared with them stays out
+  of their own views and is listed under **Everything**; the item says so when opened, and
+  the Audit log records "Opened … as an admin; it was not shared with them" (once an hour
+  per admin and item). `relay_library_granted` is what a person was given;
+  `relay_library_access` adds the admin rule. Agents get nothing from this: an agent uses
+  only what it was given.
 - Links do not grant access. There is no guest/public-link sharing.
 - Version history requires edit access; a viewer can fetch the current page version.
 
@@ -56,11 +62,8 @@ cannot recall an already downloaded copy or delivered private Chat answer.
 Membership removal deletes human grants, stars, upload sessions and request
 receipts through foreign keys. It clears current item stewardship while retaining
 the original author/history. Re-invitation does not revive private ownership or
-old grants. An admin can explicitly take over a workspace-visible orphaned item;
-an existing editor can take over a selected-people orphaned item. This does not
-grant an admin new read access to selected/private content. Private orphaned items
-remain retained and inaccessible; broader recovery/deletion policy is still a
-pilot decision. Selected items without surviving editors stay read-only.
+old grants. An admin can open and manage any orphaned item (above); an existing editor
+can still take over a selected-people orphaned item.
 
 ## Files and storage configuration
 

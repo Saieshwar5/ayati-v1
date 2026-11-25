@@ -9,6 +9,7 @@ pub(super) mod file_versions;
 pub(super) mod folders;
 pub(super) mod keeping;
 pub(super) mod meaning;
+pub(super) mod nested;
 mod pages;
 pub(super) mod passages;
 pub(super) mod rehearsals;
@@ -24,10 +25,12 @@ pub(super) use agents::source_allowed;
 use serde_json::json;
 
 /// The item `i` and the item whose sharing it follows, `s` (its folder, or itself).
-const SOURCE: &str = "relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id)";
+const SOURCE: &str = "relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id)";
 const ACCESS: &str = "relay_library_access(i.workspace,i.id,$2) IS NOT NULL";
+/// What a person was given, not counting an admin's access to everything.
+const GRANTED: &str = "relay_library_granted(i.workspace,i.id,$2) IS NOT NULL";
 /// Fields every view of an item adds: sharing comes from its folder.
-const SHARED: &str = "'visibility',s.visibility,'folder_title',CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END,'editable',relay_library_access(i.workspace,i.id,$2)='edit','manageable',i.steward=$2,'starred',EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)";
+const SHARED: &str = "'visibility',s.visibility,'folder_title',(SELECT f.title FROM relay_library_items f WHERE f.workspace=i.workspace AND f.id=i.folder),'editable',relay_library_access(i.workspace,i.id,$2)='edit','manageable',(i.steward=$2 OR relay_library_admin(i.workspace,$2)),'source',s.id,'granted',relay_library_granted(i.workspace,i.id,$2) IS NOT NULL,'starred',EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)";
 async fn item(
     db: &impl ConnectionTrait,
     user: &User,
@@ -88,7 +91,7 @@ impl PgStore {
     pub async fn library_get(&self, user: &User, w: &str, id: &str) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         let mut value = public(item(&tx, user, w, id, false).await?);
-        let root = value["folder"].as_str().unwrap_or(id).to_owned();
+        let root = value["source"].as_str().unwrap_or(id).to_owned();
         value["people"] = json!(json_rows(&tx,"SELECT jsonb_build_object('user',g.user_id,'access',g.access,'name',COALESCE(u.display_name,u.email)) AS data FROM relay_library_people g JOIN relay_users u ON u.id=g.user_id WHERE g.workspace=$1 AND g.item=$2 ORDER BY g.user_id",vec![w.into(),root.clone().into()]).await?);
         // Only expose agent identities that this requester can use.
         let mut agents = vec![];
@@ -106,6 +109,7 @@ impl PgStore {
         }
         value["agents"] = json!(agents);
         tx.commit().await?;
+        nested::admin_opened(self, user, w, &value).await?;
         Ok(value)
     }
     pub async fn library_list(
@@ -118,7 +122,8 @@ impl PgStore {
         offset: i64,
     ) -> Result<Value> {
         ensure!(
-            ["all", "private", "shared", "starred", "trash", "review"].contains(&view)
+            ["all", "private", "shared", "starred", "trash", "review", "everything"]
+                .contains(&view)
                 && search.len() <= 180
                 && folder.len() <= 64
                 && (0..=10000).contains(&offset),
@@ -126,6 +131,18 @@ impl PgStore {
         );
         let tx = self.read_tx(w).await?;
         role(&tx, w, &user.id).await?;
+        // Admins can open everything, but their own views list what was shared with
+        // them; Everything lists the rest too.
+        ensure!(
+            view != "everything" || role(&tx, w, &user.id).await? == "Admin",
+            "Only admins list everything"
+        );
+        // Inside a folder they opened, an admin sees what is in it.
+        let reach = if view == "everything" || !folder.is_empty() {
+            ACCESS
+        } else {
+            GRANTED
+        };
         if !folder.is_empty() {
             ensure!(
                 item(&tx, user, w, folder, false).await?["kind"] == "folder",
@@ -136,7 +153,7 @@ impl PgStore {
         // every item wherever it is filed.
         let due = upkeep::DUE;
         let sql = format!(
-            "SELECT (to_jsonb(i)-'document'-'text'-'object_key') || jsonb_build_object({SHARED},'review_due',{due},'agent_count',(SELECT count(*) FROM relay_library_agents a WHERE a.workspace=s.workspace AND a.item=s.id),'item_count',CASE WHEN i.kind='folder' THEN (SELECT count(*) FROM relay_library_items c WHERE c.workspace=i.workspace AND c.folder=i.id AND NOT c.trashed) END) AS data FROM {SOURCE} WHERE i.workspace=$1 AND {ACCESS} AND i.trashed=($3='trash') AND (to_jsonb(i)->>'purged') IS NULL AND ($3!='all' OR $4!='' OR i.folder IS NOT DISTINCT FROM NULLIF($6,'')) AND ($3 NOT IN ('private','shared') OR (CASE WHEN $3='private' THEN s.visibility='private' ELSE s.visibility!='private' END)) AND ($3!='review' OR {due}) AND ($3!='starred' OR EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)) AND ($4='' OR strpos(lower(i.title || ' ' || i.text),lower($4))>0) ORDER BY (i.kind='folder' AND $3='all' AND $4='') DESC,i.updated DESC,i.id LIMIT 51 OFFSET $5"
+            "SELECT (to_jsonb(i)-'document'-'text'-'object_key') || jsonb_build_object({SHARED},'review_due',{due},'agent_count',(SELECT count(*) FROM relay_library_agents a WHERE a.workspace=s.workspace AND a.item=s.id),'item_count',CASE WHEN i.kind='folder' THEN (SELECT count(*) FROM relay_library_items c WHERE c.workspace=i.workspace AND c.folder=i.id AND NOT c.trashed) END) AS data FROM {SOURCE} WHERE i.workspace=$1 AND {reach} AND i.trashed=($3='trash') AND (to_jsonb(i)->>'purged') IS NULL AND ($3 NOT IN ('all','everything') OR $4!='' OR i.folder IS NOT DISTINCT FROM NULLIF($6,'')) AND ($3 NOT IN ('private','shared') OR (CASE WHEN $3='private' THEN s.visibility='private' ELSE s.visibility!='private' END)) AND ($3!='review' OR {due}) AND ($3!='starred' OR EXISTS(SELECT 1 FROM relay_library_stars st WHERE st.workspace=i.workspace AND st.item=i.id AND st.user_id=$2)) AND ($4='' OR strpos(lower(i.title || ' ' || i.text),lower($4))>0) ORDER BY (i.kind='folder' AND $3 IN ('all','everything') AND $4='') DESC,i.updated DESC,i.id LIMIT 51 OFFSET $5"
         );
         let mut items = json_rows(
             &tx,
@@ -161,6 +178,7 @@ impl PgStore {
         let value = item(&tx, user, w, id, false).await?;
         ensure!(value["kind"] == "file", "This item is a page");
         tx.commit().await?;
+        nested::admin_opened(self, user, w, &value).await?;
         Ok(value)
     }
 }

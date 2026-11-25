@@ -237,6 +237,12 @@ function ReadyItem({
           {error || mutation.status}
         </p>
       )}
+      {item.granted === false && (
+        <p className="library-notice" role="status">
+          This was not shared with you. You can open it as a workspace admin, and the Audit log
+          records that you did.
+        </p>
+      )}
       {stale && !saving.busy && (
         <p className="library-notice" role="status">
           A newer saved revision is available. Your current draft stays in this browser.{' '}

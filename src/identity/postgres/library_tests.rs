@@ -17,6 +17,8 @@ mod folders;
 mod keeping;
 #[path = "library_meaning_tests.rs"]
 mod meaning;
+#[path = "library_nested_tests.rs"]
+mod nested;
 #[path = "library_passage_tests.rs"]
 mod passages;
 #[path = "library_table_tests.rs"]
@@ -67,7 +69,11 @@ async fn library_private_pages_and_item_permissions_are_independent_of_roles() {
     let input = page("Private working plan");
     let id = &input.id;
     db.library_save(&writer, &w, &input).await.unwrap();
-    assert!(db.library_get(&owner, &w, id).await.is_err());
+    // An admin can open it, but it is not among what was shared with them.
+    assert_eq!(
+        db.library_get(&owner, &w, id).await.unwrap()["granted"],
+        false
+    );
     assert!(
         db.library_list(&owner, &w, "all", "", "", 0).await.unwrap()["items"]
             .as_array()
@@ -81,8 +87,9 @@ async fn library_private_pages_and_item_permissions_are_independent_of_roles() {
         db.library_get(&viewer, &w, id).await.unwrap()["editable"],
         false
     );
+    // Being given the item doesn't let a member reshare it (an admin could).
     assert!(
-        db.library_share(&owner, &w, id, &share(2, "workspace", vec![]))
+        db.library_share(&viewer, &w, id, &share(2, "workspace", vec![]))
             .await
             .is_err()
     );
@@ -200,7 +207,11 @@ async fn library_member_removal_and_reinvitation_do_not_reactivate_private_owner
     join(&db, &owner, &w, &writer, "Member").await;
     assert!(db.library_get(&writer, &w, &input.id).await.is_err());
     assert!(db.library_get(&writer, &w, &shared.id).await.is_err());
-    assert!(db.library_get(&owner, &w, &input.id).await.is_err());
+    // The admin can still reach what the removed member kept private.
+    assert_eq!(
+        db.library_get(&owner, &w, &input.id).await.unwrap()["granted"],
+        false
+    );
     assert_eq!(
         db.library_get(&owner, &w, &team_page.id).await.unwrap()["steward"],
         Value::Null

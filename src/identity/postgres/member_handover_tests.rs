@@ -146,7 +146,11 @@ async fn removal_hands_agents_library_and_invitations_to_the_chosen_person() {
     .try_get("", "steward")
     .unwrap();
     assert_eq!(private_steward, None);
-    assert!(db.library_get(&admin, &w, "page-2").await.is_err());
+    assert_eq!(
+        db.library_get(&admin, &w, "page-2").await.unwrap()["granted"],
+        false,
+        "an admin opens it as an admin, not as its keeper"
+    );
     // The heir now looks after the item without an admin takeover.
     assert!(
         db.member_responsibilities(&admin, &w, &heir.id)

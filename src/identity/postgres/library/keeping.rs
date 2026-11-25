@@ -75,7 +75,7 @@ pub(super) async fn held(db: &impl ConnectionTrait, w: &str, id: &str) -> Result
     if !present(db).await? {
         return Ok(false);
     }
-    Ok(query(db, "SELECT 1 AS found FROM relay_library_items i JOIN relay_library_holds h ON h.workspace=i.workspace AND h.item IN (i.id, i.folder) WHERE i.workspace=$1 AND i.id=$2", vec![w.into(), id.into()]).await?.is_some())
+    Ok(query(db, "SELECT 1 AS found FROM relay_library_items i JOIN relay_library_holds h ON h.workspace=i.workspace AND h.item = ANY(relay_library_path(i.workspace,i.id)) WHERE i.workspace=$1 AND i.id=$2", vec![w.into(), id.into()]).await?.is_some())
 }
 /// Whether the item was deleted for good.
 pub(super) async fn purged(db: &impl ConnectionTrait, w: &str, id: &str) -> Result<bool> {
@@ -152,18 +152,16 @@ impl PgStore {
         .await?
         .map(|r| r.try_get::<i32>("", "keep_days"))
         .transpose()?;
-        let rule = match current["folder"].as_str() {
-            Some(folder) => query(
-                &tx,
-                "SELECT keep_days FROM relay_library_keeping WHERE workspace=$1 AND folder=$2",
-                vec![w.into(), folder.into()],
-            )
-            .await?
-            .map(|r| r.try_get::<i32>("", "keep_days"))
-            .transpose()?,
-            None => None,
-        };
-        let hold = json_rows(&tx, "SELECT jsonb_build_object('item',h.item,'reason',h.reason,'at',h.held_at,'by',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=h.held_by),'on_folder',h.item<>$2) AS data FROM relay_library_items i JOIN relay_library_holds h ON h.workspace=i.workspace AND h.item IN (i.id, i.folder) WHERE i.workspace=$1 AND i.id=$2 ORDER BY h.item=$2 DESC LIMIT 1", vec![w.into(), id.into()]).await?.into_iter().next();
+        let rule = query(
+            &tx,
+            "SELECT relay_library_keep_days($1,$2) AS keep_days",
+            vec![w.into(), id.into()],
+        )
+        .await?
+        .map(|r| r.try_get::<Option<i32>>("", "keep_days"))
+        .transpose()?
+        .flatten();
+        let hold = json_rows(&tx, "SELECT jsonb_build_object('item',h.item,'reason',h.reason,'at',h.held_at,'by',(SELECT COALESCE(u.display_name,u.email) FROM relay_users u WHERE u.id=h.held_by),'on_folder',h.item<>$2) AS data FROM relay_library_items i JOIN relay_library_holds h ON h.workspace=i.workspace AND h.item = ANY(relay_library_path(i.workspace,i.id)) WHERE i.workspace=$1 AND i.id=$2 ORDER BY h.item=$2 DESC LIMIT 1", vec![w.into(), id.into()]).await?.into_iter().next();
         tx.commit().await?;
         Ok(
             json!({"keep_days":keep,"folder_keep_days":rule,"deletes_at":rule.map(|d| current["created"].as_i64().unwrap_or(0) + i64::from(d) * 86_400),"hold":hold,"can_change":admin}),
@@ -263,7 +261,7 @@ impl PgStore {
         if !present(&self.db).await? {
             return Ok(vec![]);
         }
-        let due = rows(&self.db, &format!("SELECT i.workspace,i.id FROM relay_library_items i JOIN relay_library_keeping k ON k.workspace=i.workspace AND k.folder=i.folder WHERE i.purged IS NULL AND i.kind<>'folder' AND i.created + k.keep_days::bigint*86400 < $1 AND NOT EXISTS(SELECT 1 FROM relay_library_holds h WHERE h.workspace=i.workspace AND h.item IN (i.id, i.folder)) ORDER BY i.created LIMIT {SWEEP}"), vec![at.into()]).await?;
+        let due = rows(&self.db, &format!("SELECT i.workspace,i.id FROM relay_library_items i WHERE i.purged IS NULL AND i.kind<>'folder' AND i.folder IS NOT NULL AND i.created + relay_library_keep_days(i.workspace,i.id)::bigint*86400 < $1 AND NOT EXISTS(SELECT 1 FROM relay_library_holds h WHERE h.workspace=i.workspace AND h.item = ANY(relay_library_path(i.workspace,i.id))) ORDER BY i.created LIMIT {SWEEP}"), vec![at.into()]).await?;
         let mut files = vec![];
         for row in due {
             let (w, id): (String, String) = (row.try_get("", "workspace")?, row.try_get("", "id")?);
