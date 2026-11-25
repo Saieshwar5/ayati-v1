@@ -11,7 +11,7 @@ import { UnhandledEvents } from './unhandled';
 
 const periods = [['today', 'Today'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['90', 'Last 90 days']] as const;
 const statuses = [['', 'Any status'], ['active', 'In progress'], ['waiting', 'Waiting'], ['done', 'Done'], ['review', 'Needs review'], ['failed', 'Could not complete'], ['stopped', 'Stopped']] as const;
-const kinds = [['', 'Any type'], ['chat', 'Chat'], ['schedule', 'Schedules'], ['trigger', 'Triggers'], ['handoff', 'Hand-offs'], ['panel', 'Panel updates'], ['unhandled', 'Events not handled'], ['changes', 'Setting changes']] as const;
+const kinds = [['', 'Any type'], ['chat', 'Chat'], ['task', 'Task runs'], ['trigger', 'Triggers'], ['handoff', 'Hand-offs'], ['panel', 'Panel updates'], ['unhandled', 'Events not handled'], ['changes', 'Setting changes']] as const;
 const fromPeriod = (period: string) => period === 'today' ? startOfToday() : startOfToday() - (Number(period) - 1) * 86400000;
 const loadChats = () => chatRequest<{ chats: Conversation[] }>('/chats');
 /** The search text once typing pauses, so each keystroke doesn't start a read. */
@@ -136,10 +136,10 @@ function Row({ item, open }: { item: ActivityItem; open: (id: string) => void })
   const shown = status(item);
   // A conversation turn that isn't part of any task reads lighter than real work.
   const light = item.kind === 'chat' && !item.task;
-  // A schedule's or trigger's place already starts with its kind ("Schedule · Shared inbox").
+  // A task run's or trigger's place already starts with its kind ("Task · Sales summary").
   const place = where(item);
   const about = item.kind === 'chat' ? `${item.requester_name ?? 'Someone'} · ${place}`
-    : item.kind === 'schedule' || item.kind === 'trigger' ? place[0].toUpperCase() + place.slice(1) : `${kindLabels[item.kind]} · ${place}`;
+    : item.kind === 'task' || item.kind === 'trigger' ? place[0].toUpperCase() + place.slice(1) : `${kindLabels[item.kind]} · ${place}`;
   return <button type="button" className={`activity-row-button${light ? ' activity-row-light' : ''}`} onClick={() => open(item.id)}>
     <time>{clock(item.created_ms)}</time>
     <span className="activity-agent"><AgentFace agent={{ id: item.agent, name: item.agent_name, avatar: item.agent_avatar }} className="activity-face" />{item.agent_name}</span>
@@ -156,7 +156,7 @@ function Summary({ totals, needLook }: { totals: Totals; needLook: () => void })
   return <p className="activity-summary" aria-label="Totals">
     <strong>{totals.requests} {totals.requests === 1 ? 'request' : 'requests'}</strong> · {totals.done} done ·{' '}
     {totals.review > 0 ? <button type="button" className="activity-summary-link" onClick={needLook}>{totals.review} need a look</button> : 'none need a look'}
-    {' '}· {totals.automatic + totals.approved} actions ({totals.automatic} automatic, {totals.approved} approved) · {totals.schedule_runs} schedule runs
+    {' '}· {totals.automatic + totals.approved} actions ({totals.automatic} automatic, {totals.approved} approved) · {totals.task_runs} task runs
     {totals.waiting ? ` · ${totals.waiting} waiting now` : ''} · {totals.people} {totals.people === 1 ? 'person' : 'people'} in {totals.channels} {totals.channels === 1 ? 'channel' : 'channels'}</p>;
 }
 

@@ -1,21 +1,21 @@
 import { useCallback, useRef, useState } from 'react';
 import { Button, Dialog } from '../../ui';
 import { useMutation, useResource } from '../../requests';
-import { loadSchedules } from '../automation/model';
-import { MemoryChoice, ResultsChoice, memoryLabels, type Memory } from '../automation/results-and-memory';
+import { loadPostTargets } from '../automation/event-model';
+import { RunsInChoice } from '../automation/runs-in';
 import { createSystemAutomation, loadSystemEvents, validField, validType, type ResultField, type System, type SystemAutomation } from './model';
 
 const kinds: Record<ResultField['kind'], string> = { text: 'Text', number: 'Number', yes_no: 'Yes/no', date: 'Date' };
 
 /** New automation: when a connected system sends an event of one type (C2),
- * with the fields the agent sees, its instructions, Memory, where results go
- * and the result fields the system reads back (C4). */
+ * with the fields the agent sees, its instructions, the conversation it runs in
+ * (schema 151) and the result fields the system reads back (C4). */
 export function SystemAutomationDialog({ agent, agentName, system, close, saved }: {
   agent: string; agentName: string; system: System; close: () => void; saved: () => Promise<void>;
 }) {
   const loadTypes = useCallback(() => loadSystemEvents(agent, system.id), [agent, system.id]);
   const types = useResource(loadTypes);
-  const loadPlaces = useCallback(() => loadSchedules(agent), [agent]);
+  const loadPlaces = useCallback(() => loadPostTargets(agent), [agent]);
   const places = useResource(loadPlaces);
   const [type, setType] = useState('');
   const known = types.data?.types.find(t => t.type === type);
@@ -23,8 +23,6 @@ export function SystemAutomationDialog({ agent, agentName, system, close, saved 
   const [typed, setTyped] = useState('');
   const [name, setName] = useState('');
   const [task, setTask] = useState('');
-  const [memory, setMemory] = useState<Memory>('fresh');
-  const [post, setPost] = useState(false);
   const [chat, setChat] = useState('');
   const [results, setResults] = useState<ResultField[]>([]);
   const [done, setDone] = useState(false);
@@ -38,17 +36,17 @@ export function SystemAutomationDialog({ agent, agentName, system, close, saved 
     if (!chosen.length || chosen.length > 8 || !chosen.every(validField)) throw new Error('Choose 1 to 8 fields the agent sees (letters, digits, - and _).');
     if (!name.trim() || !task.trim()) throw new Error('Give the automation a name and say what to do.');
     if (results.some(r => !validField(r.name))) throw new Error('Result field names use letters, digits, - and _.');
-    const target = post ? (chat || conversations[0]?.id) : undefined;
-    if (post && !target) throw new Error('Choose a conversation, or keep results in Activity only.');
+    const target = chat || undefined;
+    if (target && !conversations.some(c => c.id === target)) throw new Error(`Choose a conversation where you may ask ${agentName}, or your direct chat with it.`);
     const exact = attempt.current ?? { id: crypto.randomUUID(), system: system.id, event: type, fields: chosen, name: name.trim(), instructions: task,
-      filter: {}, ...(target ? { chat: target } : {}), ...(memory !== 'fresh' ? { memory } : {}), ...(results.length ? { results } : {}) };
+      filter: {}, ...(target ? { chat: target } : {}), ...(results.length ? { results } : {}) };
     attempt.current = exact;
     await createSystemAutomation(agent, exact);
     setDone(true); await saved();
   });
   return <Dialog drawer title={`When ${system.name} sends an event`} close={close} busy={m.busy} status={m.status}
     footer={done ? <Button onClick={close}>Done</Button> : <Button primary disabled={m.busy} onClick={save}>{attempt.current ? 'Retry same save' : 'Save automation'}</Button>}>
-    {done ? <p role="status">Saved. Each {type} event from {system.name} now starts {agentName} in its own private room; runs appear in Activity.</p> : <div className="ui-form" onChange={change}>
+    {done ? <p role="status">Saved. Each {type} event from {system.name} now starts {agentName} in {chat ? conversations.find(c => c.id === chat)?.name ?? 'the conversation you chose' : 'your direct chat with it'}, as you; runs also appear in Activity.</p> : <div className="ui-form" onChange={change}>
       <label className="ui-field">Event type<input value={type} list={`automation-types-${system.id}`} placeholder="exam.result_published"
         onChange={event => { setType(event.target.value.trim()); setFields([]); }} /></label>
       <datalist id={`automation-types-${system.id}`}>{types.data?.types.map(t => <option key={t.type} value={t.type} />)}</datalist>
@@ -61,9 +59,7 @@ export function SystemAutomationDialog({ agent, agentName, system, close, saved 
       </fieldset>
       <label className="ui-field">Name<input value={name} maxLength={100} placeholder="Study plan after results" onChange={event => setName(event.target.value)} /></label>
       <label className="ui-field">What should {agentName} do?<textarea rows={4} maxLength={4000} value={task} placeholder="Read the student's marks. If a subject is below 50, save a two-week study plan." onChange={event => setTask(event.target.value)} /></label>
-      <MemoryChoice name="system-automation" subject value={memory} change={next => { change(); setMemory(next); }} />
-      {memory === 'subject' && <p className="ui-help">Events that name a subject run in that subject’s own room, and different subjects run side by side. Notes for every conversation, “always” Library documents and the computer’s shared/ folder reach every run, so keep nothing about one subject there.</p>}
-      <ResultsChoice name="system-automation" post={post} setPost={next => { change(); setPost(next); }} chat={chat || conversations[0]?.id || ''} setChat={setChat} conversations={conversations} />
+      <RunsInChoice chat={chat} setChat={next => { change(); setChat(next); }} conversations={conversations} agentName={agentName} more={places.data?.more_conversations} />
       <fieldset className="routine-results"><legend>Result fields your system reads (optional)</legend>
         {results.map((field, index) => <div key={index} className="system-result-field">
           <label className="ui-field">Name<input value={field.name} onChange={event => setResults(results.map((r, i) => i === index ? { ...r, name: event.target.value.trim() } : r))} /></label>
@@ -74,7 +70,7 @@ export function SystemAutomationDialog({ agent, agentName, system, close, saved 
         {results.length < 8 && <Button onClick={() => setResults([...results, { name: '', kind: 'text' }])}>Add a result field</Button>}
         <p className="ui-help">{agentName} must fill each one. A run that finishes without them counts as failed, so your system never relies on a sentence.</p>
       </fieldset>
-      <p className="ui-help">Runs use your access to {agentName} · {memoryLabels[memory].title}. Every tool call keeps its own rule and approvals.</p>
+      <p className="ui-help">Runs use your access to {agentName} in {chat ? conversations.find(c => c.id === chat)?.name ?? 'that conversation' : `your direct chat with ${agentName}`}. Events run one at a time, in order. Every tool call keeps its own rule and approvals.</p>
     </div>}
   </Dialog>;
 }

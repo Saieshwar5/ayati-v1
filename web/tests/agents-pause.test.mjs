@@ -71,7 +71,7 @@ test('pausing says how many requests stop, sends one request for a double click,
     await click(button('Pause all agents'));
     const dialog = document.querySelector('dialog');
     assert.match(dialog.textContent, /2 requests that are running or waiting will be stopped and won’t restart on their own/);
-    assert.match(dialog.textContent, /schedules skip their runs/);
+    assert.match(dialog.textContent, /tasks wait to run/);
     await change(dialog.querySelector('input'), 'Wrong emails going out');
     await update(() => { const confirm = [...dialog.querySelectorAll('button')].find(b => b.textContent === 'Pause all agents'); confirm.click(); confirm.click(); });
     assert.equal(writes.length, 1);

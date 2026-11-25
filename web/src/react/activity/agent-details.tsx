@@ -4,7 +4,7 @@ import { attentionKey, type AttentionItem } from '../attention/model';
 import { fixKey } from './fixing';
 import { ago, clock, dayLabel, status, where, type ActivityItem, type AgentCard, type ComingItem, type FixGroup } from './model';
 
-const comingLabel: Record<ComingItem['kind'], string> = { routine: 'Schedule', follow_up: 'Follow-up', due: 'Task due' };
+const comingLabel: Record<ComingItem['kind'], string> = { follow_up: 'Next run', due: 'Task due' };
 const clean = (title: string) => title.replace(/^\[Ayati request mode:[^\]]*\]\s*/, '');
 
 /** One agent on Work, beside the list (designs/activity-next, Design A): what waits on

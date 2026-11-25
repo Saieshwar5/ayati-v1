@@ -4,13 +4,11 @@ import './activity.css';
 import { Button, Dialog } from '../ui';
 import { errorMessage, useMutation } from '../requests';
 import { ApprovalDialog } from '../approvals/approval-dialog';
-import { cadence, changeSchedule } from '../agents/automation/model';
-import { conversationUrl, dayLabel, clock, loadDetails, makeTask, retryRequest, status, stopRequest, taskLabels, taskUrl, where, type Details, steerRequest } from './model';
+import { conversationLabel, conversationUrl, dayLabel, clock, loadDetails, makeTask, retryRequest, status, stopRequest, taskLabels, taskUrl, where, type Details, steerRequest } from './model';
 import { openAgentChat } from '../chat/direct-conversation';
 import { workspaceSession } from '../../workspace-context';
 import { dollars } from '../usage/usage-model';
 import { ComputerStep } from './computer-step';
-import { memoryLabels } from '../agents/automation/results-and-memory';
 
 /** One request, step by step from Cuckoo's own records (designs/activity 4).
  * Work that is still running can be stopped here, as from the conversation. */
@@ -30,13 +28,6 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
   const data = state.data;
   const shown = data && status(data);
   const stop = (item: Details) => void mutation.run(async () => { await stopRequest(item); mutation.setStatus('Stop requested.'); setVersion(v => v + 1); });
-  const pause = (item: Details) => void mutation.run(async () => {
-    const schedule = item.schedule!;
-    await changeSchedule(schedule.agent, schedule.id, { request: crypto.randomUUID(), revision: schedule.revision, enabled: false });
-    mutation.setStatus('Schedule paused. Resume it on the agent\'s Automations tab.'); setVersion(v => v + 1);
-  });
-  // A run in its schedule's own room has no conversation to open.
-  const room = Boolean(data?.schedule?.room || data?.trigger?.room);
   const me = workspaceSession?.user?.id;
   const failed = data?.state === 'failed' || data?.state === 'interrupted';
   const unsure = Boolean(data?.steps.some(step => step.state === 'uncertain'));
@@ -60,17 +51,14 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
       <span className={`activity-status ${shown.tone}`}>{shown.label}</span>
       <dl className="activity-facts">
         <dt>Agent</dt><dd>{data.agent_name}</dd>
-        {data.schedule ? <>
-          <dt>Started by</dt><dd>Schedule · {data.schedule.name} · {cadence(data.schedule.interval_seconds)}</dd>
-          <dt>Set up by</dt><dd>{data.requester_name ?? 'Former member'}</dd>
-          <dt>Results</dt><dd>{data.schedule.post_to ? `Activity, and a summary in ${data.schedule.post_to}` : 'Activity only'}
-            {data.schedule.posted === 'posted' && ' · Posted'}{data.schedule.posted === 'skipped' && ` · Not posted: ${data.schedule.post_reason ?? ''}`}</dd>
-        </> : data.trigger ? <>
+        {data.trigger ? <>
           <dt>Started by</dt><dd>Event · {data.trigger.source ?? 'Connected app'} · {data.trigger.name}</dd>
           <dt>Set up by</dt><dd>{data.requester_name ?? 'Former member'}</dd>
-          <dt>Results</dt><dd>{data.trigger.post_to ? `Activity, and a summary in ${data.trigger.post_to}` : 'Activity only'}
-            {data.trigger.posted === 'posted' && ' · Posted'}{data.trigger.posted === 'skipped' && ` · Not posted: ${data.trigger.post_reason ?? ''}`}</dd>
-          <dt>Memory</dt><dd>{memoryLabels[data.trigger.memory].title}</dd>
+          <dt>Ran in</dt><dd>{conversationLabel(data)}</dd>
+        </> : data.kind === 'task' && data.task ? <>
+          <dt>Started by</dt><dd>Task · <a href={taskUrl(data.task.id)}>{data.task.title}</a></dd>
+          <dt>For</dt><dd>{data.requester_name ?? 'Former member'}</dd>
+          <dt>Ran in</dt><dd>{conversationLabel(data)}</dd>
         </> : <>
           <dt>{data.panel ? 'For' : 'Asked by'}</dt><dd>{data.requester_name ?? 'Former member'}</dd>
           <dt>Where</dt><dd>{data.panel ? `Home panel · ${data.panel.title}` : where(data)}</dd>
@@ -102,12 +90,11 @@ export function RequestDetails({ reply, close }: { reply: string; close: () => v
         send={text => steerRequest(data.id, text)} sent={() => setVersion(v => v + 1)} />}
       <div className="activity-detail-actions">
         {data.can_cancel && <Button disabled={mutation.busy} onClick={() => stop(data)}>Stop request</Button>}
-        {data.schedule?.state === 'enabled' && <Button disabled={mutation.busy} onClick={() => pause(data)}>Pause schedule</Button>}
         {canRetry && <Button primary disabled={mutation.busy} onClick={() => retry(data)}>Retry</Button>}
         {failed && unsure && <p className="ui-help">An action here may or may not have happened. Check it before asking again.</p>}
         {!data.task && !data.panel && <Button disabled={mutation.busy} onClick={() => toTask(data)}>Make this a task</Button>}
         <Button disabled={mutation.busy} onClick={() => discuss(data)}>Discuss in chat</Button>
-        {data.in_conversation && !room && <a className="ui-button" href={conversationUrl(data)}>Open conversation</a>}
+        {data.in_conversation && <a className="ui-button" href={conversationUrl(data)}>Open conversation</a>}
       </div>
     </section>}
     {reviewing && <ApprovalDialog id={reviewing} close={() => review(undefined)} />}

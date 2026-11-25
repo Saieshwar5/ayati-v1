@@ -2,14 +2,24 @@
 
 One page for everything agents do (D235, built in M4). It sits in the main menu
 between Chat and Agents (`/w/<workspace-id>/?view=activity`) and reads existing
-records: chat requests, tool actions, approvals, questions, schedule and trigger
-runs, hand-offs and agent setting changes. Opening it never starts work.
+records: chat requests, tool actions, approvals, questions, task and trigger runs,
+hand-offs and agent setting changes. Opening it never starts work. Schedules became
+tasks in schema 147 and were dropped in schema 150: a run a task started (a task
+wake-up's reply) has the type `task` ("Task runs" in History, `task_runs` in the
+totals), request details name its task under Started by, and an old schedule run
+reads as an ordinary request of the task it became.
+
+Since schema 151 every task and trigger run happens in its conversation, as its person
+([tasks](tasks.md#since-schema-151-one-rule-a-run-happens-in-its-conversation)): request
+details show **Ran in** with that conversation and **Open conversation**, the task page
+shows **Runs in**, and a trigger's run shows its trigger and who set it up. The work-room
+flag (`work_room`) and the trigger's Memory, posted and post-reason fields are gone.
 
 ## Views
 
 Five since 2026-11-21 ([Design A](../designs/activity-next/README.md)); before that six.
 Links to the earlier ones still open the right place: `tab=now` and `tab=open` open
-Work, `tab=upcoming` Planned, `tab=review` Insights. The search box searches the view
+Work, `tab=upcoming` the Calendar, `tab=review` Insights. The search box searches the view
 it is on (it is off on Insights).
 
 - **Needs you** (default; `&tab=needs`; "Needs me" until Design A): approvals, questions and work that needs
@@ -48,7 +58,7 @@ it is on (it is off on Insights).
     while the keyboard is in the list or the opened item, never from elsewhere on the page.
 - **Work** (`&tab=work`; Now and Tasks until Design A), with **Agents / Tasks** beside the tabs.
   - **Agents**: "While you were away", one flat row per agent (Working, Waiting, Failing,
-    Needs fixing, Paused or Idle with its next schedule run) with its own Pause, How to
+    Needs fixing, Paused or Idle with its next task run) with its own Pause, How to
     fix it and Set up, and requests running now with **Stop**. An agent's name opens it
     beside the list: what waits on you (each opening its row in Needs you), what it is
     doing, what comes up in the next day, today's count and **All history**. It follows
@@ -56,8 +66,9 @@ it is on (it is off on Insights).
   - **Tasks** (`&tab=open` still opens it): every open task the person may see (needs
     fixing first), with each task's details, steps and closing. See [tasks](tasks.md).
     `&task=<id>` opens one.
-- **Planned** (`&tab=planned`; Upcoming until Design A): what agents will do on their own,
-  from a "Now" line on. See [shared agent schedules](shared-agent-schedules.md).
+- **Calendar** (`&tab=planned`; Planned until schema 144, Upcoming until Design A; see [tasks](tasks.md#since-schema-144-tasks-with-a-lifetime)): a week of what agents did and will do on their own, with each trigger (linking to its task, schema 148) and paused tasks beside it. Its **List** view and `GET …/activity/upcoming` were
+  removed in step 6 of [one system](../designs/agent-tasks/one-system.md); `tab=upcoming`
+  links open the Calendar.
 - **History** (`&tab=history`): filters in one row (period, agent, person, where,
   type, status) plus search; the period's totals as one line, where **N need a look**
   sets the status filter; a timeline grouped by day with **Show older**. In a wide
@@ -192,7 +203,8 @@ and admins; with My agents, the agents they own):
   working on my last request: …"); a stopped request carries nothing. Request details
   list what was added and whether the agent read it. At most 20 per request, 2,000
   characters each; never on a finished request.
-- **Routines from Chat** (T3): for something that repeats, the agent calls
+- **Routines from Chat** (T3, retired: since schema 144 agents create repeating tasks, and
+  schema 150 dropped the old proposals): for something that repeats, the agent calls
   `propose_schedule {name, instructions, first_in_minutes, every_minutes?}` (every hour to
   every 30 days, or once; at most three per request). It shows under the agent's reply
   ("Routine: Monday sales summary · Every week, first Mon 9:00") and is saved only when
@@ -223,7 +235,7 @@ busiest labelled, a tooltip on hover or focus) and requests by agent (top 12), e
   agent reads them (`my_goals`) and reports progress and an early risk (`update_goal
   {goal, current, risk?}`); Review shows a progress bar and the risk.
 - **Weekly review**: "Turn on" makes a weekly routine for the agent (run as the person
-  who turned it on, in its own work room) in which it writes `write_review {done,
+  who turned it on, in their direct chat with the agent since schema 151) in which it writes `write_review {done,
   went_wrong, learned, suggestion?}`, once per request. Review lists the last 30 days'
   reviews with any suggested change and a link to set up the agent.
 
@@ -259,7 +271,7 @@ cookie; every query applies the visibility rule above on the server.
 - `GET /history?agent&person&chat&status&kind&from&to&q&before&scope` — 25 requests,
   newest first; `next_before` is the cursor (no gaps or repeats).
   `status` is one of active, waiting, done, failed, review, stopped; `kind` one of
-  chat, schedule, trigger, handoff; `scope` one of mine, all (default all).
+  chat, task, trigger, handoff, panel; `scope` one of mine, all (default all).
 - `GET /totals?…&offset` — counts and per-day/per-agent numbers for the same
   filters; `offset` is the browser's minutes east of UTC.
 - `GET /export?…` — the same filters as a CSV file; the `x-cuckoo-truncated`

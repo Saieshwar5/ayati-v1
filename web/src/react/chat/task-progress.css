@@ -101,3 +101,14 @@
 .routine-card-facts dt { color: var(--muted); }
 .routine-card-facts dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .routine-card a { color: inherit; }
+/* A task made in chat that runs on its own (designs/agent-tasks): name, next run, View and Undo. */
+.task-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; box-sizing: border-box; max-width: 100%;
+  margin-top: 8px; padding: 7px 10px; border: 1px solid var(--border-panel); border-radius: 10px; font-size: .8125rem; color: var(--text); }
+.task-line > span[aria-hidden] { color: var(--muted); }
+.task-line-name { flex: 1 1 200px; min-width: 0; overflow-wrap: anywhere; }
+.task-line-button { display: inline-flex; align-items: center; min-height: 30px; padding: 2px 10px; border: 1px solid var(--border-control);
+  border-radius: 8px; background: var(--surface); color: var(--text); font: inherit; font-weight: 500; text-decoration: none; cursor: pointer; }
+.task-line-button:hover { background: var(--soft); }
+.task-line-button:disabled { cursor: default; opacity: .6; }
+.task-line-status { flex-basis: 100%; color: var(--muted); }
+@media (pointer: coarse) { .task-line-button { min-height: 40px; } }

@@ -4,8 +4,8 @@ import type { ProfilePanel } from './profile/profile-rows';
 export const workspaceSections = ['Overview', 'Instructions', 'Connections', 'Automations', 'Settings'] as const;
 export type WorkspaceSection = typeof workspaceSections[number];
 // Older links and saved choices: Tools became Connections, Environment became
-// Settings, Activity is part of Overview, and Schedules was Automations' first name.
-const formerNames: Record<string, string> = { schedules: 'automations', tools: 'connections', environment: 'settings', activity: 'overview' };
+// Settings and Activity is part of Overview.
+const formerNames: Record<string, string> = { tools: 'connections', environment: 'settings', activity: 'overview' };
 /** A saved or linked section name, under its current or an earlier name. */
 export function sectionNamed(value: string | null | undefined): WorkspaceSection | undefined {
   const lower = value?.toLowerCase();

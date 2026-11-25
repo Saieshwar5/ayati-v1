@@ -29,10 +29,12 @@ const WANT: &str = "INSERT INTO relay_home_update_wanted(workspace,panel,reason,
   SELECT u.workspace,u.panel,$2,$3,(extract(epoch FROM clock_timestamp())*1000)::bigint
   FROM relay_home_maintenance u JOIN relay_home_panels p ON p.workspace=u.workspace AND p.id=u.panel
   WHERE u.workspace=$1 AND u.enabled AND u.follow_sources AND MATCH
-  ON CONFLICT(workspace,panel) DO NOTHING";
+  ON CONFLICT(workspace,panel) DO UPDATE SET reason=excluded.reason,cause=excluded.cause,due_ms=excluded.due_ms,detail=''
+   WHERE relay_home_update_wanted.reason='interval'";
 
 /// The agent finished a request: its panels whose sources it touched want an update.
-/// A panel update itself never asks for another.
+/// A panel update itself never asks for another. A pending interval update gives way
+/// to it: the update books the next interval when it starts (schema 146).
 pub(in crate::identity::postgres) async fn after_work(
     tx: &DatabaseTransaction,
     job: &Job,
@@ -150,7 +152,7 @@ pub(in crate::identity::postgres) async fn claim_direct(
 
 impl PgStore {
     /// Start the panel updates that are wanted and allowed now. Run every second by
-    /// the scheduler loop; like schedules, only with pooled executors.
+    /// the scheduler loop; like task runs, only with pooled executors.
     pub(crate) async fn dispatch_panel_updates(&self) -> Result<usize> {
         if !self.pooled || !available(&self.db).await? {
             return Ok(0);
@@ -170,7 +172,7 @@ impl PgStore {
     async fn start_wanted(&self, w: &str, panel: &str) -> Result<bool> {
         let tx = self.workspace_tx(w).await?;
         let Some(row) = query(&tx, "SELECT k.reason,k.cause,p.owner_id,p.agent,p.chat,
-              COALESCE(u.enabled AND u.follow_sources,false) AS wanted,u.min_gap_seconds,
+              COALESCE(u.enabled AND (u.follow_sources OR (k.reason='interval' AND u.interval_seconds IS NOT NULL)),false) AS wanted,u.min_gap_seconds,
               (SELECT max(r.created_ms) FROM relay_home_update_runs r WHERE r.workspace=k.workspace AND r.panel=k.panel) AS last,
               (extract(epoch FROM clock_timestamp())*1000)::bigint AS now
             FROM relay_home_update_wanted k JOIN relay_home_panels p ON p.workspace=k.workspace AND p.id=k.panel
@@ -198,11 +200,19 @@ impl PgStore {
             tx.commit().await?;
             return Ok(false);
         }
-        // At most one update per panel every min_gap_seconds.
+        let reason: String = row.try_get("", "reason")?;
+        // At most one work or event update per panel every min_gap_seconds; the
+        // fixed interval is the person's own choice and no gap holds it back.
         if let Some(last) = row.try_get::<Option<i64>>("", "last")?
             && last + gap > now
+            && reason != "interval"
         {
-            execute(&tx, LATER, args(vec![(last + gap).into(), "".into()])).await?;
+            let (due, became) =
+                super::intervals::within_gap(&tx, w, panel, last, last + gap).await?;
+            execute(&tx, LATER, args(vec![due.into(), "".into()])).await?;
+            if !became.is_empty() {
+                execute(&tx, "UPDATE relay_home_update_wanted SET reason=$3,cause=$3 WHERE workspace=$1 AND panel=$2", args(vec![became.into()])).await?;
+            }
             tx.commit().await?;
             return Ok(false);
         }
@@ -221,18 +231,17 @@ impl PgStore {
             tx.commit().await?;
             return Ok(false);
         }
-        let reason: String = row.try_get("", "reason")?;
         let cause: String = row.try_get("", "cause")?;
+        let why = match reason.as_str() {
+            "work" => " Its sources changed: you finished work that used them.",
+            "event" => " Its sources changed: a new event arrived.",
+            _ => "",
+        };
         let input = NewMessage {
             reply_to: None,
             id: uuid::Uuid::new_v4().to_string(),
             content: format!(
-                "Refresh my personal Home panel using home_panel_update_context, its reviewed reads and refresh_home_panel. Its sources changed: {}.",
-                if reason == "work" {
-                    "you finished work that used them"
-                } else {
-                    "a new event arrived"
-                }
+                "Refresh my personal Home panel using home_panel_update_context, its reviewed reads and refresh_home_panel.{why}"
             ),
             agent: Some(row.try_get("", "agent")?),
             agents: vec![],
@@ -244,15 +253,17 @@ impl PgStore {
         match self.background_in(&intake, &person, w, &chat, &input).await {
             Ok(Some(job)) => {
                 intake.commit().await?;
+                // Dropped first: starting the update books its next interval update.
+                execute(&tx, DROP, args(vec![])).await?;
                 super::bind(&tx, w, panel, &job).await?;
                 execute(&tx, "UPDATE relay_home_update_runs SET reason=$3,cause=$4 WHERE workspace=$1 AND reply=$2", vec![w.into(), job.reply.into(), reason.into(), cause.into()]).await?;
-                execute(&tx, DROP, args(vec![])).await?;
                 tx.commit().await?;
                 Ok(true)
             }
             Ok(None) => {
                 intake.rollback().await?;
                 execute(&tx, DROP, args(vec![])).await?;
+                super::intervals::book(&tx, w, panel, false).await?;
                 tx.commit().await?;
                 Ok(false)
             }
@@ -274,6 +285,7 @@ impl PgStore {
                     .await?;
                 } else {
                     execute(&tx, DROP, args(vec![])).await?;
+                    super::intervals::book(&tx, w, panel, false).await?;
                 }
                 tx.commit().await?;
                 Ok(false)

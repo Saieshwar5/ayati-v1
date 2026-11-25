@@ -22,15 +22,99 @@ fn minutes(v: &serde_json::Map<String, Value>, key: &str, max: i64, required: bo
     }
 }
 
+/// A calendar rule: only its documented fields, each bounded; the controller checks
+/// the rest (which fields fit which unit).
+fn rule(value: Option<&Value>) -> bool {
+    let Some(value) = value else { return true };
+    value.as_object().is_some_and(|r| {
+        only(
+            r,
+            &[
+                "unit",
+                "every",
+                "at",
+                "days",
+                "day_of_month",
+                "from",
+                "to",
+                "working_days",
+            ],
+        ) && r
+            .get("unit")
+            .and_then(Value::as_str)
+            .is_some_and(|u| ["minute", "hour", "day", "week", "month"].contains(&u))
+            && minutes(r, "every", 1440, false)
+            && ["at", "from", "to"]
+                .iter()
+                .all(|key| text(r, key, 5, false))
+            && r.get("days").is_none_or(|d| {
+                d.as_array().is_some_and(|days| {
+                    (1..=7).contains(&days.len())
+                        && days
+                            .iter()
+                            .all(|d| d.as_i64().is_some_and(|d| (1..=7).contains(&d)))
+                })
+            })
+            && r.get("day_of_month")
+                .is_none_or(|d| d.as_i64().is_some_and(|d| d == -1 || (1..=31).contains(&d)))
+            && r.get("working_days").is_none_or(Value::is_boolean)
+    })
+}
+
+/// When a task runs: a rule, a local first run, a local last day and a run count.
+fn timing(v: &serde_json::Map<String, Value>) -> bool {
+    rule(v.get("repeat"))
+        && text(v, "first_at", 16, false)
+        && text(v, "until", 10, false)
+        && minutes(v, "max_runs", 1000, false)
+        && text(v, "instructions", 4000, false)
+}
+
+const TIMING: [&str; 5] = ["repeat", "first_at", "until", "max_runs", "instructions"];
+
 pub(crate) fn create(input: &Value) -> bool {
     input.as_object().is_some_and(|v| {
         only(
             v,
-            &["title", "done_when", "start_in_minutes", "due_in_minutes"],
+            &[
+                &["title", "done_when", "start_in_minutes", "due_in_minutes"][..],
+                &TIMING,
+            ]
+            .concat(),
         ) && text(v, "title", 160, true)
             && text(v, "done_when", 400, false)
             && minutes(v, "start_in_minutes", 43_200, false)
             && minutes(v, "due_in_minutes", 525_600, false)
+            && timing(v)
+    })
+}
+
+pub(crate) fn change(input: &Value) -> bool {
+    input.as_object().is_some_and(|v| {
+        only(
+            v,
+            &[&["task", "title", "done_when", "paused"][..], &TIMING].concat(),
+        ) && text(v, "task", 64, true)
+            && text(v, "title", 160, false)
+            && text(v, "done_when", 400, false)
+            && v.get("paused").is_none_or(Value::is_boolean)
+            && timing(v)
+            && v.len() > 1
+    })
+}
+
+pub(crate) fn note(input: &Value) -> bool {
+    input.as_object().is_some_and(|v| {
+        only(v, &["task", "note"]) && text(v, "task", 64, true) && text(v, "note", 400, true)
+    })
+}
+
+pub(crate) fn continue_later(input: &Value) -> bool {
+    input.as_object().is_some_and(|v| {
+        only(v, &["task", "done", "next"])
+            && text(v, "task", 64, true)
+            && text(v, "done", 400, true)
+            && text(v, "next", 400, true)
     })
 }
 
@@ -75,19 +159,6 @@ pub(crate) fn problem(input: &Value) -> bool {
             })
             && text(v, "detail", 300, true)
             && text(v, "fix", 200, false)
-    })
-}
-
-pub(crate) fn routine(input: &Value) -> bool {
-    input.as_object().is_some_and(|v| {
-        only(
-            v,
-            &["name", "instructions", "first_in_minutes", "every_minutes"],
-        ) && text(v, "name", 80, true)
-            && text(v, "instructions", 2000, true)
-            && minutes(v, "first_in_minutes", 525_600, true)
-            && v.get("every_minutes")
-                .is_none_or(|m| m.as_i64().is_some_and(|m| (60..=43_200).contains(&m)))
     })
 }
 
@@ -148,12 +219,42 @@ mod tests {
         ));
         assert!(!super::problem(&json!({"cause":"bug","detail":"x"})));
         assert!(!super::problem(&json!({"cause":"other"})));
-        assert!(super::routine(
-            &json!({"name":"Monday sales summary","instructions":"Send me last week's sales","first_in_minutes":600,"every_minutes":10080})
+        assert!(super::create(
+            &json!({"title":"Chase invoice 311","done_when":"Invoice 311 is paid",
+            "repeat":{"unit":"day","every":2,"at":"10:00","working_days":true},"max_runs":5})
         ));
-        assert!(!super::routine(
-            &json!({"name":"x","instructions":"y","first_in_minutes":5,"every_minutes":5})
+        assert!(super::create(
+            &json!({"title":"Morning brief","repeat":{"unit":"week","days":[1,2,3,4,5],"at":"09:00"},
+            "first_at":"2026-11-25 09:00","until":"2026-12-31"})
         ));
+        assert!(!super::create(
+            &json!({"title":"x","repeat":{"unit":"second"}})
+        ));
+        assert!(super::create(
+            &json!({"title":"Check stock","repeat":{"unit":"minute","every":90},"instructions":"List items below reorder level"})
+        ));
+        assert!(!super::create(
+            &json!({"title":"x","instructions":"y".repeat(4001)})
+        ));
+        assert!(!super::create(
+            &json!({"title":"x","repeat":{"unit":"week","days":[0]}})
+        ));
+        assert!(!super::create(
+            &json!({"title":"x","repeat":{"unit":"day","cron":"* *"}})
+        ));
+        assert!(!super::create(&json!({"title":"x","max_runs":0})));
+        assert!(super::change(
+            &json!({"task":"t-1","repeat":{"unit":"day","every":3}})
+        ));
+        assert!(super::change(&json!({"task":"t-1","paused":true})));
+        assert!(!super::change(&json!({"task":"t-1"})), "say what to change");
+        assert!(!super::change(&json!({"task":"t-1","agent":"other"})));
+        assert!(super::note(&json!({"task":"t-1","note":"Sent reminder 2"})));
+        assert!(!super::note(&json!({"task":"t-1","note":""})));
+        assert!(super::continue_later(
+            &json!({"task":"t-1","done":"Read 3 of 9 files","next":"Read the rest"})
+        ));
+        assert!(!super::continue_later(&json!({"task":"t-1","done":"x"})));
         assert!(super::goal(
             &json!({"goal":"g-1","current":42.5,"risk":"Two suppliers are late"})
         ));

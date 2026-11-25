@@ -8,7 +8,7 @@ const w = '11111111-1111-4111-8111-111111111111';
 const url = `http://localhost/w/${w}/?view=activity&tab=history`;
 const session = { user: { id: 'owner', email: 'owner@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Admin' }] };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
-const totals = { requests: 2, done: 1, failed: 1, review: 1, waiting: 0, automatic: 3, approved: 1, people: 1, channels: 1, schedule_runs: 0, per_day: [], by_agent: [] };
+const totals = { requests: 2, done: 1, failed: 1, review: 1, waiting: 0, automatic: 3, approved: 1, people: 1, channels: 1, task_runs: 0, per_day: [], by_agent: [] };
 const now = Date.now();
 const item = (id, summary, extra = {}) => ({ id, chat: 'sales', thread: null, conversation_name: 'sales', conversation_kind: 'channel', in_conversation: true,
   agent: 'nova', agent_name: 'Nova', agent_avatar: null, kind: 'chat', requester: 'owner', requester_name: 'Kavya Nair', summary, state: 'complete',
@@ -58,15 +58,15 @@ test('History asks the server for each filter, pages without repeats and drops l
   } });
 });
 
-test('a History row names a schedule or trigger once, not twice', async () => {
+test('a History row names a task run or trigger once, not twice', async () => {
   await reactFixture(async ({ render }) => {
     await render(await page(), { href: url });
     const rows = [...document.querySelectorAll('.activity-row')].map(node => node.textContent);
-    assert.match(rows[0], /Schedule · Shared inbox/); assert.doesNotMatch(rows[0], /Schedule · Schedule/);
+    assert.match(rows[0], /Task · Customer emails/); assert.doesNotMatch(rows[0], /Task run · Task/);
     assert.match(rows[1], /Trigger in marketing/); assert.doesNotMatch(rows[1], /Trigger · trigger/);
     assert.match(rows[2], /Kavya Nair · #sales/);
   }, { url, fetch: async path => common(path) ?? response({ next_before: null, items: [
-    item('s', 'Reply to customer emails', { kind: 'schedule', conversation_name: 'Shared inbox' }),
+    item('s', 'Reply to customer emails', { kind: 'task', conversation_name: 'Customer emails', task: { id: 'emails', title: 'Customer emails', kind: 'commitment', status: 'scheduled' } }),
     item('t', 'Post new arrivals', { kind: 'trigger', conversation_name: 'marketing' }), item('c', 'Quote for Sharma Traders')] }) });
 });
 
@@ -194,26 +194,22 @@ test('"See what it did" on an agent reply opens its request details', async () =
   } });
 });
 
-test('a link to a scheduled run opens it: its schedule, where the result went, Pause, and no conversation to open', async () => {
-  const writes = [];
+test('a link to a task run opens it: the task that started it, who it is for, and the conversation it ran in', async () => {
   const run = '22222222-2222-4222-8222-222222222222';
-  const schedule = { id: 'chase', name: 'Monday invoice chase', agent: 'nova', state: 'enabled', revision: 4, principal: 'owner', interval_seconds: 604800,
-    post_to: 'finance', posted: 'posted', post_reason: null, room: true };
-  await reactFixture(async ({ render, button, click }) => {
+  const task = { id: 'chase-task', title: 'Monday invoice chase', kind: 'commitment', status: 'scheduled' };
+  await reactFixture(async ({ render }) => {
     await render(await page(), { href: `${url}&run=${run}` });
     const drawer = document.querySelector('dialog');
-    assert.match(drawer.textContent, /Started bySchedule · Monday invoice chase · Every week/);
-    assert.match(drawer.textContent, /ResultsActivity, and a summary in finance · Posted/);
-    assert.equal(drawer.querySelector('a[href*="view=chat"]'), null, 'a work room is not a conversation');
-    await click(button('Pause schedule'));
-    assert.equal(writes.length, 1);
-    assert.equal(writes[0].path, '/api/identity/workspaces/' + w + '/agent-profiles/nova/schedules/chase/state');
-    assert.deepEqual({ revision: writes[0].body.revision, enabled: writes[0].body.enabled }, { revision: 4, enabled: false });
-  }, { url: `${url}&run=${run}`, fetch: async (path, init = {}) => {
-    if (init.method === 'POST') { writes.push({ path, body: JSON.parse(init.body) }); return response({ id: 'chase', state: 'paused', revision: 5 }); }
+    assert.match(drawer.textContent, /Started byTask · Monday invoice chase/);
+    assert.ok(drawer.querySelector('a[href$="task=chase-task"]'), 'its task, where its other runs are');
+    assert.ok(drawer.querySelector('a[href*="view=chat"]'), 'it ran in a conversation, which opens');
+    assert.match(drawer.textContent, /ForKavya Nair/);
+    assert.match(drawer.textContent, /Ran in#sales/);
+    assert.ok(!drawer.textContent.includes('work room') && !drawer.textContent.includes('Memory'));
+  }, { url: `${url}&run=${run}`, fetch: async (path) => {
     const shared = common(path); if (shared) return shared;
-    if (path.includes(`/activity/requests/${run}`)) return response({ ...item(run, 'Monday invoice chase', { kind: 'schedule', chat: 'room', conversation_name: 'Monday invoice chase', conversation_kind: 'direct' }),
-      message: 'Scheduled work · Monday invoice chase', reply: 'Sent 14 reminders.', steps: [], fix: null, disagreement: null, schedule });
+    if (path.includes(`/activity/requests/${run}`)) return response({ ...item(run, 'Monday invoice chase', { kind: 'task', task }),
+      message: 'Task run 3 · Monday invoice chase', reply: 'Sent 14 reminders.', steps: [], fix: null, disagreement: null });
     return response({ items: [], next_before: null });
   } });
 });

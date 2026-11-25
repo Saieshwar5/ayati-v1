@@ -7,7 +7,7 @@ registerHooks({ load(url, context, next) { return url.endsWith('.css') ? { forma
 const workspace = '11111111-1111-4111-8111-111111111111';
 const member = { id: 'employee', email: 'employee@example.com', role: 'Member' };
 const owner = { id: 'owner', email: 'owner@example.com', role: 'Admin' };
-const nothing = { agents: [], private_agents: 0, library_items: 0, kept_library_items: 0, schedules: 0, event_triggers: 0,  invitations: 0 };
+const nothing = { agents: [], private_agents: 0, library_items: 0, kept_library_items: 0, repeating_tasks: 0, event_triggers: 0,  invitations: 0 };
 
 // The signed-in person is `owner`. `extra` adds people to the workspace.
 async function fixture(viewerRole, run, respond, extra = []) {
@@ -181,7 +181,7 @@ test('Removal pauses agents they own alone unless a new owner is named, and send
     assert.equal(owner.value, '', 'nobody owns them by default');
     assert.deepEqual([...owner.options].map(option => option.value), ['', 'owner', 'second']);
     assert.match(dialog.textContent, /Stays as it is2 private or selected Library items/);
-    assert.match(dialog.textContent, /Paused for review2 schedules/);
+    assert.match(dialog.textContent, /Paused for review2 repeating tasks/);
     assert.match(dialog.textContent, /1 invitation employee@example.com sent/);
     const heir = select('Who takes over their Library items');
     assert.equal(heir.value, 'owner', 'the acting admin takes their Library items by default');
@@ -190,7 +190,7 @@ test('Removal pauses agents they own alone unless a new owner is named, and send
     await change(owner, 'second');
     assert.match(dialog.textContent, /Moves to second@example.com3 agents: Atlas, Nova, Scout/);
     assert.match(dialog.textContent, /Stays with their other owners1 agent: Orbit/);
-    assert.match(dialog.textContent, /Paused for review1 only-me agent and 2 schedules/);
+    assert.match(dialog.textContent, /Paused for review1 only-me agent and 2 repeating tasks/);
     const remove = button(`Remove ${member.email}`);
     await click(remove); await click(remove);
     assert.equal(writes.length, 1);
@@ -200,7 +200,7 @@ test('Removal pauses agents they own alone unless a new owner is named, and send
     assert.equal(document.querySelector('dialog'), null);
     assert.match(document.querySelector('.desk-page > [role=status]').textContent, /was removed/);
   }, (path, body) => {
-    if (path.endsWith('/responsibilities')) return { ok: true, data: { ...nothing, agents: [{ id: 'a', name: 'Atlas', alone: true }, { id: 'n', name: 'Nova', alone: true }, { id: 'o', name: 'Orbit', alone: false }, { id: 's', name: 'Scout', alone: true }], private_agents: 1, kept_library_items: 2, schedules: 2, invitations: 1 } };
+    if (path.endsWith('/responsibilities')) return { ok: true, data: { ...nothing, agents: [{ id: 'a', name: 'Atlas', alone: true }, { id: 'n', name: 'Nova', alone: true }, { id: 'o', name: 'Orbit', alone: false }, { id: 's', name: 'Scout', alone: true }], private_agents: 1, kept_library_items: 2, repeating_tasks: 2, invitations: 1 } };
     if (body && path.endsWith('/members/employee')) return { ok: true, data: pending };
   }, [second]);
 });

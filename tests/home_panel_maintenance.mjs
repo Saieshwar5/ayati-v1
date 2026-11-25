@@ -9,7 +9,7 @@ import {remoteControlMcp} from './fixtures/remote_control_mcp.mjs';
 import {until,root} from './fixtures/polling.mjs';
 const {chromium}=createRequire(join(root,'web/package.json'))('@playwright/test');
 
-test('personal panel agreements drive real managed reads, automatic snapshots, schedules and restart-safe Home',{
+test('personal panel agreements drive real managed reads, automatic snapshots, interval updates and restart-safe Home',{
   skip:!process.env.RELAY_TEST_DATABASE_URL,timeout:240000,
 },async t=>{
   const remote=await remoteControlMcp();t.after(()=>remote.close());
@@ -36,13 +36,13 @@ test('personal panel agreements drive real managed reads, automatic snapshots, s
       sections:[{kind:'metric',label:'Address',value:'Old address'}],sources:[]}},
   ],checkpoint:'Saved a personal draft for your review.'});
   const manual='Refresh my personal Home panel using home_panel_update_context, its reviewed reads and refresh_home_panel.';
-  const scheduled='Refresh the controller-bound personal Home panel. Use home_panel_update_context, perform its reviewed reads, then refresh_home_panel.';
+  const interval='Refresh the controller-bound personal Home panel. Use home_panel_update_context, perform its reviewed reads, then refresh_home_panel.';
   function maintenance(command,value){app.provider.setControl(command,{steps:[
     {tool:'home_panel_update_context',arguments:{}},
     {tool:'request_action',arguments:{connection,operation:'order.read',arguments:{order:'one'}}},
     {tool:'refresh_home_panel',arguments:{sections:[{kind:'metric',label:'Address',value}]}},
   ],checkpoint:`Personal maintenance result: ${value}`});}
-  maintenance(manual,'Updated address');maintenance(scheduled,'Scheduled address');
+  maintenance(manual,'Updated address');maintenance(interval,'Interval address');
   let executor=await app.startExecutor({AYATI_EXECUTOR_SLOTS:'1'});
   const original=await app.send(prompt,channel,member);await app.done(original);
   const browser=await chromium.launch({headless:true});let page;
@@ -78,11 +78,11 @@ test('personal panel agreements drive real managed reads, automatic snapshots, s
   await app.stop(executor);await app.stopApi();await app.startApi();
   executor=await app.startExecutor({AYATI_EXECUTOR_SLOTS:'1'});
   await page.reload();await card().getByText('Updated address',{exact:true}).waitFor();
-  remote.records.set('one',{order:'one',address:'Scheduled address'});
+  remote.records.set('one',{order:'one',address:'Interval address'});
   await card().getByRole('button',{name:'Panel updates',exact:true}).click();dialog=page.getByRole('dialog',{name:'Panel updates',exact:true});
   await dialog.getByLabel('What should the agent check?',{exact:true}).fill('UNSAVED_UPDATE_INSTRUCTIONS');
-  await until(()=>Number(app.sql(`SELECT generation FROM relay_home_maintenance WHERE panel='${id}'`))>=2,'Scheduled update did not publish after controller restart',90000);
-  await card().getByText('Scheduled address',{exact:true}).waitFor();
+  await until(()=>Number(app.sql(`SELECT generation FROM relay_home_maintenance WHERE panel='${id}'`))>=2,'Interval update did not publish after controller restart',90000);
+  await card().getByText('Interval address',{exact:true}).waitFor();
   assert.equal(await dialog.getByLabel('What should the agent check?',{exact:true}).inputValue(),'UNSAVED_UPDATE_INSTRUCTIONS','Routine snapshots must preserve an open agreement draft');
   await dialog.getByRole('button',{name:'Pause updates',exact:true}).click();await dialog.waitFor({state:'detached'});
   await card().getByText(/Updates paused/).waitFor();
@@ -101,13 +101,13 @@ test('personal panel agreements drive real managed reads, automatic snapshots, s
     await page.keyboard.press('Escape');await dialog.waitFor({state:'detached'});
     assert.equal(await card().getByRole('button',{name:'Panel updates',exact:true}).evaluate(n=>n===document.activeElement),true);
   }
-  const idle=app.provider.requests.length;await page.reload();await card().getByText('Scheduled address',{exact:true}).waitFor();
+  const idle=app.provider.requests.length;await page.reload();await card().getByText('Interval address',{exact:true}).waitFor();
   assert.equal(app.provider.requests.length,idle,'Home reads must not wake an agent');
   await app.request(`${control}/rules`,app.cookie,{connection,operation:'order.read',mode:'block',revision:0});
   await card().getByText('Saved content is hidden because its source access changed.',{exact:true}).waitFor();
-  assert.ok(!(await page.content()).includes('Scheduled address'));
+  assert.ok(!(await page.content()).includes('Interval address'));
   assert.ok(remote.calls.every(c=>c.name==='read_order'));assert.deepEqual(errors,[]);
   await writeFile(join(app.data,'home-maintenance-result.json'),JSON.stringify({passed:true,reads:remote.calls.length,externalWrites:0,
-    modelRequests:app.provider.requests.length,privateOwnerDenial:true,restart:true,scheduled:true,manual:true},null,2));
-  app.pass('Personal agreement, real Goose manual/scheduled refresh, source privacy, second device, restart, pause, phone/dark and source revocation');
+    modelRequests:app.provider.requests.length,privateOwnerDenial:true,restart:true,interval:true,manual:true},null,2));
+  app.pass('Personal agreement, real Goose manual/interval refresh, source privacy, second device, restart, pause, phone/dark and source revocation');
 });

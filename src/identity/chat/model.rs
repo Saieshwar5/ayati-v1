@@ -155,7 +155,7 @@ pub struct Job {
     pub claim: Option<String>,
 }
 /// An admin paused all agents in the workspace; no agent work starts until they
-/// resume. Schedules skip and events go unhandled instead of being disabled.
+/// resume. Task runs wait and events go unhandled instead of being disabled.
 #[derive(Debug)]
 pub struct AgentsPaused;
 impl std::fmt::Display for AgentsPaused {

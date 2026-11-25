@@ -3,7 +3,7 @@
 use serde_json::{Value, json};
 
 const STATES: [&str; 6] = ["active", "waiting", "done", "failed", "review", "stopped"];
-const KINDS: [&str; 5] = ["chat", "schedule", "trigger", "handoff", "panel"];
+const KINDS: [&str; 5] = ["chat", "task", "trigger", "handoff", "panel"];
 
 pub fn observed(name: &str, input: &Value) -> bool {
     let Some(fields) = input.as_object() else {

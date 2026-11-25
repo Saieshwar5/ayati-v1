@@ -26,10 +26,8 @@ pub(crate) async fn start(app: Shared) {
                 let started = tokio::time::Instant::now();
                 let mut busy = false;
                 for result in [
-                    pg.dispatch_schedules().await,
                     pg.dispatch_events().await,
                     pg.dispatch_threads().await,
-                    pg.dispatch_checks().await,
                     pg.dispatch_reflections().await,
                     crate::identity::events::subscriptions::sweep(pg).await,
                     pg.dispatch_library_arrivals().await,
@@ -53,7 +51,7 @@ pub(crate) async fn start(app: Shared) {
                     }
                 }
                 // After admitting work (a batch may have had more) or an error, look
-                // again soon; otherwise sleep until the next schedule, follow-up,
+                // again soon; otherwise sleep until the next task run, follow-up,
                 // panel update or helper deadline is due.
                 let until = if busy {
                     started + MIN_GAP

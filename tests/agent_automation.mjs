@@ -1,83 +1,30 @@
+// Work an agent does at a time, with real Goose (designs/agent-tasks/one-system.md,
+// decisions 1 and 4): a repeating task asked for in a channel starts at once; each
+// run happens in the channel as the person who asked (the one rule, schema 151), its
+// question and the approval of its write wait for that person, the write happens
+// once, and the run's reply is in the channel. Pausing the task stops its runs and keeps what was saved. The model is scripted; Goose, the controller and
+// ayati_control are real.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { createRequire } from 'node:module';
-import { mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { remoteControlMcp } from './fixtures/remote_control_mcp.mjs';
 import { until, root } from './fixtures/polling.mjs';
-const { chromium } = createRequire(join(root, 'web/package.json'))('@playwright/test');
 
-test('shared schedules retain exact creation, release a real Goose question, separately approve one effect and never revive stopped or revoked work', {
+test('a repeating task asked for in a channel runs in the channel, asks, waits for one approval and replies there once, with real Goose', {
   skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 240000,
 }, async t => {
-  let app, browser; const pages = [], errors = [];
-  t.after(async () => {
-    try { if (app && !t.passed) for (const [i, page] of pages.entries()) {
-      await page.screenshot({ path: join(app.data, `automation-failure-${i}.png`), timeout: 5000 }).catch(() => {});
-      await writeFile(join(app.data, `automation-failure-${i}.html`), await page.content()).catch(() => {});
-    } } finally { await browser?.close(); }
-  });
   const remote = await remoteControlMcp(); t.after(() => remote.close());
-  const directory = await mkdtemp(join(root, '.tmp/schedule-profile-'));
+  const directory = await mkdtemp(join(root, '.tmp/task-profile-'));
   const profiles = join(directory, 'servers.json'), bearer = join(directory, 'bearer');
   await writeFile(profiles, '[]', { mode: 0o600 }); await writeFile(bearer, remote.token, { mode: 0o600 });
-  app = await workerFixture(t, { mode: 'pooled', control: true, capacity: 1, workspaceLimit: 1, modelLimit: 1, leaseSeconds: 15, apiEnv: { AYATI_MCP_SERVERS_FILE: profiles } });
-  const w = app.path.split('/').at(-1), member = await app.login(1), owner = (await app.request('/api/identity/session', app.cookie)).value.user;
-  const person = (await app.request('/api/identity/session', member)).value.user;
-  await app.request(`${app.path}/chat-grants`, app.cookie, { user: person.id, agent: app.profile.id, allowed: true });
-  const channel = (await app.request(`${app.path}/chats`, app.cookie, { id: randomUUID(), kind: 'channel', name: 'Scheduled delivery operations', users: [person.id], agents: [app.profile.id] })).value.id;
-  const path = `${app.path}/agent-profiles/${app.profile.id}/schedules`;
-  const row = id => JSON.parse(app.sql(`SELECT to_jsonb(s) FROM relay_agent_schedules s WHERE id='${id}'`));
-  const runs = id => JSON.parse(app.sql(`SELECT coalesce(json_agg(o ORDER BY due_ms DESC),'[]'::json) FROM relay_schedule_occurrences o WHERE schedule='${id}'`));
+  const app = await workerFixture(t, { mode: 'pooled', control: true, capacity: 1, workspaceLimit: 1, modelLimit: 1, leaseSeconds: 15, apiEnv: { AYATI_MCP_SERVERS_FILE: profiles } });
+  const w = app.path.split('/').at(-1), owner = (await app.request('/api/identity/session', app.cookie)).value.user;
+  const channel = (await app.request(`${app.path}/chats`, app.cookie, { id: randomUUID(), kind: 'channel', name: 'Delivery operations', users: [], agents: [app.profile.id] })).value.id;
   const state = reply => JSON.parse(app.sql(`SELECT row_to_json(j) FROM relay_chat_jobs j WHERE reply='${reply}'`));
-  browser = await chromium.launch({ headless: true });
-  async function pageFor(cookie) {
-    const context = await browser.newContext({ viewport: { width: 1440, height: 960 } });
-    const [name, value] = cookie.split('='); await context.addCookies([{ name, value, url: app.base, httpOnly: true, sameSite: 'Lax' }]);
-    const page = await context.newPage(); page.on('pageerror', error => errors.push(error.message)); pages.push(page); return page;
-  }
-  const page = await pageFor(app.cookie), staff = await pageFor(member), agents = `${app.base}/w/${w}/?view=agents`;
-  await page.goto(agents); await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
-  await page.getByRole('button', { name: 'Create schedule', exact: true }).click();
-  let dialog = page.getByRole('dialog', { name: 'Create schedule', exact: true });
-  await dialog.getByRole('textbox', { name: 'Routine name', exact: true }).fill('Daily delivery review');
-  await dialog.getByRole('textbox', { name: 'Task instructions', exact: true }).fill('Prepare the daily delivery summary without changing any order.');
-  // Results stay in Activity unless the person chooses to post a summary.
-  await dialog.getByRole('radio', { name: /Activity, and post the result to/ }).check();
-  await dialog.getByLabel('Conversation', { exact: true }).selectOption(channel);
-  await dialog.getByLabel('Repeat', { exact: true }).selectOption('interval');
-  await dialog.getByLabel('Unit', { exact: true }).selectOption('3600');
-  await dialog.getByRole('button', { name: 'Review schedule', exact: true }).click();
-  await dialog.getByText('Activity, and a summary in Scheduled delivery operations', { exact: true }).waitFor();
-  assert.equal(app.provider.requests.length, 0); assert.equal(app.sql('SELECT count(*) FROM relay_chat_jobs'), '0');
-  await page.screenshot({ path: join(app.data, 'schedule-review-desktop.png') });
-  let discardAcknowledgment = true; const creationBodies = [];
-  await page.route(`**${path}`, async route => {
-    if (route.request().method() !== 'POST') return route.continue();
-    creationBodies.push(route.request().postDataJSON());
-    if (!discardAcknowledgment) return route.continue();
-    discardAcknowledgment = false; const accepted = await route.fetch(); assert.equal(accepted.status(), 200); await route.abort('failed');
-  });
-  await dialog.getByRole('button', { name: 'Create schedule', exact: true }).click();
-  await dialog.getByRole('button', { name: 'Edit as a new schedule', exact: true }).waitFor();
-  assert.equal(app.sql('SELECT count(*) FROM relay_agent_schedules'), '1');
-  await page.reload(); await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
-  await page.getByRole('button', { name: 'Create schedule', exact: true }).click();
-  dialog = page.getByRole('dialog', { name: 'Create schedule', exact: true });
-  await dialog.getByRole('button', { name: 'Retry same save', exact: true }).click();
-  await dialog.getByText('Schedule saved.', { exact: false }).waitFor();
-  assert.deepEqual(creationBodies[1], creationBodies[0]); assert.equal(app.sql('SELECT count(*) FROM relay_agent_schedules'), '1');
-  await dialog.getByRole('button', { name: 'Done', exact: true }).click();
-  await page.unroute(`**${path}`);
-  const planned = creationBodies[0].id;
-  await page.getByRole('article', { name: 'Routine: Daily delivery review', exact: true }).getByRole('button', { name: 'Pause', exact: true }).click();
-  let pause = page.getByRole('dialog', { name: 'Pause routine', exact: true }); await pause.getByRole('button', { name: 'Pause routine', exact: true }).click(); await pause.getByRole('button', { name: 'Done', exact: true }).click();
-  assert.equal(row(planned).state, 'paused'); assert.equal(app.provider.requests.length, 0);
-  await staff.goto(agents); await staff.getByRole('tab', { name: 'Schedules', exact: true }).click();
-  await staff.getByText("Only this agent's maintainers can manage its shared routines.", { exact: false }).waitFor(); assert.equal(await staff.getByRole('button', { name: 'Create schedule', exact: true }).count(), 0);
-  app.pass('The schedule review starts no model work; a dropped real creation acknowledgment survives browser reload and retries the exact saved payload once; staff cannot manage a maintainer routine');
+  const channelMessages = () => Number(app.sql(`SELECT count(*) FROM relay_chat_messages WHERE chat='${channel}'`));
 
   const connection = randomUUID(), control = `${app.path}/agent-profiles/${app.profile.id}/control`;
   await writeFile(profiles, JSON.stringify([{ id: 'orders', workspace: w, name: 'Company orders', account: 'Test company', url: remote.url, bearer_file: bearer, operations: remote.operations }]));
@@ -85,91 +32,57 @@ test('shared schedules retain exact creation, release a real Goose question, sep
   await app.request(`${app.path}/control/connections`, app.cookie, { id: connection, server: 'orders', enabled: true, revision: 0 });
   await app.request(`${control}/tools`, app.cookie, { connection, enabled: true });
   for (const [operation, mode] of [['order.read', 'allow'], ['order.update', 'ask']]) await app.request(`${control}/rules`, app.cookie, { connection, operation, mode, revision: 0 });
-  const prompt = 'Ask for delivery method then prepare the separately approved scheduled update';
-  const specification = { version: 1, kind: 'single_choice', title: 'Scheduled delivery method', options: [{ id: 'road', label: 'Road' }, { id: 'air', label: 'Air' }] };
-  const write = { tool: 'request_action', arguments: { connection, operation: 'order.update', arguments: { order: 'one', address: 'ONE_APPROVED_SCHEDULED_UPDATE' } } };
-  app.provider.setControl(prompt, { steps: [{ tool: 'ask_question', arguments: { key: 'delivery', specification } }], checkpoint: 'I saved a delivery question; no order changed.',
+
+  // Asked in the channel: the task starts at once and runs in the channel.
+  const title = 'Hourly delivery update';
+  const instructions = 'Ask for the delivery method, then prepare the separately approved order update.';
+  const ask = 'Every hour, prepare the delivery update for this channel';
+  app.provider.setControl(ask, { steps: [{ tool: 'create_task', arguments: { title, repeat: { unit: 'hour' }, instructions } }] });
+  const specification = { version: 1, kind: 'single_choice', title: 'Delivery method', options: [{ id: 'road', label: 'Road' }, { id: 'air', label: 'Air' }] };
+  const write = { tool: 'request_action', arguments: { connection, operation: 'order.update', arguments: { order: 'one', address: 'ONE_APPROVED_TASK_UPDATE' } } };
+  // A run's first line names it ("Task run 1 · <title>"), which keys its script.
+  app.provider.setControl(`Task run 1 · ${title}`, { steps: [{ tool: 'ask_question', arguments: { key: 'delivery', specification } }], checkpoint: 'I saved a delivery question; no order changed.',
     afterQuestion: [{ tool: 'operations', arguments: {} }, write], questionCheckpoint: 'Your answer is saved. The exact update needs separate approval.',
     after: [{ tool: 'operations', arguments: {} }, write, { tool: 'request_action', arguments: { connection, operation: 'order.read', arguments: { order: 'one' } } }] });
-  let executor = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
-  const live = { id: randomUUID(), chat: channel, name: 'Reviewed scheduled update', content: prompt, first_ms: Date.now() + 3000, interval_seconds: 10, timezone: 'Asia/Kolkata' };
-  await app.request(path, app.cookie, live);
-  await until(() => runs(live.id).length === 1, 'Controller did not admit the due occurrence');
-  const occurrence = runs(live.id)[0], job = JSON.parse(app.sql(`SELECT payload FROM relay_chat_jobs WHERE reply='${occurrence.reply}'`));
-  assert.equal(job.requester, owner.id); assert.notEqual(job.chat, channel, 'a run happens in its own work room');
-  assert.ok(!(await app.request(`${app.path}/chats`, app.cookie)).value.chats.some(chat => chat.id === job.chat), 'the work room never appears in Chat');
-  const channelMessages = () => app.sql(`SELECT count(*) FROM relay_chat_messages WHERE chat='${channel}'`);
+  const executor = await app.startExecutor({ AYATI_EXECUTOR_SLOTS: '1' });
+  const asked = await app.send(ask, channel);
+  await app.done(asked);
+  const task = JSON.parse(app.sql(`SELECT to_jsonb(t) FROM relay_tasks t WHERE t.title='${title}'`));
+  assert.equal(task.chat, channel); assert.equal(task.room, undefined, 'no work room (schema 151)');
+  assert.equal(task.instructions, instructions); assert.equal(task.requester, owner.id);
+  app.pass('A repeating task asked for in a channel starts at once and belongs to the channel');
+
+  // Its first run is made due now; Cuckoo starts it in the channel, as the asker.
+  app.sql(`UPDATE relay_task_wakeups SET due_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE task='${task.id}' AND state='pending' AND kind='repeat'`);
+  await until(() => app.sql(`SELECT count(*) FROM relay_task_wakeups WHERE task='${task.id}' AND state='started'`) === '1', 'Cuckoo did not start the run', 20000);
+  const reply = app.sql(`SELECT reply FROM relay_task_wakeups WHERE task='${task.id}' AND state='started'`);
+  const job = JSON.parse(app.sql(`SELECT payload FROM relay_chat_jobs WHERE reply='${reply}'`));
+  assert.equal(job.chat, channel); assert.equal(job.requester, owner.id);
   const before = channelMessages();
-  await until(() => state(job.reply).state === 'waiting', 'Scheduled question did not release execution', 35000);
-  const waitingCalls = app.provider.requests.length; assert.equal(remote.calls.length, 0);
-  await page.getByRole('button', { name: 'Refresh schedules', exact: true }).click();
-  let routine = page.getByRole('article', { name: `Routine: ${live.name}`, exact: true });
-  await routine.getByRole('button', { name: 'View runs', exact: true }).click();
-  let runDialog = page.getByRole('dialog', { name: `${live.name} · Runs`, exact: true });
-  await runDialog.getByText('Waiting for an answer', { exact: true }).waitFor();
-  await page.screenshot({ path: join(app.data, 'schedule-runs-desktop.png') });
-  await runDialog.getByRole('button', { name: 'Close', exact: true }).click();
-  await routine.getByRole('button', { name: 'Pause', exact: true }).click(); pause = page.getByRole('dialog', { name: 'Pause routine', exact: true });
-  await pause.getByRole('button', { name: 'Pause routine', exact: true }).click(); await pause.getByRole('button', { name: 'Done', exact: true }).click();
-  assert.equal(state(job.reply).state, 'waiting'); assert.equal(app.provider.requests.length, waitingCalls);
-  await routine.getByRole('button', { name: 'View runs', exact: true }).click(); runDialog = page.getByRole('dialog', { name: `${live.name} · Runs`, exact: true });
-  await runDialog.getByRole('link', { name: 'Open run', exact: true }).click();
-  await page.waitForURL(new RegExp(`view=activity&tab=history&run=${job.reply}`));
-  const details = page.getByRole('dialog').filter({ hasText: 'Started by' });
-  await details.getByText('Activity, and a summary in Scheduled delivery operations', { exact: false }).waitFor();
-  assert.equal(await details.getByRole('link', { name: 'Open conversation', exact: true }).count(), 0);
-  await details.getByRole('button', { name: 'Close', exact: true }).click();
-  // The run's question waits in Needs me, not in a conversation.
-  await page.getByRole('tab', { name: /Needs me/ }).click();
-  await page.getByRole('button', { name: 'Answer', exact: true }).click();
-  const question = page.getByRole('dialog', { name: 'Scheduled delivery method', exact: true }); await question.getByLabel('Road', { exact: true }).check();
-  await question.getByRole('button', { name: 'Submit answer', exact: true }).click(); await question.getByText('Answer saved', { exact: true }).waitFor(); await question.getByRole('button', { name: 'Close', exact: true }).click();
-  await until(() => state(job.reply).state === 'waiting' && app.sql(`SELECT count(*) FROM relay_control_actions WHERE job='${job.reply}' AND state='pending'`) === '1', 'Schedule answer did not reach an independent approval', 35000);
+  await until(() => state(reply).state === 'waiting', 'The run\'s question did not release execution', 35000);
   assert.equal(remote.calls.length, 0);
-  await page.getByRole('button', { name: 'Review', exact: true }).click();
-  const approval = page.getByRole('dialog', { name: 'Review approval request', exact: true }); await approval.getByText('ONE_APPROVED_SCHEDULED_UPDATE', { exact: true }).waitFor();
-  await approval.getByRole('button', { name: 'Approve this action', exact: true }).click(); await approval.getByRole('button', { name: 'Close', exact: true }).click(); await app.done(job);
-  assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1); assert.equal(remote.records.get('one').address, 'ONE_APPROVED_SCHEDULED_UPDATE'); assert.equal(row(live.id).state, 'paused');
-  // The conversation got exactly one short result message, linking to the run.
-  await until(() => app.sql(`SELECT state FROM relay_run_posts WHERE reply='${job.reply}'`) === 'posted', 'The result was not posted');
-  assert.equal(Number(channelMessages()), Number(before) + 1);
-  assert.match(app.sql(`SELECT content FROM relay_chat_messages WHERE chat='${channel}' ORDER BY sequence DESC LIMIT 1`), new RegExp(`View run\\]\\(run:${job.reply}\\)`));
-  app.pass('A real scheduled Goose task runs in its own work room, not the channel; its question and approval wait in Activity; it continues after a separate exact action approval and posts one short result to the channel; pausing its routine preserves that saved task and exactly one confirmed write');
+  const question = JSON.parse(app.sql(`SELECT row_to_json(q) FROM relay_task_questions q WHERE reply='${reply}'`));
+  await app.request(`${app.path}/questions/${question.id}`, app.cookie, { id: randomUUID(), revision: 1, decision: 'answer', values: { choices: ['road'] } });
+  await until(() => state(reply).state === 'waiting' && app.sql(`SELECT count(*) FROM relay_control_actions WHERE job='${reply}' AND state='pending'`) === '1', 'The answer did not reach a separate approval', 35000);
+  assert.equal(remote.calls.length, 0);
+  const action = app.sql(`SELECT id FROM relay_control_actions WHERE job='${reply}' AND state='pending'`);
+  await app.request(`${control}/actions/${action}/decision`, app.cookie, { id: randomUUID(), decision: 'approve' });
+  await until(() => state(reply).state === 'finished', 'The run did not finish', 35000);
+  assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1); assert.equal(remote.records.get('one').address, 'ONE_APPROVED_TASK_UPDATE');
+  // The run's reply is in the channel; nothing is copied there.
+  assert.equal(app.sql(`SELECT state FROM relay_chat_messages WHERE id='${reply}' AND chat='${channel}'`), 'complete');
+  assert.equal(channelMessages(), before);
+  assert.equal(app.sql(`SELECT count(*) FROM relay_task_wakeups WHERE task='${task.id}' AND state='pending' AND kind='repeat'`), '1', 'the next run is booked');
+  app.pass('A real Goose task run works in the channel as the asker; its question and its write\'s approval wait for that person; the write happens once and its reply is in the channel');
 
-  await app.stop(executor); await app.stopApi(); await app.startApi();
-  const finishedCalls = app.provider.requests.length;
-  await page.goto(agents); await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
-  routine = page.getByRole('article', { name: `Routine: ${live.name}`, exact: true }); await routine.getByText('paused', { exact: true }).waitFor();
-  await page.setViewportSize({ width: 390, height: 844 }); await page.emulateMedia({ colorScheme: 'dark' });
-  await page.getByRole('button', { name: 'Open agent Nova', exact: true }).click();
-  await routine.getByRole('button', { name: 'Review and resume', exact: true }).click();
-  let resume = page.getByRole('dialog', { name: 'Resume routine', exact: true }); await resume.getByText(live.content, { exact: true }).waitFor(); await page.screenshot({ path: join(app.data, 'schedule-resume-mobile-dark.png') });
-  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false); await page.setViewportSize({ width: 320, height: 600 }); assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false); assert.equal(await resume.evaluate(node => { const bounds = node.getBoundingClientRect(); return bounds.top >= 0 && bounds.bottom <= innerHeight; }), true);
-  await page.keyboard.press('Escape'); await resume.waitFor({ state: 'detached' }); assert.equal(app.provider.requests.length, finishedCalls); assert.equal(runs(live.id).length, 1);
-  await page.setViewportSize({ width: 1440, height: 960 }); await page.emulateMedia({ colorScheme: 'light' });
-  await routine.getByRole('button', { name: 'Review and resume', exact: true }).click(); resume = page.getByRole('dialog', { name: 'Resume routine', exact: true });
-  await resume.getByRole('button', { name: 'Resume routine', exact: true }).click(); await resume.getByRole('button', { name: 'Done', exact: true }).click();
-  await until(() => runs(live.id).length === 2, 'Explicit resume did not admit one latest distinct occurrence', 20000);
-  const next = runs(live.id)[0]; assert.notEqual(next.reply, occurrence.reply); assert.equal(app.provider.requests.length, finishedCalls);
-  await app.request(`${app.path}/chats/${row(live.id).room}/messages/${next.reply}/cancel`, app.cookie, {});
-  assert.equal(state(next.reply).state, 'finished'); assert.equal(row(live.id).state, 'enabled');
-  await app.request(`${path}/${live.id}/state`, app.cookie, { request: randomUUID(), revision: row(live.id).revision, enabled: false });
-  await app.stopApi(); await app.startApi(); assert.equal(state(next.reply).state, 'finished'); assert.equal(runs(live.id).length, 2);
-  assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1);
-  app.pass('Controller restart and status/review reads do not rerun completed work; explicit resume creates one distinct latest occurrence; Stop terminates that run without disabling the routine, then an explicit pause survives another restart');
-
-  await app.request(`${app.path}/members/${person.id}`, app.cookie, { role: 'Admin' });
-  const blocked = { id: randomUUID(), chat: channel, name: 'PRIVATE_REVOKED_ROUTINE', content: 'PRIVATE_REVOKED_TASK', first_ms: Date.now() + 60000, interval_seconds: 10, timezone: 'Asia/Kolkata' };
-  await app.request(path, app.cookie, blocked);
-  await page.goto(agents); await page.getByRole('tab', { name: 'Schedules', exact: true }).click(); await page.getByRole('article', { name: 'Routine: PRIVATE_REVOKED_ROUTINE', exact: true }).waitFor();
-  await app.request(`${app.path}/chats/${channel}/members`, member, { users: [person.id] });
-  await until(() => page.getByText('PRIVATE_REVOKED_ROUTINE', { exact: true }).count().then(count => count === 0), 'Revoked source details remained visible');
-  assert.equal(row(blocked.id).state, 'blocked'); assert.equal((await app.request(path, app.cookie)).value.schedules.length, 0);
-  await app.request(`${app.path}/chats/${channel}/members`, member, { users: [person.id, owner.id] });
-  const denied = await app.request(`${path}/${blocked.id}/state`, member, { request: randomUUID(), revision: row(blocked.id).revision, enabled: true }, 400); assert.match(denied.value.error, /original authorizing person/);
-  await page.getByRole('button', { name: 'Refresh schedules', exact: true }).click(); await page.getByRole('article', { name: 'Routine: PRIVATE_REVOKED_ROUTINE', exact: true }).getByText('blocked', { exact: true }).waitFor();
-  assert.equal(runs(blocked.id).length, 0); assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1); assert.deepEqual(errors, []);
-  await page.screenshot({ path: join(app.data, 'schedules-blocked-desktop.png') });
-  await mkdir(join(root, '.tmp/shared-agent-automation'), { recursive: true });
-  await writeFile(join(root, '.tmp/shared-agent-automation/browser-evidence.json'), JSON.stringify({ data: app.data, schedule: live.id, channel, reply: job.reply, occurrences: runs(live.id).length, model_requests: app.provider.requests.length, confirmed_writes: remote.calls.filter(call => call.name === 'update_order').length, errors }, null, 2));
+  // Pausing the task cancels its next run; a restart runs nothing again.
+  const paused = (await app.request(`${app.path}/activity/tasks/${task.id}/pause`, app.cookie, { paused: true })).value;
+  assert.equal(paused.paused, true);
+  const calls = app.provider.requests.length;
+  await app.stopApi(); await app.startApi();
+  await new Promise(resolve => setTimeout(resolve, 3000));
+  assert.equal(app.sql(`SELECT count(*) FROM relay_task_wakeups WHERE task='${task.id}' AND state='pending'`), '0');
+  assert.equal(app.provider.requests.length, calls); assert.equal(remote.calls.filter(call => call.name === 'update_order').length, 1);
+  await app.stop(executor);
+  app.pass('Pausing the task stops its runs across a restart and keeps the one confirmed write');
 });

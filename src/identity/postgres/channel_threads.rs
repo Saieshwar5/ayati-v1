@@ -45,7 +45,7 @@ pub(super) fn for_me(param: &str, follows: bool) -> String {
 /// Where an agent's answer to `asking` goes: its own thread when the asking
 /// message is in one; otherwise a new thread under it in a channel or group
 /// several people read whose managers keep the default; otherwise the main
-/// timeline. Only a person's own message gets a new thread: schedules, events
+/// timeline. Only a person's own message gets a new thread: task runs, events
 /// and doors keep their places.
 pub(super) async fn reply_thread(
     tx: &impl ConnectionTrait,
@@ -63,7 +63,7 @@ pub(super) async fn reply_thread(
     }
     let threaded: bool = query(
         tx,
-        "SELECT c.kind<>'direct' AND NOT c.work AND c.agent_replies='thread'
+        "SELECT c.kind<>'direct' AND c.agent_replies='thread'
            AND (c.visibility='public' OR (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id)>1) AS threaded
          FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2",
         vec![w.into(), chat.into()],
@@ -77,7 +77,7 @@ pub(super) async fn reply_thread(
 impl PgStore {
     /// The channel or group a request is in, for the agent: its name, kind,
     /// how many people are in it and the purpose its managers wrote. `None`
-    /// for direct conversations and work rooms. The description is the
+    /// for direct conversations. The description is the
     /// managers' words: context, never instructions or permission.
     pub(crate) async fn conversation_purpose(
         &self,
@@ -86,7 +86,7 @@ impl PgStore {
         let tx = self.read_tx(&job.workspace).await?;
         let row = query(&tx, "SELECT c.name,c.kind,c.visibility,c.description,
               (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id) AS people
-            FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2 AND c.kind<>'direct' AND NOT c.work",
+            FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2 AND c.kind<>'direct'",
             vec![job.workspace.clone().into(), job.chat.clone().into()]).await?;
         let Some(row) = row else {
             tx.commit().await?;

@@ -11,7 +11,7 @@ const parser = new Marked({ gfm: true, breaks: true, renderer: {
   link({ href, tokens }) {
     const text = this.parser.parseInline(tokens);
     if (/^mention:(user|agent):[a-zA-Z0-9_-]+$/.test(href)) return `<span class="message-mention">${text}</span>`;
-    // A run Cuckoo posted from a schedule: opens it in Activity, same tab.
+    // A run Cuckoo posted from a task or trigger: opens it in Activity, same tab.
     if (/^run:[0-9a-f-]{36}$/.test(href)) return `<a href="${escape(workspaceUrl(`/?view=activity&tab=history&run=${href.slice(4)}`))}">${text}</a>`;
     // A Library citation Cuckoo adds: opens the item (at the cited revision) in this
     // workspace, same tab. Access is checked when it opens.

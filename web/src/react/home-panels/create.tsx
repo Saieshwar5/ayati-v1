@@ -105,8 +105,8 @@ export function AskPanel({
                 );
             }
             const instruction = target
-              ? `[Personal Home panel change]\nRevise personal panel ${target.id} using expected_revision=${target.revision} and save_home_panel. Keep its original person, agent and conversation. A new draft requires my review; create no schedule.`
-              : '[Personal Home panel request]\nPrepare one personal Home draft using save_home_panel. Use a fixed template and current authorized sources. It requires my review on Home; do not publish it or create a schedule.';
+              ? `[Personal Home panel change]\nRevise personal panel ${target.id} using expected_revision=${target.revision} and save_home_panel. Keep its original person, agent and conversation. A new draft requires my review; set up no automatic updates.`
+              : '[Personal Home panel request]\nPrepare one personal Home draft using save_home_panel. Use a fixed template and current authorized sources. It requires my review on Home; do not publish it or set up automatic updates.';
             const content = `${instruction}${panelPreference(choice)}\n${text.trim()}`;
             const key = JSON.stringify({ agent, chat, content });
             if (attempt.current?.key !== key) attempt.current = { key, id: crypto.randomUUID() };

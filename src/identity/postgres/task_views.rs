@@ -27,7 +27,8 @@ const FIELDS: &str = "'id',t.id,'title',t.title,'kind',t.kind,'origin',t.origin,
  'closed_ms',t.closed_ms,'outcome',t.outcome,'result',t.result,
  'steps',(SELECT count(*) FROM relay_chat_jobs j WHERE j.workspace=t.workspace AND j.task=t.id),
  'next_wakeup_ms',(SELECT min(k.due_ms) FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id AND k.state='pending'),
- 'blocked_wakeup',(SELECT CASE WHEN k.state='blocked' THEN k.detail END FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id ORDER BY k.created_ms DESC LIMIT 1)";
+ 'blocked_wakeup',(SELECT CASE WHEN k.state='blocked' THEN k.detail END FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id ORDER BY k.created_ms DESC LIMIT 1),
+ 'repeats',jsonb_typeof(to_jsonb(t)->'repeat')='object','paused',to_jsonb(t)->>'paused_ms' IS NOT NULL";
 
 async fn admin(tx: &DatabaseTransaction, w: &str, user: &User) -> Result<bool> {
     Ok(role(tx, w, &user.id).await? == "Admin")
@@ -94,6 +95,38 @@ impl PgStore {
              'summary',COALESCE(left((SELECT r.content FROM relay_chat_messages r WHERE r.workspace=j.workspace AND r.id=j.request_message),180),'Request')) AS data
             FROM relay_chat_jobs j JOIN relay_chat_messages m ON m.workspace=j.workspace AND m.id=j.reply
             WHERE j.workspace=$1 AND j.task=$2 ORDER BY j.sequence LIMIT 100", vec![w.into(), id.into()]).await?);
+        // Schema 144: its rule as a sentence, its next run, the notes its runs left
+        // and each run with what came of it.
+        if super::wakeups::lifetimes(&tx).await? {
+            task["lifetime"] = super::changes::summary(&tx, w, id).await?;
+            task["notes"] = json!(json_rows(&tx, "SELECT jsonb_build_object('note',n.note,'created_ms',n.created_ms) AS data FROM relay_task_notes n
+                WHERE n.workspace=$1 AND n.task=$2 ORDER BY n.created_ms DESC LIMIT 10", vec![w.into(), id.into()]).await?);
+            task["runs"] = json!(json_rows(&tx, "SELECT jsonb_build_object('at',k.due_ms,'kind',k.kind,'run',k.run,'detail',k.detail,'reply',k.reply,
+                  'state',CASE WHEN k.state='pending' THEN 'planned' WHEN k.state='skipped' THEN CASE WHEN k.detail LIKE 'Missed%' THEN 'missed' ELSE 'skipped' END
+                   WHEN k.state='blocked' THEN 'blocked' WHEN k.quiet THEN 'no_change' WHEN m.state='complete' THEN 'done'
+                   WHEN m.state IN ('failed','interrupted','access_changed') THEN 'failed' WHEN m.state='cancelled' THEN 'cancelled' ELSE 'working' END) AS data
+                FROM relay_task_wakeups k LEFT JOIN relay_chat_messages m ON m.workspace=k.workspace AND m.id=k.reply
+                WHERE k.workspace=$1 AND k.task=$2 AND k.kind<>'end' AND k.state<>'cancelled' ORDER BY k.due_ms DESC LIMIT 20", vec![w.into(), id.into()]).await?);
+            task["paused_reason"] = query(
+                &tx,
+                "SELECT paused_reason FROM relay_tasks WHERE workspace=$1 AND id=$2",
+                vec![w.into(), id.into()],
+            )
+            .await?
+            .map(|r| r.try_get::<Option<String>>("", "paused_reason"))
+            .transpose()?
+            .flatten()
+            .into();
+        }
+        // An event trigger's task (schema 148): what wakes it and the trigger's state.
+        if super::triggers::ready(&tx).await? {
+            task["trigger"] = query(&tx, "SELECT jsonb_build_object('id',x.id,'state',x.state,'detail',x.detail,'source',x.source_definition->>'name') AS data
+                FROM relay_event_triggers x WHERE x.workspace=$1 AND x.task=$2", vec![w.into(), id.into()])
+                .await?
+                .map(|r| r.try_get::<Value>("", "data"))
+                .transpose()?
+                .unwrap_or(Value::Null);
+        }
         tx.commit().await?;
         Ok(task)
     }
@@ -134,6 +167,13 @@ impl PgStore {
             outcome == "not_task" || row.try_get::<bool>("", "may_close")?,
             "Only the person it is for, the agent's owner or an admin can close this task"
         );
+        // Ending an event trigger's task removes the trigger (schema 148), which only
+        // the people who may close it can do.
+        let trigger = super::triggers::of_task(&tx, w, id).await?;
+        ensure!(
+            outcome != "not_task" || trigger.is_none(),
+            "This task runs an event trigger. End it instead to stop the trigger"
+        );
         execute(&tx, "UPDATE relay_tasks SET outcome=$3,result=$4,closed_by=$5,closed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",
             vec![w.into(), id.into(), outcome.into(), result.into(), user.id.clone().into()]).await?;
         let summary = format!(
@@ -147,6 +187,10 @@ impl PgStore {
         );
         audit_with_summary(&tx, &user.id, Some(w), "task_closed", id, &summary).await?;
         super::wakeups::cancel(&tx, w, id).await?;
+        if trigger.is_some() {
+            super::triggers::end_trigger(&tx, w, id, &user.id).await?;
+        }
+        super::checks::ended(&tx, w, id).await?;
         tx.commit().await?;
         Ok(json!({"id": id, "outcome": outcome}))
     }
@@ -217,8 +261,10 @@ pub(in crate::identity::postgres) async fn hydrate(
     if ids.is_empty() || !super::available(tx).await? {
         return Ok(());
     }
-    // A follow-up the agent booked reads as the agent following up, not as the person.
-    let woken = rows(tx, "SELECT k.message,jsonb_build_object('id',t.id,'title',t.title,'kind',t.kind,'status',relay_task_status(t.workspace,t.id)) AS task
+    // Every wake-up's input (a run, an event, a follow-up, the next part) reads as
+    // one line about its task, not as the person asking (schema 151: in any
+    // conversation). `wakeup` says which.
+    let woken = rows(tx, "SELECT k.message,jsonb_build_object('id',t.id,'title',t.title,'kind',t.kind,'status',relay_task_status(t.workspace,t.id),'wakeup',COALESCE(to_jsonb(k)->>'kind','follow_up')) AS task
         FROM relay_task_wakeups k JOIN relay_tasks t ON t.workspace=k.workspace AND t.id=k.task
         WHERE k.workspace=$1 AND k.message IN (SELECT jsonb_array_elements_text($2::jsonb))",
         vec![w.into(), json!(ids).into()]).await?;
@@ -228,9 +274,35 @@ pub(in crate::identity::postgres) async fn hydrate(
             m["follow_up"] = row.try_get("", "task")?;
         }
     }
-    let rows = rows(tx, "SELECT j.reply,jsonb_build_object('id',t.id,'title',t.title,'kind',t.kind,'status',relay_task_status(t.workspace,t.id)) AS task
+    // Schema 144: a repeating task's next run for the line under the reply, and runs
+    // that found nothing to report, which stay out of the conversation.
+    let lifetimes = super::wakeups::lifetimes(tx).await?;
+    if lifetimes {
+        let quiet = rows(tx, "SELECT k.message,k.reply FROM relay_task_wakeups k WHERE k.workspace=$1 AND k.quiet
+            AND (k.message IN (SELECT jsonb_array_elements_text($2::jsonb)) OR k.reply IN (SELECT jsonb_array_elements_text($2::jsonb)))",
+            vec![w.into(), json!(ids).into()]).await?;
+        for row in quiet {
+            for key in ["message", "reply"] {
+                let id: Option<String> = row.try_get("", key)?;
+                if let Some(m) = messages
+                    .iter_mut()
+                    .find(|m| id.as_deref().is_some_and(|id| m["id"] == id))
+                {
+                    m["quiet"] = json!(true);
+                }
+            }
+        }
+    }
+    let timing = if lifetimes {
+        ",'requester',t.requester,'repeats',t.repeat IS NOT NULL,'paused',t.paused_ms IS NOT NULL,
+          'next_text',(SELECT to_char(to_timestamp(min(k.due_ms)/1000.0) AT TIME ZONE COALESCE(t.timezone,(SELECT ws.timezone FROM relay_workspaces ws WHERE ws.id=t.workspace),'Asia/Kolkata'),'Dy DD Mon, HH24:MI')
+            FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id AND k.state='pending' AND k.kind<>'end')"
+    } else {
+        ""
+    };
+    let rows = rows(tx, &format!("SELECT j.reply,jsonb_build_object('id',t.id,'title',t.title,'kind',t.kind,'status',relay_task_status(t.workspace,t.id){timing}) AS task
         FROM relay_chat_jobs j JOIN relay_tasks t ON t.workspace=j.workspace AND t.id=j.task
-        WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND t.outcome IS DISTINCT FROM 'not_task'",
+        WHERE j.workspace=$1 AND j.reply IN (SELECT jsonb_array_elements_text($2::jsonb)) AND t.outcome IS DISTINCT FROM 'not_task'"),
         vec![w.into(), json!(ids).into()]).await?;
     for row in rows {
         let reply: String = row.try_get("", "reply")?;

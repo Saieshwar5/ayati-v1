@@ -1,5 +1,5 @@
 //! Cuckoo's own catalog of connector apps and actions: the standard names.
-//! Rules, approvals, schedules and agent instructions refer to these ids, never
+//! Rules, approvals, tasks and agent instructions refer to these ids, never
 //! to a provider's tool names, so an app can move to another provider, or to a
 //! connector Cuckoo builds itself, without changing what people approved.
 //! Each provider maps an action to its own tool and field names here.

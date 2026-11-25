@@ -6,7 +6,10 @@ use crate::identity::{
 use serde_json::json;
 
 pub(super) async fn setup(mode: &str) -> (PgStore, User, String, String, Job) {
-    let db = fixture().await;
+    setup_on(fixture().await, mode).await
+}
+/// The same, on a database an upgrade test built at an older schema.
+pub(super) async fn setup_on(db: PgStore, mode: &str) -> (PgStore, User, String, String, Job) {
     let owner = user(&db, "control-owner").await;
     let w = workspace(&db, &owner).await;
     let (chat, agent) = super::executor_slot_tests::agent(&db, &owner, &w).await;

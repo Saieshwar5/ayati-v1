@@ -247,7 +247,7 @@ impl PgStore {
     }
 
     /// Completes deletions whose undo time has passed: the workspace closes for
-    /// everyone and its agents, schedules and triggers stop. Returns how many
+    /// everyone and its agents, tasks and triggers stop. Returns how many
     /// closed. Erasing the stored records is a separate operator step.
     pub async fn close_deleted_workspaces(&self, limit: i64) -> Result<u64> {
         let due = rows(&self.db, "SELECT id FROM relay_workspaces WHERE delete_at_ms<=$1 AND closed_ms IS NULL ORDER BY delete_at_ms LIMIT $2",
@@ -261,7 +261,11 @@ impl PgStore {
                 vec![w.clone().into(), (now() * 1000).into()]).await? == 0 {
                 continue;
             }
-            execute(&tx, "UPDATE relay_agent_schedules SET state='paused' WHERE workspace=$1 AND state='enabled'", vec![w.clone().into()]).await?;
+            // Open tasks with a run or follow-up booked pause, and nothing booked runs.
+            execute(&tx, "UPDATE relay_tasks t SET paused_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint,paused_reason='The workspace was closed.'
+                WHERE t.workspace=$1 AND t.outcome IS NULL AND t.paused_ms IS NULL
+                AND EXISTS(SELECT 1 FROM relay_task_wakeups k WHERE k.workspace=t.workspace AND k.task=t.id AND k.state='pending')", vec![w.clone().into()]).await?;
+            execute(&tx, "UPDATE relay_task_wakeups SET state='cancelled' WHERE workspace=$1 AND state='pending'", vec![w.clone().into()]).await?;
             execute(&tx, "UPDATE relay_event_triggers SET state='paused' WHERE workspace=$1 AND state='enabled'", vec![w.clone().into()]).await?;
             execute(&tx, "UPDATE relay_shared_agents SET settings=jsonb_set(settings,'{paused}','true'::jsonb) WHERE workspace=$1", vec![w.clone().into()]).await?;
             audit(&tx, "system", Some(&w), "workspace_closed", &w).await?;

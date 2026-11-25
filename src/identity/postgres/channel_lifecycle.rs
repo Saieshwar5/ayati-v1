@@ -76,7 +76,6 @@ impl PgStore {
                 );
                 execute(&tx,"UPDATE relay_chats SET archived=$3,archive_revision=archive_revision+1,archived_at=CASE WHEN $3 THEN $4 ELSE NULL END,archived_by=CASE WHEN $3 THEN $5 ELSE NULL END,archive_request=$6,archive_payload=$7 WHERE workspace=$1 AND id=$2",vec![w.into(),chat.into(),input.archived.into(),now().into(),user.id.clone().into(),input.request.clone().into(),payload.into()]).await?;
                 if input.archived {
-                    super::automation_access::invalidate_inaccessible(&tx, w).await?;
                     super::event_dispatch::invalidate_inaccessible(&tx, w).await?;
                 }
                 archived = input.archived;

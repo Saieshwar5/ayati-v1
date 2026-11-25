@@ -292,7 +292,8 @@ impl PgStore {
         execute(tx,"UPDATE relay_chat_messages SET content=$2,state=$3 WHERE id=$1 AND workspace=$4 AND chat=$5 AND state='queued'",vec![job.reply.clone().into(),if allowed{in_chat}else{"Request cancelled because access changed."}.into(),if allowed{state}else{"cancelled"}.into(),job.workspace.clone().into(),job.chat.clone().into()]).await?;
         if allowed && state == "complete" {
             super::communications::outbox::complete(tx, job, content).await?;
-            super::work_rooms::post_result(tx, job, content).await?;
+            // A task run with nothing to report (NO_CHANGE) shows nothing.
+            super::tasks::runs::after_finish(tx, job, content).await?;
         }
         Ok(true)
     }
@@ -398,7 +399,6 @@ pub(super) async fn chats_in(
     workspace: &str,
 ) -> Result<Value> {
     let owner = role(tx, workspace, &user.id).await? == "Admin";
-    let hidden = super::work_rooms::hidden(tx).await?;
     // Channels also say who created them, when (from the channel_created audit
     // entry; channels made before it was recorded have no time) and which
     // members manage them: the creator and workspace admins. The list is ordered
@@ -409,6 +409,6 @@ pub(super) async fn chats_in(
         FROM relay_chats c
         CROSS JOIN LATERAL (SELECT {activity} AS activity) x
         LEFT JOIN (SELECT target,min(at) AS at FROM relay_audit WHERE workspace=$1 AND action='channel_created' GROUP BY target) made ON made.target=c.id
-        WHERE c.workspace=$1{hidden} AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY x.activity DESC,c.sequence DESC",activity=activity::ACTIVITY),vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
+        WHERE c.workspace=$1 AND (c.visibility='public' OR EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$2)) ORDER BY x.activity DESC,c.sequence DESC",activity=activity::ACTIVITY),vec![workspace.into(),user.id.clone().into(),owner.into()]).await?;
     Ok(json!({"chats":chats}))
 }

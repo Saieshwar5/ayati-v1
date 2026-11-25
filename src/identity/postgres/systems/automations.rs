@@ -1,8 +1,8 @@
 //! Automations that start when a connected system sends an event (C2). An
 //! automation names one event type and the `data` fields the agent sees; the
 //! controller keeps one `system` source per system, type and field choice, and
-//! the trigger is an ordinary event trigger on it, so it runs in a work room,
-//! has a Memory setting and shows in Activity like any other.
+//! the trigger is an ordinary event trigger on it, so it runs in its
+//! conversation as its person and shows in Activity like any other.
 use crate::identity::events::{
     catalog::Source,
     model::{Trigger, fingerprint},
@@ -25,8 +25,6 @@ pub(crate) struct FromSystem {
     pub instructions: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chat: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub memory: Option<String>,
     #[serde(default = "empty")]
     pub filter: Value,
     /// Named, typed values the agent must report (C4), at most 8.
@@ -54,20 +52,12 @@ impl FromSystem {
             ensure!(seen.insert(field), "A field is chosen twice");
         }
         super::results::check_fields(&self.results)?;
-        ensure!(
-            self.memory
-                .as_deref()
-                .is_none_or(|m| ["fresh", "remember", "subject"].contains(&m)),
-            "Choose what the automation remembers: fresh, remember or per subject"
-        );
-        // "Per subject" exists only for systems; the rest is any trigger's check.
-        let mut checked = self.trigger(
+        let checked = self.trigger(
             "00000000-0000-4000-8000-000000000000",
             &"a".repeat(43),
             1,
             1,
         );
-        checked.memory = None;
         checked.validate()
     }
     fn trigger(&self, source: &str, binding: &str, connection: i64, read: i64) -> Trigger {
@@ -76,7 +66,6 @@ impl FromSystem {
             source: source.to_owned(),
             binding: binding.to_owned(),
             chat: self.chat.clone(),
-            memory: self.memory.clone(),
             name: self.name.clone(),
             instructions: self.instructions.clone(),
             connection_revision: connection,

@@ -227,3 +227,14 @@
 .settings-audit-face.face { width:30px; height:30px; font-size:11px; }
 .settings-audit-day li p { flex:1 1 320px; min-width:0; margin:0; color:var(--text); overflow-wrap:anywhere; }
 .settings-audit > .ui-button { margin-top:16px; }
+/* Settings › General: working days and holidays (designs/agent-tasks). */
+.settings-calendar h3 { margin: 0; font-size: 1rem; }
+.settings-calendar legend { font-weight: 500; margin-bottom: 6px; }
+.settings-days { display: flex; flex-wrap: wrap; gap: 8px; }
+.settings-day { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 4px 12px; border: 1px solid var(--border-control); border-radius: 10px; }
+.settings-holidays h4 { margin: 8px 0 4px; font-size: .875rem; }
+.settings-holidays ul { margin: 0; padding: 0; list-style: none; }
+.settings-holidays li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-top: 1px solid var(--border); }
+.settings-holidays li small { color: var(--muted); margin-left: 6px; }
+.settings-holiday-add { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-top: 8px; }
+.settings-holiday-add .ui-field { flex: 1 1 160px; }

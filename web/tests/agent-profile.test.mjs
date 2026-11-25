@@ -16,7 +16,8 @@ const directory = { role: 'Member', agents: [agent], default_model: 'fixture', p
 const operation = { id: 'order.read', title: 'Read orders', effect: 'read', meaning: 'read', workspace_mode: 'allow', needs_other: false, agent_mode: null, mode: 'allow', revision: 0 };
 const shop = { id: 'shop', server: 'shopify', name: 'Shopify', account: 'lotus-store', revision: 1, on: true, operations: [operation], own: true };
 const mail = { id: 'mail', server: 'gmail', name: 'Gmail', revision: 1, on: true, operations: [], own: true, state: 'reconnect' };
-const routine = { id: 'r1', name: 'Late orders', content: 'List late orders', chat: null, first_ms: 1, interval_seconds: 86400, timezone: 'UTC', principal: 'owner', principal_name: 'Ravi Kumar', chat_name: null, revision: 1, state: 'enabled', next_ms: null, detail: '', can_resume: true };
+// One of its repeating tasks.
+const task = { id: 't1', title: 'Late orders', status: 'scheduled', origin: 'person', agent: 'atlas', agent_name: 'Atlas', requester: 'owner', requester_name: 'Ravi Kumar', repeats: true, next_wakeup_ms: null, paused: false };
 const request = { id: 'reply', sequence: 1, chat: 'channel', thread: null, source_message: 'm', conversation_name: 'Orders', requester: 'owner', requester_name: 'Ravi Kumar', summary: 'Where is order 4417?', state: 'complete', latest_update: '', created_ms: 1000, can_cancel: false, cancellation: null, approvals: [] };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 
@@ -31,7 +32,7 @@ function server({ reads = [], editable = true, apps = [shop, mail] } = {}) {
     if (route.endsWith('/atlas/learning')) return response({ available: true, configured: true, enabled: true, revision: 1, proposals: [{ id: 'l1', state: 'proposed', title: 'Tracking link', content: '', why: '', kind: 'new', created_ms: 1, evidence: [], conversation: null, replaces: null }] });
     if (route.endsWith('/atlas/control')) return response({ can_manage: editable, can_manage_connections: editable, viewer: 'owner', connections: apps, actions: [], execution_available: true });
     if (route.endsWith('/workspace-computers')) return response({ computers: [], can_change: editable });
-    if (route.endsWith('/atlas/schedules')) return response({ schedules: [routine], conversations: [], more_conversations: false, execution_available: true });
+    if (route.endsWith('/activity/tasks')) return response({ items: [task], more: false });
     if (route.includes('/requests')) return response({ requests: [request], next_before: null });
     if (route.includes('/atlas/systems')) return response({ systems: [], can_connect: editable });
     return response({});
@@ -46,7 +47,7 @@ const row = name => document.querySelector(`.profile-row[aria-label="${name}"]`)
 const chips = name => [...row(name).querySelectorAll('.profile-chip')].map(node => node.textContent);
 const panel = () => document.querySelector('.profile-panel');
 
-test('each row shows the real things: skills, what it knows, apps with their state, schedules and people', async () => {
+test('each row shows the real things: skills, what it knows, apps with their state, tasks and people', async () => {
   await reactFixture(async ({ render }) => {
     await open(render);
     assert.equal(row('Does').querySelector('.profile-rules').textContent, settings.instructions);
@@ -54,7 +55,8 @@ test('each row shows the real things: skills, what it knows, apps with their sta
     assert.deepEqual(chips('Knows').slice(0, 6), ['Notes 1', 'Documents 1', 'Lessons1 to review', 'Memory', 'Improving', 'About you'], 'a forgotten note is not counted');
     assert.deepEqual(chips('Can use').slice(0, 3), ['SShopify', 'GGmailNeeds reconnecting', 'Web search']);
     assert.ok(row('Can use').querySelector('.profile-chip .profile-dot.warn'), 'an app that needs signing in again has an amber dot');
-    assert.match(row('On its own').querySelector('.profile-line').textContent, /Late orders · Every day/);
+    assert.match(row('On its own').querySelector('.profile-line').textContent, /Late orders · repeats · for Ravi Kumar/);
+    assert.ok(row('On its own').querySelector('.profile-line').getAttribute('href').endsWith('task=t1'));
     assert.deepEqual(chips('People'), ['RKYou owner', 'Everyone can message it']);
     assert.equal(document.querySelector('.profile-work li a').getAttribute('href'), `/w/${w}/?view=chat&conversation=channel&message=reply`);
   }, { url, fetch: server() });
@@ -113,7 +115,25 @@ test('someone who cannot change the agent reads the same page: no ＋, no pencil
     assert.deepEqual(chips('People'), ['PSPriya Shah owner', 'Everyone can message it']);
     assert.equal(chips('Knows').some(text => text.startsWith('Lessons')), false, 'lessons are for those who look after it');
     assert.equal(document.querySelector('.profile-work h3').textContent, 'Your requests');
-    assert.equal(reads.some(route => /\/(learning|schedules)(\?|$)/.test(route)), false, 'what only its owners manage is not read');
+    assert.equal(reads.some(route => /\/learning(\?|$)/.test(route)), false, 'what only its owners manage is not read');
     assert.ok(reads.some(route => route.includes('/requests?scope=mine')), 'only their own requests are asked for');
   }, { url, fetch: server({ reads, editable: false }) });
+});
+
+test('an event trigger shows once in On its own, as its task (schema 148)', async () => {
+  const triggerTask = { ...task, id: 't2', title: 'New orders', origin: 'event', kind: 'commitment', repeats: false, status: 'open' };
+  const trigger = { id: 'e1', task: 't2', name: 'New orders', state: 'enabled', source_definition: { name: 'Order changed' }, memory: 'fresh', instructions: '', detail: '' };
+  const base = server();
+  await reactFixture(async ({ render }) => {
+    await open(render);
+    const lines = [...row('On its own').querySelectorAll('.profile-line')];
+    assert.equal(lines.length, 2, 'the trigger is not listed a second time');
+    const line = lines.find(node => node.textContent.includes('New orders'));
+    assert.match(line.textContent, /New orders · Order changed · for Ravi Kumar/);
+    assert.ok(line.getAttribute('href').endsWith('task=t2'));
+  }, { url, fetch: async path => {
+    if (path.includes('/activity/tasks')) return response({ items: [{ ...task, kind: 'commitment' }, triggerTask], more: false });
+    if (path.includes('/event-triggers')) return response({ triggers: [trigger], choices: [], apps: [], execution_available: true });
+    return base(path);
+  } });
 });

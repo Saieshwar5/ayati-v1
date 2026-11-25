@@ -95,14 +95,17 @@ async fn new_finished_and_ready_work_wakes_dispatch_without_waiting_for_the_fall
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn schedules_and_voice_notes_wake_their_loops_and_say_when_they_are_due() {
+async fn task_runs_and_voice_notes_wake_their_loops_and_say_when_they_are_due() {
     let (db, owner, w, c, a) = super::super::automation_tests::setup().await;
     let listener = listening(&db).await;
     let work = db.work.clone();
-    let routine = super::super::automation_tests::schedule(&c, Some(3600));
-    db.save_schedule(&owner, &w, &a, &routine).await.unwrap();
-    assert!(wakes(&work.schedule).await, "a new schedule");
-    // Its first run is a minute away; the scheduler sleeps until then.
+    let task = uuid::Uuid::new_v4().to_string();
+    execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,repeat,anchor_ms) VALUES($1,$2,$3,'commitment','agent','Delivery review',$4,$5,'{\"unit\":\"hour\"}',1)",
+        vec![w.clone().into(), task.clone().into(), a.clone().into(), owner.id.clone().into(), c.clone().into()]).await.unwrap();
+    execute(&db.db, "INSERT INTO relay_task_wakeups(workspace,id,task,due_ms,kind) VALUES($1,$2,$3,(extract(epoch FROM clock_timestamp())*1000)::bigint+60000,'repeat')",
+        vec![w.clone().into(), uuid::Uuid::new_v4().to_string().into(), task.into()]).await.unwrap();
+    assert!(wakes(&work.schedule).await, "a booked task run");
+    // Its run is a minute away; the scheduler sleeps until then.
     let due = db.next_admission_in().await.unwrap().unwrap();
     assert!(
         due > Duration::from_secs(50) && due <= Duration::from_secs(60),
@@ -211,7 +214,6 @@ async fn every_table_the_loops_act_on_announces_its_work() {
     .collect();
     let mut expected = [
         "relay_agent_handoffs",
-        "relay_agent_schedules",
         "relay_assistant_settings",
         "relay_chat_jobs",
         "relay_event_deliveries",

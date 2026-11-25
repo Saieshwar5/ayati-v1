@@ -209,7 +209,7 @@ async fn paging_has_no_gaps_and_filters_and_totals_agree() {
             &owner,
             &w,
             &ActivityFilters {
-                kind: Some("schedule".into()),
+                kind: Some("task".into()),
                 ..filters()
             }
         )

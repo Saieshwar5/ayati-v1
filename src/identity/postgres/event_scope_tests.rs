@@ -12,16 +12,8 @@ async fn event_read_revocation_hides_completed_history_reader_work_attention_and
     s.db.chat_finish(&job, "PRIVATE-EVENT-RESULT", "complete")
         .await
         .unwrap();
-    // The run happens in its own work room (schema 115); the trigger's
-    // conversation gets a short posted summary.
-    assert_ne!(job.chat, s.c);
-    assert!(
-        s.db.chat_page(&s.owner, &s.w, &job.chat, None)
-            .await
-            .unwrap()
-            .to_string()
-            .contains("PRIVATE-EVENT-RESULT")
-    );
+    // The run happens in the trigger's conversation (schema 151).
+    assert_eq!(job.chat, s.c);
     assert!(
         s.db.chat_page(&s.owner, &s.w, &s.c, None)
             .await

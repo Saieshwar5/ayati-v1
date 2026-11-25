@@ -76,9 +76,10 @@ events.
   (the message names the field), 429 too many waiting events.
 - **Automations.** *Add automation* on the tile (owner or admin): an event
   type (from those received, or typed), the `data` fields the agent sees (1 to
-  8), instructions, Memory and where results go. Each system, type and field
+  8), instructions and the conversation it runs in (schema 151: as its person;
+  none chosen, their direct chat with the agent). Each system, type and field
   choice is one `system` event source in `relay_connector_subscriptions`, so
-  receipts, duplicate rules, deliveries, dispatch, work rooms, pause, Activity
+  receipts, duplicate rules, deliveries, dispatch, pause, Activity
   and source revocation are the existing ones. A system with no reading tool
   set to Allow can't start work: an event carries what such a read could fetch.
   An event that matches no automation is saved and shown, never matched later.
@@ -113,15 +114,10 @@ outside system (a student, a patient, an order). Cuckoo trusts it because it
 arrived with the system's key; the system verifies its own users. A subject's
 words in `data` are data, and a subject can never approve anything.
 
-- **Per subject memory.** An automation set to *Per subject* runs each event
-  in the agent's private room for that system and subject
-  (`relay_subject_rooms`), shared by that system's automations, so a later run
-  sees only that subject's earlier runs. Events without a subject start fresh.
-- **Side by side.** Each delivery keeps its subject. Dispatch keeps one
-  unfinished run per automation *and subject*: different subjects run in
-  parallel within the queue limits, and one subject's events run in the order
-  they arrived. Events without a subject keep the old rule: one run per
-  automation.
+- **Order.** Each delivery keeps its subject. Since schema 151 an automation runs
+  in its conversation, one delivery at a time in the order they arrived, whatever
+  their subject: the per-subject rooms (*Per subject* memory, `relay_subject_rooms`)
+  and per-subject parallel runs were removed with work rooms.
 - **Needs the subject.** When reviewing tools, a tool with a text input named
   `subject` can be marked *Needs the subject*. Cuckoo then hides that input from
   the agent and fills it from the run's event before the action is proposed,
@@ -129,13 +125,9 @@ words in `data` are data, and a subject can never approve anything.
   and a run without a subject (a request in Chat) can't use the tool. A system
   that wants staff to look up any student from Chat offers a separate tool with
   an explicit student input and its own rule.
-- **Forget this subject** (events dialog): clears that subject's rooms with the
-  system's agents (messages and working summary) and its next event starts in a
-  new room.
 - **Shared places** (notes for every conversation, "always" Library documents
-  and the computer's `shared/` folder) reach every run, so the form warns to
-  keep nothing about one subject there.
-- **Open:** how long a quiet subject's room is kept.
+  and the computer's `shared/` folder) reach every run, so keep nothing about one
+  subject there. *Forget this subject* went with the per-subject rooms (schema 151).
 
 ## Addresses and inputs
 
@@ -175,8 +167,8 @@ PostgreSQL `systems::events_tests`: matched and unmatched events, nested
 fields whole and unchosen fields absent, duplicates and conflicts, wrong and
 replaced keys, oversized data, owner-only automations and filters, test
 events, run states, checked result fields, a run failed without them, and
-cancel. `systems::subjects_tests`: a room per subject, subjects side by side
-and one subject in order, forgetting a subject, and the subject filled into a
+cancel. `systems::subjects_tests`: one automation's events run one at a time in
+its conversation whatever their subject, and the subject filled into a
 marked tool (hidden from the listing, never from the agent, refused without
 one). PostgreSQL
 `systems::tests`: saving, exact repeats, rules in the effective view, the key

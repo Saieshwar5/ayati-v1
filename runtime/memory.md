@@ -9,7 +9,7 @@ which shelves a request may read and write.
 | --- | --- | --- | --- | --- |
 | **Workspace** | the workspace | facts about the business any agent needs | every shared agent's requests (not outside threads); assistants read it | admins, Settings › Memory |
 | **Job** | one shared agent | what it learned about its own work | that agent's requests (not outside threads) | its owners and admins, its page › Knows › Memory |
-| **Room** | one agent in one channel, group, work room or outside thread | what that room settled | that agent, in that room only | its owners and admins who can open the room, the same panel |
+| **Room** | one agent in one channel, group or outside thread | what that room settled | that agent, in that room only | its owners and admins who can open the room, the same panel |
 | **Person** | one agent with one person | how to work with that person | that agent, in that person's private conversation only | that person, the agent's page › Knows › About you |
 
 A person's own assistant keeps its memory of its person as before
@@ -19,13 +19,19 @@ approved; a room's brief stays the short-term picture of a room.
 
 ## Which shelves a request uses
 
+Since schema 151 a task or trigger run happens in its conversation as its person
+([tasks](tasks.md#since-schema-151-one-rule-a-run-happens-in-its-conversation)), so it
+uses that conversation's shelves like any request there: a channel run reads the room
+shelf, a run in a direct chat the person's. As background work, a note it keeps wider
+than here waits for a person. Work rooms are gone.
+
 The controller decides from the running task (its conversation, agent, requester
 and work class), never from tool arguments (`memory::access`):
 
 | The request runs in | Reads, nearest first | Keeps "here" on |
 | --- | --- | --- |
 | A conversation one person reads (direct chat, a person's own group) | person, job, workspace | the person shelf |
-| A channel or group two or more people read, or a work room | room, job, workspace | the room shelf |
+| A channel or group two or more people read | room, job, workspace | the room shelf |
 | A thread with people outside (email, WhatsApp) | room only | the room shelf |
 | A person's own assistant | workspace | nothing: it uses `remember_about_person` |
 
@@ -33,7 +39,7 @@ A note goes on the job or workspace shelf **at once** only when it was learned w
 the whole workspace may read: a public channel, asked by a person, with no
 restricted source. Otherwise it is saved **waiting** for a person, with a reason:
 `private_source` (a private chat or a closed group), `outside`, `background` (a
-schedule, trigger or work room) or `disagreement` (it corrects a note this request
+task run or a trigger) or `disagreement` (it corrects a note this request
 may not change, or a pinned one). From a private place, a note that names a member
 or carries an email address, a run of five or more digits or an amount is refused
 outright, with the same check lessons use. A request built from restricted sources

@@ -1,3 +1,5 @@
+//! Schema 56 opened work rooms: private rooms where schedules (later tasks and
+//! triggers) ran. Schema 151 removed them; the migration stays in the chain.
 use sea_orm_migration::prelude::*;
 pub(crate) struct WorkRooms;
 impl MigrationName for WorkRooms {

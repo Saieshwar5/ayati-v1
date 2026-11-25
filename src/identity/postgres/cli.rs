@@ -35,7 +35,7 @@ impl PgStore {
             anyhow::anyhow!("Run workspace-db migrate before starting Cuckoo PostgreSQL")
         })?;
         ensure!(
-            applied.len() == 143
+            applied.len() == 151
                 && applied[0].try_get::<String>("", "version")?
                     == "m20261020_000001_workspace_foundation"
                 && applied[1].try_get::<String>("", "version")?
@@ -288,7 +288,21 @@ impl PgStore {
                 && applied[140].try_get::<String>("", "version")?
                     == "m20261121_000141_assistant_reply_modes"
                 && applied[141].try_get::<String>("", "version")? == "m20261124_000142_memory"
-                && applied[142].try_get::<String>("", "version")? == "m20261124_000143_evolution",
+                && applied[142].try_get::<String>("", "version")? == "m20261124_000143_evolution"
+                && applied[143].try_get::<String>("", "version")?
+                    == "m20261124_000144_task_lifetimes"
+                && applied[144].try_get::<String>("", "version")? == "m20261124_000145_task_rooms"
+                && applied[145].try_get::<String>("", "version")?
+                    == "m20261124_000146_panel_intervals"
+                && applied[146].try_get::<String>("", "version")?
+                    == "m20261124_000147_schedules_to_tasks"
+                && applied[147].try_get::<String>("", "version")?
+                    == "m20261124_000148_trigger_tasks"
+                && applied[148].try_get::<String>("", "version")? == "m20261124_000149_check_tasks"
+                && applied[149].try_get::<String>("", "version")?
+                    == "m20261125_000150_drop_schedules"
+                && applied[150].try_get::<String>("", "version")?
+                    == "m20261125_000151_tasks_in_conversations",
             "Run workspace-db migrate: unsupported workspace schema version"
         );
         Ok(())

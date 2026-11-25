@@ -2,7 +2,7 @@
 //! systems plan, D249): the events key, intake, Recent events and the event
 //! types the automation form offers. Each type an automation listens to is a
 //! `system` source in relay_connector_subscriptions, so receipts, deliveries,
-//! dispatch, work rooms and Activity are the usual ones.
+//! dispatch and Activity are the usual ones.
 use crate::identity::events::system_events::{self, Envelope};
 use crate::identity::postgres::*;
 use serde_json::json;

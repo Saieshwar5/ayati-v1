@@ -6,8 +6,8 @@ lets the pool run one-off tool-free tasks such as [job samples](agent-job-rehear
 and `m20261029_000035_data_lifecycle` (below).
 [Channel handoffs](channel-agent-handoffs.md) add bounded parent/helper tasks.
 [Shared events](shared-agent-events.md) add signed, source-scoped intake and atomic
-deliveries. [Shared schedules](shared-agent-schedules.md) add principal-bound routines and atomic
-occurrence receipts through the existing background queue.
+deliveries. [Tasks](tasks.md) are everything an agent does on its own; schema 150 dropped
+the old schedule tables.
 [Agent job samples](agent-job-rehearsal.md) retain personal exact execution receipts,
 saved context and fenced tool-free outcomes without creating conversation jobs.
 [Managed-work attention](workspace-attention.md) adds personal source/version read

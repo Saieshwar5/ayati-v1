@@ -74,7 +74,7 @@ up to date in the background:
   finished reply),
   plus the room's current summary when that is still current. Never another
   room: a private conversation has its person's summary, a shared conversation
-  its one brief, and work rooms and subject rooms their own.
+  its one brief (work rooms and subject rooms were removed in schema 151).
 - **What it writes:** the same bounded shape as `save_working_context`. Every
   entry must cite messages it read or that the carried-forward summary cited;
   citations to anything else are removed and entries left with none are dropped.

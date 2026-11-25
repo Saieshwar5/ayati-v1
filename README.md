@@ -17,7 +17,7 @@ configuration and database names remain. See [Cuckoo branding](runtime/cuckoo-br
 
 | Process | Command | Owns |
 | --- | --- | --- |
-| Controller | `ayati identity` | Sign-in, workspaces, Chat, approvals, schedules, events and all PostgreSQL access |
+| Controller | `ayati identity` | Sign-in, workspaces, Chat, approvals, tasks, events and all PostgreSQL access |
 | Executor | `ayati executor` | Bounded prepared Goose slots that receive scoped assignments from the controller |
 | Migration job | `ayati workspace-db migrate` | Explicit PostgreSQL schema changes; never run on API startup |
 | Operator CLI | `ayati admin` | [Cuckoo Control](runtime/cuckoo-control.md) from a terminal: the same actions and change log as the console at `/control` |
@@ -65,6 +65,17 @@ Main product contracts:
 - [Agents that get better on their own](runtime/evolution.md): every answer gets an
   outcome, memory learns from it, and every three days agents propose skills from
   their routine work, marked as created by them once a person approves.
+- [Agent tasks and calendar](runtime/tasks.md#since-schema-144-tasks-with-a-lifetime):
+  people ask an agent in chat ("every weekday at 9", "every 3 days until they pay") and
+  it creates the task at once; Cuckoo books every run in India time unless the workspace
+  chose another, skips missed and overlapping runs, pauses after three failures, and
+  Activity › Calendar shows the week. Event triggers and an assistant's regular checks
+  are tasks too (schemas 148 and 149): a trigger is how its task wakes, and a regular
+  check looks in code before the model runs. The old schedules became tasks in schema
+  147 and were dropped in schema 150. Since schema 151 every run happens in the task's
+  own conversation, as the person it belongs to: a channel's task reads and answers in
+  the channel, and a trigger runs where it was set up or in its person's direct chat
+  with the agent ([one rule](runtime/tasks.md#since-schema-151-one-rule-a-run-happens-in-its-conversation)).
 - [Memory](runtime/memory.md): agents keep notes as they work, for the workspace,
   their job, one room or one person, and every request uses the ones its readers
   may know; admins open the workspace's in Settings, a nightly tidy-up keeps it small.
@@ -74,8 +85,8 @@ Main product contracts:
 - [Web search](runtime/web-search.md): agents search the web and read pages through
   Cuckoo's own tools, answered by interchangeable search services and cited under
   the answer.
-- [Workspace Library](runtime/library.md),
-  [shared schedules](runtime/shared-agent-schedules.md) and
+- [Workspace Library](runtime/library.md), [tasks](runtime/tasks.md) (everything an agent
+  does on its own; the old schedules were dropped in schema 150) and
   [shared events](runtime/shared-agent-events.md).
 - [Versioned conversation context](runtime/versioned-conversation-context.md).
 - [Cuckoo Control](runtime/cuckoo-control.md): the operator console and `ayati admin`:

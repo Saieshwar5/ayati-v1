@@ -7,8 +7,8 @@ use crate::identity::events::{
 };
 use serde_json::json;
 /// What a person may set up for an event source: its read authority, and the
-/// agent's conversations where results may also be posted. Runs happen in a
-/// private work room (schema 115), so posting anywhere is optional.
+/// agent's conversations where it may run. Choosing none runs it in the person's
+/// direct chat with the agent (schema 151).
 pub(super) async fn choice(
     db: &DatabaseTransaction,
     user: &User,
@@ -18,7 +18,7 @@ pub(super) async fn choice(
 ) -> Result<Value> {
     source.available()?;
     let account=query(db,"SELECT c.definition->>'account' AS account,c.definition->>'name' AS account_name FROM relay_control_effective_rules r JOIN relay_control_connections c ON c.workspace=r.workspace AND c.id=r.connection WHERE r.workspace=$1 AND r.agent=$2 AND r.connection=$3 AND r.operation=$4 AND r.mode='allow'",vec![w.into(),agent.into(),source.connection.clone().into(),source.read_operation.clone().into()]).await?.context("The agent needs this read action set to Allow on its Tools tab first")?;
-    super::automation_access::run_authority(db, user, w, agent, None, None).await?;
+    super::automation_access::run_authority(db, user, w, agent, None).await?;
     let (conversations, authority) = destinations(db, user, w, agent, source).await?;
     ensure!(
         !authority.is_null(),
@@ -31,8 +31,8 @@ pub(super) async fn choice(
     )
 }
 /// The current read authority for the source (null when the agent's rule
-/// doesn't allow the read), and the agent's conversations where this person
-/// may also post results.
+/// doesn't allow the read), and the agent's conversations where this person may
+/// ask it, so the trigger may run there.
 pub(super) async fn destinations(
     db: &DatabaseTransaction,
     user: &User,
@@ -45,12 +45,11 @@ pub(super) async fn destinations(
         Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
         Err(_) => return Ok((vec![], Value::Null)),
     };
-    let hidden = super::work_rooms::hidden(db).await?;
-    let candidates=json_rows(db,&format!("SELECT jsonb_build_object('id',c.id,'name',c.name,'visibility',c.visibility) AS data FROM relay_chats c JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id WHERE c.workspace=$1 AND x.agent=$2 AND NOT c.archived{hidden} ORDER BY c.name,c.id LIMIT 50"),vec![w.into(),agent.into()]).await?;
+    let candidates=json_rows(db,"SELECT jsonb_build_object('id',c.id,'name',c.name,'visibility',c.visibility,'kind',c.kind) AS data FROM relay_chats c JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id WHERE c.workspace=$1 AND x.agent=$2 AND NOT c.archived ORDER BY c.name,c.id LIMIT 50",vec![w.into(),agent.into()]).await?;
     let mut conversations = vec![];
     for chat in candidates {
         let id = chat["id"].as_str().unwrap();
-        match super::automation_access::authority(db, user, w, agent, id).await {
+        match super::automation_access::may_ask_in(db, user, w, agent, id).await {
             Ok(()) => conversations.push(chat),
             Err(e) if e.is::<sea_orm::DbErr>() => return Err(e),
             Err(_) => {}
@@ -81,12 +80,15 @@ pub(super) async fn present(
     full: bool,
 ) -> Result<Value> {
     visible(db, user, w, agent, &data).await?;
-    let names=query(db,"SELECT (SELECT c.name FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2) AS name,COALESCE(u.display_name,u.email) AS person FROM relay_users u WHERE u.id=$3",vec![w.into(),super::event_access::post_to(&data).into(),data["principal"].as_str().unwrap().into()]).await?.context("Event person unavailable")?;
+    let names=query(db,"SELECT (SELECT c.name FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2) AS name,(SELECT c.kind='direct' FROM relay_chats c WHERE c.workspace=$1 AND c.id=$2) AS direct,COALESCE(u.display_name,u.email) AS person FROM relay_users u WHERE u.id=$3",vec![w.into(),super::event_access::runs_in(&data).into(),data["principal"].as_str().unwrap().into()]).await?.context("Event person unavailable")?;
     data["chat_name"] = json!(names.try_get::<Option<String>>("", "name")?);
+    // It runs in its person's direct chat with the agent (none was chosen).
+    data["chat_direct"] = json!(
+        names
+            .try_get::<Option<bool>>("", "direct")?
+            .unwrap_or(false)
+    );
     data["principal_name"] = json!(names.try_get::<String>("", "person")?);
-    if data["memory"].is_null() {
-        data["memory"] = json!("fresh");
-    }
     data["name"] = data["input"]["name"].clone();
     data["filter"] = data["input"]["filter"].clone();
     let text = data["input"]["instructions"].as_str().unwrap();
@@ -111,17 +113,16 @@ pub(super) async fn present(
     } else {
         None
     };
-    let posts = super::event_access::post_to(&data).map(str::to_owned);
+    let place = super::event_access::runs_in(&data).map(str::to_owned);
     data["can_resume"] = json!(
         data["principal"] == user.id
-            && current.as_ref().is_some_and(|c| match &posts {
+            && current.as_ref().is_some_and(|c| match &place {
                 None => true,
                 Some(chat) => c["conversations"]
                     .as_array()
                     .is_some_and(|list| list.iter().any(|item| item["id"] == chat.as_str())),
             })
     );
-    data.as_object_mut().unwrap().remove("room");
     data["choice"] = json!(current);
     Ok(data)
 }
@@ -267,7 +268,7 @@ impl PgStore {
                 user,
                 w,
                 agent,
-                super::event_access::post_to(&data),
+                super::event_access::runs_in(&data),
                 &source,
             )
             .await?;
@@ -341,8 +342,7 @@ pub(super) async fn insert(
     hash: &str,
 ) -> Result<()> {
     source.available()?;
-    super::automation_access::run_authority(tx, user, w, agent, None, input.chat.as_deref())
-        .await?;
+    super::automation_access::run_authority(tx, user, w, agent, input.chat.as_deref()).await?;
     ensure!(
         versions(tx, user, w, agent, input.chat.as_deref(), source).await?
             == super::event_access::expected(input),
@@ -369,16 +369,16 @@ pub(super) async fn insert(
         count < 100,
         "The current operational limit is 100 saved event triggers per agent"
     );
-    let memory = input.memory.as_deref().unwrap_or("fresh");
-    if super::automation_memory::ready(tx).await? {
-        execute(tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision,memory) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),input.chat.clone().into(),serde_json::to_value(input)?.into(),hash.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into(),memory.into()]).await?;
-    } else {
-        let chat = input
-            .chat
-            .as_deref()
-            .context("Choose where the results go")?;
-        execute(tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),chat.into(),serde_json::to_value(input)?.into(),hash.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into()]).await?;
-    }
+    // It runs in the chosen conversation, or in the person's direct chat with the
+    // agent (schema 151).
+    let chat = match input.chat.as_deref() {
+        Some(chat) => chat.to_owned(),
+        None => super::shared_rooms::direct_room(tx, w, &user.id, agent).await?,
+    };
+    super::automation_access::may_ask_in(tx, user, w, agent, &chat).await?;
+    execute(tx,"INSERT INTO relay_event_triggers(workspace,id,agent,principal,source,binding,source_definition,connection,read_operation,chat,input,request_hash,connection_revision,read_revision,delegation_revision) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)",vec![w.into(),input.id.clone().into(),agent.into(),user.id.clone().into(),source.id.clone().into(),input.binding.clone().into(),source.public().into(),source.connection.clone().into(),source.read_operation.clone().into(),chat.into(),serde_json::to_value(input)?.into(),hash.into(),input.connection_revision.into(),input.read_revision.into(),input.delegation_revision.into()]).await?;
+    // Its task, in the same transaction (schema 148).
+    super::tasks::triggers::create(tx, w, &input.id).await?;
     audit(
         tx,
         &user.id,
@@ -389,9 +389,8 @@ pub(super) async fn insert(
     .await
 }
 
-/// Removes a trigger for good. Its pending work is cancelled like a pause; a
-/// provider subscription no other trigger uses is marked removed in the same
-/// transaction, so a new trigger can never share a subscription being stopped.
+/// Removes a trigger for good, recording the change request. Its task ends too
+/// (schema 148).
 async fn remove(
     tx: DatabaseTransaction,
     user: &User,
@@ -400,9 +399,7 @@ async fn remove(
     input: &Change,
     payload: Value,
 ) -> Result<Value> {
-    execute(&tx,"UPDATE relay_event_triggers SET state='removed',revision=revision+1,detail='' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
-    super::event_dispatch::cancel_pending(&tx, w, id).await?;
-    execute(&tx,"UPDATE relay_connector_subscriptions s SET state='removed',detail='Its last event trigger was removed.',changed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE s.workspace=$1 AND s.state='active' AND s.id=(SELECT source FROM relay_event_triggers WHERE workspace=$1 AND id=$2) AND NOT EXISTS(SELECT 1 FROM relay_event_triggers t WHERE t.workspace=$1 AND t.source=s.id AND t.state<>'removed')",vec![w.into(),id.into()]).await?;
+    end(&tx, w, id).await?;
     let result = json!({"id":id,"state":"removed","revision":input.revision+1});
     execute(
         &tx,
@@ -420,4 +417,14 @@ async fn remove(
     audit(&tx, &user.id, Some(w), "agent_event_trigger_removed", id).await?;
     tx.commit().await?;
     Ok(result)
+}
+
+/// Ends trigger `id` for good. Its pending work is cancelled like a pause; a
+/// provider subscription no other trigger uses is marked removed in the same
+/// transaction, so a new trigger can never share a subscription being stopped.
+pub(super) async fn end(tx: &DatabaseTransaction, w: &str, id: &str) -> Result<()> {
+    execute(tx,"UPDATE relay_event_triggers SET state='removed',revision=revision+1,detail='' WHERE workspace=$1 AND id=$2",vec![w.into(),id.into()]).await?;
+    super::event_dispatch::cancel_pending(tx, w, id).await?;
+    execute(tx,"UPDATE relay_connector_subscriptions s SET state='removed',detail='Its last event trigger was removed.',changed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE s.workspace=$1 AND s.state='active' AND s.id=(SELECT source FROM relay_event_triggers WHERE workspace=$1 AND id=$2) AND NOT EXISTS(SELECT 1 FROM relay_event_triggers t WHERE t.workspace=$1 AND t.source=s.id AND t.state<>'removed')",vec![w.into(),id.into()]).await?;
+    Ok(())
 }

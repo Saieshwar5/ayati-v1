@@ -36,7 +36,7 @@ test('Insights shows measures, a suggestion that opens the agent’s Tools, goal
     assert.match(text, /Suggested change: Add the price list skill/);
     assert.equal(document.querySelector('[role=progressbar]').getAttribute('aria-valuenow'), '84');
     assert.equal(button('Let it'), undefined, 'rules change on the agent, not here');
-    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent.replace(/\d+$/, '')), ['Needs you', 'Work', 'Planned', 'History', 'Insights']);
+    assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(tab => tab.textContent.replace(/\d+$/, '')), ['Needs you', 'Work', 'Calendar', 'History', 'Insights']);
     const open = [...document.querySelectorAll('a')].find(a => a.textContent === 'Review in Nova › Connections');
     assert.equal(open.getAttribute('href'), `/w/${w}/?view=agents&selected=nova&section=connections&action=shop%2Forder.refund`);
     await click(button('Keep asking'));

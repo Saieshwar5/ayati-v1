@@ -18,7 +18,8 @@ SELECT jsonb_build_object('id',a.id,'name',a.name,'role',a.role,'avatar',a.setti
  'today',(SELECT count(*) FROM v WHERE v.agent=a.id AND v.created_ms>=$14),
  'failed_today',(SELECT count(*) FROM v WHERE v.agent=a.id AND v.created_ms>=$14 AND v.state IN ('failed','interrupted')),
  'doing',(SELECT v.doing FROM v WHERE v.agent=a.id AND v.job_state<>'finished' ORDER BY v.sequence DESC LIMIT 1),
- 'next_run',(SELECT min(s.next_ms) FROM relay_agent_schedules s WHERE s.workspace=a.workspace AND s.agent=a.id AND s.state='enabled'),
+ 'next_run',(SELECT min(k.due_ms) FROM relay_task_wakeups k JOIN relay_tasks t ON t.workspace=k.workspace AND t.id=k.task
+   WHERE k.workspace=a.workspace AND t.agent=a.id AND k.state='pending' AND t.outcome IS NULL AND to_jsonb(k)->>'kind' IS DISTINCT FROM 'end'),
  -- The latest of today's requests that could not complete, for "How to fix it".
  'last_failed',(SELECT v.reply FROM v WHERE v.agent=a.id AND v.state IN ('failed','interrupted') ORDER BY v.sequence DESC LIMIT 1),
  -- Its owner and admins may pause or resume it from the card.

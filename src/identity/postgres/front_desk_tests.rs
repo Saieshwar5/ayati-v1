@@ -207,13 +207,13 @@ async fn the_front_desk_answers_a_request_that_queues_behind_other_work_in_the_a
         updates(&db, &fourth.reply).await[0].0,
         "Give me a few minutes, I'm finishing something."
     );
-    // Background work (schedules, triggers) never gets a front desk.
+    // Background work (task runs, triggers) never gets a front desk.
     let background = db
         .chat_background(
             &owner,
             &w,
             &shared,
-            &message("Scheduled summary", Some(&agent)),
+            &message("Weekly summary", Some(&agent)),
         )
         .await
         .unwrap()

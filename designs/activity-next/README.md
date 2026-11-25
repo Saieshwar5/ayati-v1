@@ -105,8 +105,8 @@ Talking about an item (`talk.js`, and `chat.js` for a simplified Chat page):
   still loads Chat at the message, now with "‹ Needs you" in the header (the pattern
   "‹ For you" already uses) and the item kept in the address, so the same item is open
   on return. An approval decided on its card in Chat leaves the list. "Ask <agent>
-  privately" is today's Discuss in chat. Someone who is not in the conversation, or a
-  run in a schedule's own work room, gets no link and is told why.
+  privately" is today's Discuss in chat. Someone who is not in the conversation gets no
+  link and is told why (since schema 151 every run happens in a conversation).
 - This needs: a read of the messages around a request for people who may see it, the
   existing send route used from Activity, `from=activity` handled like `from=for-you`,
   and the open item in Activity's address.

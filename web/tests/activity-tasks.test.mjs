@@ -145,3 +145,23 @@ test('a follow-up the agent booked reads as one light line in Chat, linking to i
     assert.doesNotMatch(document.body.textContent, /You booked this follow-up/, 'the instruction to the agent stays out of Chat');
   }, { url: openUrl, fetch: async path => common(path) ?? response({}) });
 });
+
+test('every task wake-up reads as one line in any conversation; an event run names its trigger', async () => {
+  const at = Math.floor(now / 1000);
+  const run = { id: 'm-2', kind: 'user', author: 'kavya', name: 'Kavya Nair', state: 'sent', at, chat: 'sales',
+    content: 'Task run 4 · Morning stock check\nCuckoo started run 4…', follow_up: { id: 't-6', title: 'Morning stock check', kind: 'commitment', status: 'working', wakeup: 'repeat' } };
+  const event = { ...run, id: 'm-3', content: 'Connected event work · New order\nMake the invoice.',
+    follow_up: { id: 't-7', title: 'New order', kind: 'commitment', status: 'working', wakeup: 'event' } };
+  await reactFixture(async ({ render }) => {
+    const context = await import('../src/workspace-context.ts'); await context.enterWorkspace();
+    const { ChatMessage } = await import('../src/react/chat/message.tsx');
+    await render(() => createElement('div', null,
+      createElement(ChatMessage, { message: run, directory: { agents: [], users: [] } }),
+      createElement(ChatMessage, { message: event, directory: { agents: [], users: [] } })));
+    const [repeat, trigger] = document.querySelectorAll('.chat-follow-up');
+    assert.match(repeat.textContent, /↻ Following up on Morning stock check/);
+    assert.match(trigger.textContent, /↻ New order/);
+    assert.doesNotMatch(trigger.textContent, /Following up/);
+    assert.doesNotMatch(document.body.textContent, /Cuckoo started run|Make the invoice/, 'the brief to the agent stays out of Chat');
+  }, { url: openUrl, fetch: async path => common(path) ?? response({}) });
+});

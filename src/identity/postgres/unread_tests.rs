@@ -6,7 +6,6 @@ use super::super::{
 use crate::identity::chat::model::NewChat;
 use crate::identity::chat::organization_model::Lifecycle;
 use sea_orm_migration::MigratorTrait;
-use serde_json::json;
 
 /// This person's unread count in one conversation (0 when it is not listed).
 async fn count(db: &PgStore, person: &User, w: &str, chat: &str) -> i64 {
@@ -74,17 +73,6 @@ async fn unread_counts_only_conversations_chat_lists_as_active() {
         .await
         .unwrap();
     assert_eq!(count(&db, &member, &w, &c).await, 1, "restored");
-
-    // A schedule's work room never appears in Chat, so its results never count.
-    let tx = db.db.begin().await.unwrap();
-    let schedule = json!({"id":"daily","agent":"agent-one","principal":member.id,"name":"Daily"});
-    let room = super::super::work_rooms::room(&tx, &w, &schedule)
-        .await
-        .unwrap();
-    execute(&tx, "INSERT INTO relay_chat_messages(id,workspace,chat,author,kind,content,state,at) VALUES($1,$2,$3,'agent-one','agent','Run result','complete',$4)",
-        vec![uuid::Uuid::new_v4().to_string().into(), w.clone().into(), room.clone().into(), now().into()]).await.unwrap();
-    tx.commit().await.unwrap();
-    assert_eq!(count(&db, &member, &w, &room).await, 0, "work room");
 }
 
 #[tokio::test]

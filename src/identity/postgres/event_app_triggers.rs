@@ -105,7 +105,7 @@ async fn check(
         .context("This app doesn't offer that event")?;
     let read = triggers::read_operation(&account.server, &account.definition)
         .context("This account offers no read action, so its events can't start an agent")?;
-    super::super::automation_access::run_authority(tx, user, w, agent, None, input.chat.as_deref())
+    super::super::automation_access::run_authority(tx, user, w, agent, input.chat.as_deref())
         .await?;
     let probe = source_for(
         w,
@@ -337,8 +337,8 @@ impl PgStore {
                 .and_then(|o| o["title"].as_str())
                 .unwrap_or("its read action")
                 .to_owned();
-            // Runs happen in a work room (schema 115); a conversation is only
-            // an optional place to post results.
+            // A run happens in the chosen conversation, or the person's direct
+            // chat with the agent (schema 151).
             if authority.is_null() {
                 choice["state"] = json!("needs_allow");
                 choice["detail"] = json!(format!(

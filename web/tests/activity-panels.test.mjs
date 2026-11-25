@@ -11,7 +11,7 @@ const session = { user: { id: 'kavya', email: 'kavya@example.test' }, workspaces
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 // Midday today, so every sample falls on the same day whenever the test runs.
 const now = (() => { const d = new Date(); d.setHours(12, 0, 0, 0); return d.getTime(); })();
-const totals = { requests: 5, done: 4, failed: 1, review: 1, waiting: 0, automatic: 0, approved: 0, people: 1, channels: 1, schedule_runs: 0, per_day: [], by_agent: [] };
+const totals = { requests: 5, done: 4, failed: 1, review: 1, waiting: 0, automatic: 0, approved: 0, people: 1, channels: 1, task_runs: 0, per_day: [], by_agent: [] };
 const item = (id, extra = {}) => ({ id, chat: 'sales', thread: null, conversation_name: 'sales', conversation_kind: 'channel', in_conversation: true,
   agent: 'nova', agent_name: 'Nova', agent_avatar: null, kind: 'chat', requester: 'kavya', requester_name: 'Kavya Nair', summary: 'Quote for Sharma Traders',
   state: 'complete', latest_update: '', created_ms: now, finished_ms: now + 1000, can_cancel: false, approvals: [], ...extra });

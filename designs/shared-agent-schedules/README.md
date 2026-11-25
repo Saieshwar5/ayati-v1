@@ -11,8 +11,8 @@ actual exported vector nodes. Their PNG counterparts were rendered locally with
 librsvg and inspected, with long review text explicitly wrapped in the design.
 They are concepts rather than screenshots of an implemented feature.
 
-The [runtime contract](../../runtime/shared-agent-schedules.md) describes current
-scope and acceptance. The four `schedule-*.png` / `schedules-blocked-desktop.png` captures show the
+This is a historical design: schedules became tasks in schema 147 and schema 150
+dropped them ([tasks](../../runtime/tasks.md)). The four `schedule-*.png` / `schedules-blocked-desktop.png` captures show the
 implemented local review, waiting run, phone/dark resume and restored-but-blocked
 routines. Synthetic fixture content is used; the loaded review and 320×600
 dialog bounds were checked in the final browser journey. Calendar/weekday rules and external-event triggers from the

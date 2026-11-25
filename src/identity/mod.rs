@@ -1,5 +1,6 @@
 //! Authenticated workspace gateway. Legacy APIs remain inaccessible without workspace scope.
 mod activity;
+mod activity_calendar;
 mod activity_review;
 mod agents;
 mod assistants;
@@ -263,6 +264,7 @@ fn router(app: Shared) -> Router {
     Router::new()
         .merge(agents::routes())
         .merge(activity::routes())
+        .merge(activity_calendar::routes())
         .merge(skills::routes())
         .merge(skill_writer::routes())
         .merge(member_profiles::routes())

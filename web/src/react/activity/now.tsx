@@ -56,7 +56,7 @@ export function NowView({ scope, search, openHistory, openAgentHistory, openUnha
       {!data && !error && <p role="status">Loading what your agents are doing…</p>}
       {data && away && away.requests > 0 && <section className="activity-away" aria-label="While you were away">
         <span><strong>While you were away · since {dayLabel(data.away.since).toLowerCase()} {clock(data.away.since)}</strong>
-          <small>{away.requests} requests · {away.done} done · {away.failed} failed · {away.waiting} waiting · {away.schedule_runs} schedule runs</small></span>
+          <small>{away.requests} requests · {away.done} done · {away.failed} failed · {away.waiting} waiting · {away.task_runs} task runs</small></span>
         <Button disabled={mutation.busy} onClick={() => caughtUp(() => openHistory(data.away.since))}>See in History</Button>
         <Button disabled={mutation.busy} onClick={() => caughtUp(refresh)}>Dismiss</Button>
       </section>}

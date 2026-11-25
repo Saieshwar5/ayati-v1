@@ -7,7 +7,8 @@ import { useResource } from './requests';
 type Responsibilities = {
   /** `alone`: they are its only owner (schema 122); other agents keep their other owners. */
   agents: { id: string; name: string; alone?: boolean }[]; private_agents: number; library_items: number; kept_library_items: number;
-  schedules: number; event_triggers: number; invitations: number;
+  /** Open tasks for them with a rule or a booked follow-up; removal pauses them. */
+  repeating_tasks: number; event_triggers: number; invitations: number;
 };
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 const lines = (...parts: (string | false)[]): string[] => parts.filter((part): part is string => Boolean(part));
@@ -52,9 +53,9 @@ export function HandoverSummary({ summary, name, heirName, agentsOwner, self = f
       note: `Never shared with ${heirName}, so they don’t move.` },
     { title: 'Paused for review', tone: 'paused', rows: lines(and(
       Boolean(agentsOwner) && data.private_agents > 0 && count(data.private_agents, 'only-me agent', 'only-me agents'),
-      data.schedules > 0 && count(data.schedules, 'schedule', 'schedules'),
+      data.repeating_tasks > 0 && count(data.repeating_tasks, 'repeating task', 'repeating tasks'),
       data.event_triggers > 0 && count(data.event_triggers, 'event trigger', 'event triggers'))),
-      note: `They worked for ${self ? 'you' : name}, so they are reviewed before they run again.` },
+      note: `They worked for ${self ? 'you' : name}, so they stop until one of the agent’s owners or an admin reviews them.` },
     { title: 'Cancelled', tone: 'cancelled', rows: lines(
       data.invitations > 0 && `${count(data.invitations, 'invitation', 'invitations')} ${who} sent`) },
   ].filter(group => group.rows.length) : [];

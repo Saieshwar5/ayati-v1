@@ -11,7 +11,7 @@ const at = query => `http://localhost/w/${w}/?view=activity${query}`;
 const session = { user: { id: 'meera', email: 'meera@example.test' }, workspaces: [{ id: w, name: 'Store', role: 'Admin' }] };
 const response = (data, status = 200) => ({ ok: status < 400, status, json: async () => data });
 const now = Date.now();
-const totals = { requests: 5, done: 3, failed: 1, review: 2, waiting: 0, automatic: 3, approved: 1, people: 2, channels: 1, schedule_runs: 1, per_day: [], by_agent: [] };
+const totals = { requests: 5, done: 3, failed: 1, review: 2, waiting: 0, automatic: 3, approved: 1, people: 2, channels: 1, task_runs: 1, per_day: [], by_agent: [] };
 const approval = { kind: 'approval', id: 'a1', version: 'pending', status: 'pending', title: 'Discount for Sharma Traders', at: now, created_at: now - 600000, agent: 'nova', agent_name: 'Nova',
   chat: 'sales', thread: null, reply: 'r-a1', conversation_name: 'sales', archived: false, read: true, reviewed: false };
 const fixing = [{ cause: 'reconnect', title: 'Zoho Books needs reconnecting', count: 2, fix: { kind: 'settings', label: 'Reconnect' }, agents: [{ id: 'nova', name: 'Nova' }], items: [{ agent: 'nova', agent_name: 'Nova', ref: 'c1', detail: 'Sign-in expired', at: now }] }];
@@ -45,7 +45,8 @@ function server({ member = true } = {}) {
     if (path.endsWith('/agent-profiles')) return response({ agents: [{ id: 'nova', name: 'Nova' }], role: 'Admin' });
     if (path.endsWith('/chat-directory')) return response({ users: [], agents: [] });
     if (path.includes('/activity/review')) return response({ available: true, agents: [], people: [], suggestions: [], goals: [], reviews: [], weekly: [] });
-    if (path.includes('/activity/upcoming') || path.includes('/activity/tasks')) return response({ items: [], more: false });
+    if (path.includes('/activity/calendar')) return response({ from: 0, to: 0, now: Date.now(), timezone: 'Asia/Kolkata', items: [], untimed: [] });
+    if (path.includes('/activity/tasks')) return response({ items: [], more: false });
     if (path.includes('/agents/pause')) return response({ paused: false, since_ms: null, by: null, note: null, active: 1 });
     return response({});
   };
@@ -54,12 +55,12 @@ function server({ member = true } = {}) {
 
 test('links written for the six earlier tabs open the five that replaced them', async () => {
   const { fetch } = server();
-  for (const [old, tab, sign] of [['now', 'Work', /Running now · 1/], ['open', 'Work', /Nothing open/], ['upcoming', 'Planned', /Nothing runs on its own yet/], ['review', 'Insights', /Last 30 days/], ['needs', 'Needs you', /Discount for Sharma/]]) {
+  for (const [old, tab, sign] of [['now', 'Work', /Running now · 1/], ['open', 'Work', /Nothing open/], ['upcoming', 'Calendar', /Nothing runs on its own yet/], ['review', 'Insights', /Last 30 days/], ['needs', 'Needs you', /Discount for Sharma/]]) {
     await reactFixture(async ({ render }) => {
       await render(await page(), { href: at(`&tab=${old}`) });
       assert.equal(document.querySelector('[role=tab][aria-selected=true]').textContent.replace(/\d+$/, ''), tab, `tab=${old}`);
       assert.match(document.body.textContent, sign);
-      assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(node => node.textContent.replace(/\d+$/, '')), ['Needs you', 'Work', 'Planned', 'History', 'Insights']);
+      assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(node => node.textContent.replace(/\d+$/, '')), ['Needs you', 'Work', 'Calendar', 'History', 'Insights']);
     }, { url: at(`&tab=${old}`), fetch });
   }
 });

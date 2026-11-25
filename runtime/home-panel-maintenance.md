@@ -86,6 +86,21 @@ Since 2026-11-01 every published panel on Home carries the same frame
   Activity; **Ask about this** opens the person's direct chat with the agent, starting
   "About the <title> panel: " and keeping any existing draft.
 
+## Fixed intervals on the panel's own queue (schema 146)
+
+Since schema 146 (`m20261124_000146_panel_intervals`) a panel's optional fixed interval
+is not a schedule. It runs on the panel's own update queue (`relay_home_update_wanted`,
+reason `interval`), next to updates after work and on events. Saving an enabled
+agreement with an interval wants an update one interval later (an unchanged interval
+keeps its next time); every update that starts, whatever started it, books the next
+one an interval after it; one due while an update runs waits for it. No gap holds an
+interval update back, and a work or event update held by the gap runs at the next
+interval time when that comes first. Home's next check is that wanted update. The
+migration moved each running interval schedule's next time onto the panel's queue and
+paused the schedule (its rows, bindings and earlier runs stay readable); a blocked or
+paused one stays shown until the owner reviews the agreement. No new schedules or
+bindings are made for panels, and a panel update is never a task.
+
 ## Living panels (schema 59)
 
 People-and-agents-first, Phase 3 (HP2, HP3). A panel keeps itself true as its agent

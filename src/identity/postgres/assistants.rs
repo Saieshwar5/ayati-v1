@@ -96,9 +96,9 @@ pub(super) async fn own_room(db: &impl ConnectionTrait, m: &str) -> Result<Strin
     })
 }
 
-/// Where an assistant's schedule or trigger runs: its owner's chat with it, in
+/// Where an assistant's task or trigger runs: its owner's chat with it, in
 /// the automation's own thread, opened under one line that names it. `None`
-/// for any other agent, which runs in a work room.
+/// for any other agent, which runs in the conversation itself.
 pub(super) async fn run_place(
     tx: &DatabaseTransaction,
     w: &str,
@@ -125,7 +125,7 @@ pub(super) async fn run_place(
          JOIN relay_chat_agents x ON x.workspace=c.workspace AND x.chat=c.id AND x.agent=$2
          JOIN relay_chat_people p ON p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3
          JOIN relay_assistants s ON s.workspace=c.workspace AND s.agent=x.agent AND s.user_id=p.user_id
-         WHERE c.workspace=$1 AND c.kind='direct' AND NOT c.work",
+         WHERE c.workspace=$1 AND c.kind='direct'",
         vec![w.into(), agent.into(), person.into()],
     )
     .await?

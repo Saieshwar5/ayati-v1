@@ -3,7 +3,7 @@ import { identityRequest, storageScope, workspaceSession } from '../../../worksp
 import { Button, Dialog } from '../../ui';
 import { useMutation } from '../../requests';
 import { eventPath, type Events, type EventInput } from './event-model';
-import { MemoryChoice, ResultsChoice, memoryLabels, type Memory } from './results-and-memory';
+import { RunsInChoice, runsInHelp, runsInText } from './runs-in';
 function pending(key: string): EventInput | undefined {
   try {
     const v = JSON.parse(window.sessionStorage.getItem(key) ?? 'null');
@@ -25,11 +25,13 @@ function pending(key: string): EventInput | undefined {
 }
 export function CreateEvent({
   agent,
+  agentName,
   directory,
   close,
   saved,
 }: {
   agent: string;
+  agentName: string;
   directory: Events;
   close: () => void;
   saved: () => Promise<void>;
@@ -64,13 +66,12 @@ export function CreateEvent({
         (c.source.binding === review.binding &&
           (!review.chat || (c.conversations ?? []).some((x) => x.id === review.chat)))),
   );
-  // Runs happen in a private work room (schema 115); posting a summary is optional.
-  const [post, setPost] = useState(Boolean(original?.chat));
+  // A run happens in the chosen conversation, or the person's direct chat with the
+  // agent when none is chosen (schema 151).
   const [destination, setDestination] = useState(original?.chat ?? '');
-  const [memory, setMemory] = useState<Memory>(original?.memory ?? 'fresh');
   const places = choice?.conversations ?? [];
-  const wanted = review ? review.chat : post ? destination : undefined;
-  const place = wanted === undefined ? undefined : (places.find((x) => x.id === wanted) ?? (review ? undefined : places[0]));
+  const wanted = review ? review.chat : destination || undefined;
+  const place = wanted === undefined ? undefined : places.find((x) => x.id === wanted);
   const editNew = () => {
     attempt.current = undefined;
     try {
@@ -84,7 +85,7 @@ export function CreateEvent({
   const inspect = () =>
     void m.run(async () => {
       if (!choice) throw new Error('Choose a currently reviewed source.');
-      if (post && !place) throw new Error('Choose a conversation you may post to, or keep results in Activity only.');
+      if (wanted && !place) throw new Error(`Choose a conversation where you may ask ${agentName}, or your direct chat with it.`);
       if (
         !name.trim() ||
         new TextEncoder().encode(name).length > 100 ||
@@ -100,7 +101,6 @@ export function CreateEvent({
         source: choice.source.id,
         binding: choice.source.binding,
         ...(place ? { chat: place.id } : {}),
-        ...(memory === 'remember' ? { memory } : {}),
         name,
         instructions: task,
         filter,
@@ -190,10 +190,8 @@ export function CreateEvent({
             <dd>{choice?.account ?? choice?.account_name ?? 'Reviewed connected account'}</dd>
             <dt>Included fields</dt>
             <dd>{choice?.source.fields.join(', ')}</dd>
-            <dt>Results</dt>
-            <dd>{review.chat ? `Activity, and a summary in ${place?.name ?? 'a conversation no longer available'}` : 'Activity only'}</dd>
-            <dt>Memory</dt>
-            <dd>{memoryLabels[review.memory ?? 'fresh'].title}</dd>
+            <dt>Runs in</dt>
+            <dd>{review.chat ? (place?.name ?? 'A conversation no longer available') : runsInText(agentName)}</dd>
             <dt>Authorized by</dt>
             <dd>{workspaceSession?.user?.display_name ?? workspaceSession?.user?.email ?? 'You'}</dd>
             <dt>Exact text filters</dt>
@@ -203,12 +201,7 @@ export function CreateEvent({
                 .join('; ') || 'All events from this source'}
             </dd>
           </dl>
-          <p>
-            Each run happens in its own private room and appears in Activity. It never reads anyone’s conversations.
-            {review.chat
-              ? ' A short result is posted to the conversation you chose; its current members are the audience.'
-              : ' Only you, the agent’s owners and admins see what it found.'}
-          </p>
+          <p>{runsInHelp(agentName)} Its runs also show in Activity.</p>
           <p>
             Automatic reading needs the read action set to Allow on the agent’s Tools tab. Every write or other controlled action keeps its own
             approval. Pausing the trigger blocks future intake; accepted running work has a separate Stop.
@@ -233,9 +226,7 @@ export function CreateEvent({
               ))}
             </select>
           </label>
-          <ResultsChoice name="event" post={post} setPost={setPost} chat={place?.id ?? places[0]?.id ?? ''}
-            setChat={setDestination} conversations={places} />
-          <MemoryChoice name="event" value={memory} change={setMemory} />
+          <RunsInChoice chat={destination} setChat={setDestination} conversations={places} agentName={agentName} />
           <label className="ui-field">
             Trigger name
             <input value={name} onChange={(e) => setName(e.target.value)} maxLength={100} />

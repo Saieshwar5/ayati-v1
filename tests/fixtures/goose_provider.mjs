@@ -115,7 +115,7 @@ export async function fixtureProvider({ resumableHold = false, key, heartbeat = 
     // Automation messages contain a controller-generated title before the
     // configured instruction. Script the instruction, not that display title.
     const controlPrompt = originalLine
-      ?.replace(/^(?:Connected event work|Scheduled work) · [^\n]*\n/, '')
+      ?.replace(/^Connected event work · [^\n]*\n/, '')
       .replace(/^\[Personal Home panel (?:request|change)\]\n[^\n]*\n/, '');
     // A follow-up's first line ("Follow-up · <task title>") can key a script too.
     const scriptedCommand = controlScripts.get(originalLine) ?? controlScripts.get(controlPrompt) ?? controlScripts.get(originalLine?.split('\n')[0]);

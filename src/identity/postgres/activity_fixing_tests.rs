@@ -1,6 +1,5 @@
 //! Needs fixing groups what is wrong by cause, for the people who can fix it; agents
 //! report needs in a fixed shape; Coming up shows the next 24 hours.
-use super::super::super::super::automation_tests::schedule;
 use super::super::super::super::control_tests::{request, setup};
 use super::super::super::super::tests::{join, message, user};
 use super::super::super::super::*;
@@ -90,22 +89,13 @@ async fn needs_fixing_groups_causes_with_one_fix_for_the_people_who_can_fix_them
     db.chat_finish(&again, "Still couldn't", "failed")
         .await
         .unwrap();
-    // A stopped routine.
-    let routine = schedule(&job.chat, Some(3600));
-    db.save_schedule(&owner, &w, &job.agent, &routine)
-        .await
-        .unwrap();
-    execute(&db.db, "UPDATE relay_agent_schedules SET state='blocked',detail='Routine access changed' WHERE id=$1", vec![routine.id.clone().into()]).await.unwrap();
+    // A task Cuckoo paused after failed runs.
+    execute(&db.db, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,paused_ms,paused_reason) VALUES($1,$2,$3,'commitment','agent','Check stock',$4,$5,1,'Cuckoo paused it after 3 failed runs in a row.')",
+        vec![w.clone().into(), uuid::Uuid::new_v4().to_string().into(), job.agent.clone().into(), owner.id.clone().into(), job.chat.clone().into()]).await.unwrap();
 
     let seen = db.activity_now(&owner, &w, today(), None).await.unwrap();
     let found = causes(&seen);
-    for cause in [
-        "reconnect",
-        "unconfirmed",
-        "failing",
-        "schedule",
-        "reported",
-    ] {
+    for cause in ["reconnect", "unconfirmed", "failing", "tasks", "reported"] {
         assert!(found.contains(&cause.to_string()), "{cause} in {found:?}");
     }
     let group = |cause: &str| {
@@ -137,10 +127,10 @@ async fn needs_fixing_groups_causes_with_one_fix_for_the_people_who_can_fix_them
         "Allow order.refund for me"
     );
     assert!(
-        group("schedule")["items"][0]["detail"]
+        group("tasks")["items"][0]["detail"]
             .as_str()
             .unwrap()
-            .ends_with("Routine access changed")
+            .ends_with("Cuckoo paused it after 3 failed runs in a row.")
     );
     assert!(
         seen["agents"][0]["needs_fixing"].as_u64().unwrap() >= 5,
@@ -165,13 +155,9 @@ async fn needs_fixing_groups_causes_with_one_fix_for_the_people_who_can_fix_them
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn coming_up_lists_the_next_day_of_routines_follow_ups_and_due_tasks() {
+async fn coming_up_lists_the_next_day_of_follow_ups_and_due_tasks() {
     let (mut db, owner, w, _, job) = setup("allow").await;
     db.pooled = true;
-    let routine = schedule(&job.chat, Some(3600));
-    db.save_schedule(&owner, &w, &job.agent, &routine)
-        .await
-        .unwrap();
     let task = db
         .create_task(
             &job,
@@ -220,12 +206,11 @@ async fn coming_up_lists_the_next_day_of_routines_follow_ups_and_due_tasks() {
     assert_eq!(
         kinds,
         vec![
-            ("routine".to_string(), "Delivery review".to_string()),
             ("follow_up".to_string(), "Call Acme back".to_string()),
             ("due".to_string(), "Send the report".to_string()),
         ],
         "soonest first"
     );
-    assert_eq!(items[1]["id"], task["id"]);
+    assert_eq!(items[0]["id"], task["id"]);
     assert_eq!(items[0]["can_pause"], true);
 }

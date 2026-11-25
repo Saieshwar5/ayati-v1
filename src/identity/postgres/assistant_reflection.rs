@@ -4,7 +4,7 @@
 //!
 //! In code first: with nothing new in the chat there is no run. Only the
 //! person's own conversation with their assistant is read, not the threads of
-//! its schedules, checks or drafts. The run happens in the "What I learned"
+//! its tasks, checks or drafts. The run happens in the "What I learned"
 //! thread, as background work, and uses the memory tools like any other task.
 //! Turned off with "Learn from my edits" (relay_assistant_settings.learn).
 use super::super::super::*;
@@ -81,7 +81,7 @@ impl PgStore {
             &tx,
             "SELECT m.sequence,m.kind,m.content FROM relay_chat_messages m
              JOIN relay_chat_agents x ON x.workspace=m.workspace AND x.chat=m.chat AND x.agent=$2
-             JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat AND c.kind='direct' AND NOT c.work
+             JOIN relay_chats c ON c.workspace=m.workspace AND c.id=m.chat AND c.kind='direct'
              WHERE m.workspace=$1 AND m.sequence>$4 AND m.state IN ('sent','complete') AND btrim(m.content)<>''
                AND ((m.kind='user' AND m.author=$3) OR (m.kind='agent' AND m.author=$2))
                AND NOT EXISTS(SELECT 1 FROM relay_assistant_threads t WHERE t.workspace=m.workspace AND t.agent=$2

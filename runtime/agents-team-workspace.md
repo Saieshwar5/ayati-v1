@@ -27,7 +27,7 @@
 > | **Does** (an assistant: **Rules**) | the ground rules as text, then its skills | the text becomes a box in place (Save, Cancel, Esc); a skill opens its drawer, with Remove | the skills picker; **Ask <assistant>** opens the change-by-chat panel; **Cuckoo's rules** opens everything it receives |
 > | **Knows** | Notes, Documents, Lessons (with "n to review"), About you (your own assistant) | its panel | Note or Document; **Conversation context** opens the preview |
 > | **Can use** | each app with a state dot, MCP servers, computers, web search | one app alone with its rule per action, or that group | App (the catalog), Computer, MCP server, Web search |
-> | **On its own** | each schedule and trigger as a line with its next run; Regular checks (your own assistant) | the automations panel | New automation |
+> | **On its own** | each task that runs on its own and each trigger as a line with its next run; Regular checks (your own assistant) | the automations panel | New automation |
 > | **People** | owners and who can message it | the Owners or audience dialog | |
 > | **Model** | the model | model, usage and budgets | |
 >
@@ -165,8 +165,8 @@ tools are not silently converted into workspace business-operation grants.
 
 ## Deliberate limits
 
-[Managed-agent schedules](shared-agent-schedules.md) now use the existing Automation
-tab and controlled pooled background queue. Connected event waits,
+Work an agent does at a time is a [task](tasks.md) asked for in Chat; the Automation
+tab sets up event triggers on the controlled pooled background queue. Connected event waits,
 browser/computer adapters and business email/phone are separate increments.
 The relevant tabs state current support rather than showing fictional records.
 The existing profile editor remains; this change does not implement every

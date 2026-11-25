@@ -69,10 +69,12 @@ fn draft_for(chat: &str, id: &str) -> DraftRequest {
         previous: None,
     }
 }
+/// Make the person's next regular check due now (schema 149: a run of its task).
 async fn make_due(db: &PgStore, who: &User) {
     execute(
         &db.db,
-        "UPDATE relay_assistant_settings SET next_ms=0 WHERE user_id=$1",
+        "UPDATE relay_task_wakeups k SET due_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint-1000
+         FROM relay_assistant_settings c WHERE c.user_id=$1 AND k.workspace=c.workspace AND k.task=c.task AND k.state='pending'",
         vec![who.id.clone().into()],
     )
     .await
@@ -359,25 +361,28 @@ async fn a_regular_check_runs_only_when_something_reached_its_person() {
     let runs = "SELECT count(*) FROM relay_chat_jobs WHERE payload->>'chat'=$1";
 
     // Off: nothing runs. On, with nothing new: no run, and the next check is booked.
-    assert_eq!(db.dispatch_checks().await.unwrap(), 0);
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 0);
     db.save_assistant_settings(&ravi, &w, &settings(true, ""))
         .await
         .unwrap();
-    assert_eq!(db.dispatch_checks().await.unwrap(), 0, "not due yet");
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 0, "not due yet");
     make_due(&db, &ravi).await;
-    assert_eq!(db.dispatch_checks().await.unwrap(), 0);
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 0);
     assert_eq!(
         one(&db, runs, vec![room.clone().into()]).await,
         0,
         "nothing new, no run"
     );
-    let next = one(
-        &db,
-        "SELECT next_ms FROM relay_assistant_settings WHERE user_id=$1",
-        vec![ravi.id.clone().into()],
-    )
-    .await;
-    assert!(next.as_i64().unwrap() > 0);
+    // The check is a task: the run is recorded as no change and the next one booked.
+    let shown = db.assistant_settings(&ravi, &w).await.unwrap();
+    assert!(shown["task"]["next_ms"].as_i64().unwrap() > 0, "{shown}");
+    let task = shown["task"]["id"].as_str().unwrap().to_owned();
+    let details = db.task_details(&ravi, &w, &task).await.unwrap();
+    assert_eq!(
+        (details["title"].as_str(), details["origin"].as_str()),
+        (Some("Regular check"), Some("check"))
+    );
+    assert_eq!(details["runs"][1]["state"], "no_change", "{details}");
 
     // Priya writes to Ravi: the next check hands it to his assistant, once.
     let chat = direct_with(&db, &priya, &w, &ravi).await;
@@ -390,7 +395,7 @@ async fn a_regular_check_runs_only_when_something_reached_its_person() {
     .await
     .unwrap();
     make_due(&db, &ravi).await;
-    assert_eq!(db.dispatch_checks().await.unwrap(), 1);
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 1);
     let run = queued(&db, &room).await;
     let handed = one(
         &db,
@@ -406,7 +411,7 @@ async fn a_regular_check_runs_only_when_something_reached_its_person() {
     );
     make_due(&db, &ravi).await;
     assert_eq!(
-        db.dispatch_checks().await.unwrap(),
+        db.dispatch_task_wakeups().await.unwrap(),
         0,
         "one check at a time"
     );
@@ -419,7 +424,7 @@ async fn a_regular_check_runs_only_when_something_reached_its_person() {
     .unwrap();
     make_due(&db, &ravi).await;
     assert_eq!(
-        db.dispatch_checks().await.unwrap(),
+        db.dispatch_task_wakeups().await.unwrap(),
         0,
         "already shown, nothing new"
     );
@@ -428,5 +433,42 @@ async fn a_regular_check_runs_only_when_something_reached_its_person() {
         .await
         .unwrap();
     make_due(&db, &ravi).await;
-    assert_eq!(db.dispatch_checks().await.unwrap(), 1);
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 1);
+    assert!(
+        one(
+            &db,
+            "SELECT instructions FROM relay_tasks WHERE id=$1",
+            vec![task.clone().into()]
+        )
+        .await
+            == "Are any orders late?",
+        "the checklist is the task's instructions"
+    );
+
+    // Off pauses the task; on again resumes it with a run booked.
+    db.save_assistant_settings(&ravi, &w, &settings(false, ""))
+        .await
+        .unwrap();
+    let off = db.assistant_settings(&ravi, &w).await.unwrap();
+    assert_eq!(
+        (off["checks"].clone(), off["task"]["paused"].clone()),
+        (json!(false), json!(true))
+    );
+    assert!(off["task"]["next_ms"].is_null());
+    db.save_assistant_settings(&ravi, &w, &settings(true, ""))
+        .await
+        .unwrap();
+    let on = db.assistant_settings(&ravi, &w).await.unwrap();
+    assert_eq!(on["checks"], true);
+    assert_eq!(on["task"]["id"], task.as_str(), "the same task");
+    assert!(on["task"]["next_ms"].as_i64().unwrap() > 0);
+    // Ending the task on its page turns checks off.
+    db.task_close(&ravi, &w, &task, "cancelled", None)
+        .await
+        .unwrap();
+    let ended = db.assistant_settings(&ravi, &w).await.unwrap();
+    assert_eq!(
+        (ended["checks"].clone(), ended["task"].clone()),
+        (json!(false), Value::Null)
+    );
 }

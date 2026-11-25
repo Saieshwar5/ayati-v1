@@ -99,7 +99,7 @@ seen where it was learned.** The server works this out from the running request.
 | Meera's direct chat | yes | yes | no | Meera's | this chat |
 | #sales | yes | yes | #sales | nobody's | #sales |
 | A thread with an outside customer | no | no | that thread's | no | that thread |
-| A schedule or trigger's work room | yes | yes | that room's | no | that room |
+| A schedule or trigger's work room (removed in schema 151: runs happen in their conversation) | yes | yes | that room's | no | that room |
 | A person's own assistant | yes, read only | no | no | its own memory of its person | its chat |
 
 A channel question that needs private memory moves to the asker's direct chat

@@ -1,4 +1,3 @@
-import { memoryLabels } from './results-and-memory';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, Dialog } from '../../ui';
 import { TriggerKind } from './new-automation';
@@ -8,9 +7,11 @@ import { CreateEvent } from './event-create';
 import { CreateAppEvent } from './app-event-create';
 import { EventReview } from './event-review';
 import { loadEvents, type EventTrigger } from './event-model';
+import { taskUrl } from '../../activity/model';
+import { runsInText } from './runs-in';
 /** "When something happens": the agent's triggers. `start` opens a new one from
  * "New automation"; `finished` is told when that dialog closes. */
-export function EventTriggers({ agent, start = false, finished }: { agent: string; start?: boolean; finished?: () => void }) {
+export function EventTriggers({ agent, agentName, start = false, finished }: { agent: string; agentName: string; start?: boolean; finished?: () => void }) {
   const load = useCallback(() => loadEvents(agent), [agent]);
   const r = useResource(load);
   const [chosen, setOpen] = useState<
@@ -85,8 +86,7 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
             <span>{t.state === 'enabled' ? 'On' : t.state}</span>
           </header>
           <p>
-            {t.source_definition.name} · {t.chat_name ? `Activity, and a summary in ${t.chat_name}` : 'Activity only'} ·{' '}
-            {memoryLabels[t.memory ?? 'fresh'].title}
+            {t.source_definition.name} · Runs in {runsInText(agentName, t.chat_name, t.chat_direct)}
           </p>
           <p className="routine-instructions">
             {t.instructions}
@@ -94,7 +94,10 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
           </p>
           <p>Set up by {t.principal_name}</p>
           {t.detail && <p role="status">{t.detail}</p>}
-          <Button onClick={() => show({ kind: 'review', trigger: t })}>Review trigger and runs</Button>
+          <div className="automation-tools">
+            <Button onClick={() => show({ kind: 'review', trigger: t })}>Review trigger and runs</Button>
+            {t.task && <a className="ui-button" href={taskUrl(t.task)}>Open its task</a>}
+          </div>
         </article>
       ))}
       {r.data && !r.data.triggers.length && <p className="ui-help">No triggers yet.</p>}
@@ -110,13 +113,13 @@ export function EventTriggers({ agent, start = false, finished }: { agent: strin
         </Dialog>
       )}
       {open?.kind === 'app' && r.data && (
-        <CreateAppEvent agent={agent} directory={r.data} close={close} saved={r.refresh} />
+        <CreateAppEvent agent={agent} agentName={agentName} directory={r.data} close={close} saved={r.refresh} />
       )}
       {open?.kind === 'create' && r.data && (
-        <CreateEvent agent={agent} directory={r.data} close={close} saved={r.refresh} />
+        <CreateEvent agent={agent} agentName={agentName} directory={r.data} close={close} saved={r.refresh} />
       )}
       {open?.kind === 'review' && (
-        <EventReview key={open.trigger.id} agent={agent} trigger={open.trigger} close={close} saved={r.refresh} />
+        <EventReview key={open.trigger.id} agent={agent} agentName={agentName} trigger={open.trigger} close={close} saved={r.refresh} />
       )}
     </section>
   );

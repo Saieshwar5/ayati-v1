@@ -181,7 +181,7 @@ test(
     const page = await pageFor(app.cookie),
       agents = `${app.base}/w/${w}/?view=agents`;
     await page.goto(agents);
-    await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
+    await page.getByRole('tab', { name: 'Automations', exact: true }).click();
     await page.getByRole('button', { name: 'Create event trigger', exact: true }).click();
     let dialog = page.getByRole('dialog', { name: 'Create event trigger', exact: true });
     const prompt = 'Ask delivery method then prepare a separately approved connected update';
@@ -246,6 +246,11 @@ test(
     assert.equal(job.requester, owner.id);
     assert.equal(job.chat, chat);
     assert.ok(!job.prompt.includes('PRIVATE_EVENT_ORDER'));
+    // Schema 148: the trigger has a task and each delivery is a run of it.
+    const triggerTask = app.sql(`SELECT task FROM relay_event_triggers WHERE id='${trigger.id}'`);
+    assert.ok(triggerTask, 'the trigger has its task');
+    assert.equal(app.sql(`SELECT task FROM relay_chat_jobs WHERE reply='${delivery.reply}'`), triggerTask);
+    assert.equal(app.sql(`SELECT kind FROM relay_task_wakeups WHERE reply='${delivery.reply}'`), 'event');
     const state = () => app.sql(`SELECT state FROM relay_chat_jobs WHERE reply='${job.reply}'`);
     await until(() => state() === 'waiting', 'Event question did not release real Goose', 35000);
     assert.equal(remote.calls.length, 0);
@@ -266,6 +271,11 @@ test(
       delegation_revision: null,
     });
     assert.equal(state(), 'waiting');
+    assert.equal(
+      app.sql(`SELECT paused_reason FROM relay_tasks WHERE id='${triggerTask}'`),
+      'Its event trigger was paused.',
+      'pausing the trigger pauses its task',
+    );
     await app.stop(executor);
     await app.stopApi();
     await app.startApi();
@@ -350,7 +360,7 @@ test(
     });
     await app.request(responsePath, app.cookie, undefined, 400);
     await page.goto(agents);
-    await page.getByRole('tab', { name: 'Schedules', exact: true }).click();
+    await page.getByRole('tab', { name: 'Automations', exact: true }).click();
     await page
       .getByRole('article', { name: 'Event trigger: Review delayed orders', exact: true })
       .getByRole('button', { name: 'Review trigger and deliveries', exact: true })

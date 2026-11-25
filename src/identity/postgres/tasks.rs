@@ -1,7 +1,7 @@
 //! Tasks (people-and-agents-first, Phase 2): a task is a promise with an outcome.
 //!
 //! The platform opens an automatic task when a request changes a real system,
-//! waits for someone, or starts from a schedule or event; it closes with that
+//! waits for someone, or starts from an event; it closes with that
 //! request. An agent opens a commitment with `create_task` when it promises
 //! something that outlives its reply, attaches later work with `attach_to_task`
 //! and closes it with `close_task`. A person can turn a request into a task.
@@ -11,11 +11,46 @@ use crate::identity::chat::model::Job;
 use serde::Deserialize;
 use serde_json::json;
 
+#[cfg(test)]
+#[path = "task_change_tests.rs"]
+mod change_tests;
+#[path = "task_changes.rs"]
+pub(crate) mod changes;
+#[cfg(test)]
+#[path = "check_tasks_tests.rs"]
+mod check_tests;
+#[path = "task_checks.rs"]
+pub(crate) mod checks;
+#[cfg(test)]
+#[path = "tasks_in_conversations_migration_tests.rs"]
+mod conversation_migration_tests;
+#[cfg(test)]
+#[path = "tasks_in_conversations_tests.rs"]
+mod conversation_tests;
+#[cfg(test)]
+#[path = "drop_schedules_tests.rs"]
+mod conversion_tests;
+#[cfg(test)]
+#[path = "task_lifetimes_tests.rs"]
+pub(in crate::identity::postgres) mod lifetime_tests;
 #[path = "tasks_migration.rs"]
 pub(super) mod migration;
+#[path = "task_person_actions.rs"]
+mod person_actions;
+#[path = "task_rules.rs"]
+pub(crate) mod rules;
+#[path = "task_runs.rs"]
+pub(crate) mod runs;
 #[cfg(test)]
 #[path = "tasks_tests.rs"]
 mod tests;
+#[path = "task_time.rs"]
+pub(crate) mod time;
+#[cfg(test)]
+#[path = "trigger_tasks_tests.rs"]
+mod trigger_tests;
+#[path = "task_triggers.rs"]
+pub(crate) mod triggers;
 #[path = "task_views.rs"]
 pub(super) mod views;
 #[path = "task_wakeups.rs"]
@@ -37,6 +72,14 @@ pub(crate) struct CreateTask {
     pub start_in_minutes: Option<i64>,
     /// Due by: the task shows as late after this (1 minute to a year).
     pub due_in_minutes: Option<i64>,
+    /// Schema 144: run it on a calendar rule, first at a local time, until a local
+    /// date or for a number of runs. Cuckoo books every run.
+    pub repeat: Option<rules::Rule>,
+    pub first_at: Option<String>,
+    pub until: Option<String>,
+    pub max_runs: Option<i64>,
+    /// Schema 145: what each run must do, when the title is not enough.
+    pub instructions: Option<String>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -88,7 +131,7 @@ pub(super) async fn available(db: &impl ConnectionTrait) -> Result<bool> {
 }
 
 /// Open an automatic task for `job` unless it already works towards one. Called in
-/// the same transaction as the write, question, hand-off, schedule run or event
+/// the same transaction as the write, question, hand-off or event
 /// that makes it a task. A Home panel refresh is a panel update, never a task.
 pub(super) async fn ensure_automatic(
     tx: &DatabaseTransaction,
@@ -102,8 +145,6 @@ pub(super) async fn ensure_automatic(
         tx,
         "SELECT j.task,EXISTS(SELECT 1 FROM relay_home_update_runs hu WHERE hu.workspace=j.workspace AND hu.reply=j.reply) AS panel,
           COALESCE(
-           (SELECT s.name FROM relay_schedule_occurrences o JOIN relay_agent_schedules s ON s.workspace=o.workspace AND s.id=o.schedule
-             WHERE o.workspace=j.workspace AND o.reply=j.reply),
            (SELECT t.source_definition->>'name' FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id
              WHERE d.workspace=j.workspace AND d.reply=j.reply),
            (SELECT m.content FROM relay_chat_messages m WHERE m.workspace=j.workspace AND m.id=j.request_message),
@@ -138,6 +179,30 @@ pub(super) async fn ensure_automatic(
     )
     .await?;
     Ok(())
+}
+
+/// A repeating task Cuckoo makes for `person` when they turn something on (an
+/// agent's weekly review): it runs in the person's direct chat with the agent
+/// (schema 151). Its first run is booked at `first_ms`. Returns the task's id.
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn create_repeating(
+    tx: &DatabaseTransaction,
+    w: &str,
+    agent: &str,
+    person: &str,
+    title: &str,
+    instructions: &str,
+    rule: &rules::Rule,
+    first_ms: i64,
+) -> Result<String> {
+    let chat = super::shared_rooms::direct_room(tx, w, person, agent).await?;
+    let id = uuid::Uuid::new_v4().to_string();
+    execute(tx, "INSERT INTO relay_tasks(workspace,id,agent,kind,origin,title,requester,chat,created_by,instructions,repeat,anchor_ms)
+        VALUES($1,$2,$3,'commitment','person',$4,$5,$6,$5,$7,$8,$9)",
+        vec![w.into(), id.clone().into(), agent.into(), title.into(), person.into(), chat.into(), instructions.into(),
+            serde_json::to_value(rule)?.into(), first_ms.into()]).await?;
+    runs::book_run(tx, w, &id, first_ms).await?;
+    Ok(id)
 }
 
 /// A task the agent of `job` may work on: its own, for the same person or in the
@@ -218,13 +283,41 @@ impl PgStore {
         if let Some(minutes) = input.start_in_minutes {
             wakeups::book(&tx, &job.workspace, &id, minutes, None).await?;
         }
+        let timing = changes::Timing {
+            repeat: input.repeat.clone(),
+            first_at: input.first_at.clone(),
+            until: input.until.clone(),
+            max_runs: input.max_runs,
+        };
+        if let Some(text) = &input.instructions {
+            let text = changes::instructions_text(text)?;
+            changes::set_instructions(&tx, &job.workspace, &id, &text).await?;
+        }
+        if timing.any() {
+            ensure!(
+                wakeups::lifetimes(&tx).await?,
+                "Repeating tasks need a newer workspace schema"
+            );
+            ensure!(
+                input.start_in_minutes.is_none(),
+                "Give either start_in_minutes or first_at, not both"
+            );
+            changes::schedule(&tx, job, &id, &timing, done_when.as_deref()).await?;
+        }
+        let summary = if wakeups::lifetimes(&tx).await? {
+            changes::summary(&tx, &job.workspace, &id).await?
+        } else {
+            Value::Null
+        };
         tx.commit().await?;
-        let message = if input.start_in_minutes.is_some() {
+        let message = if input.repeat.is_some() {
+            "Task saved and running: Cuckoo starts every run on its rule, in this conversation. Tell the person in one or two sentences what you will do, when it runs next (next_text) and what ends it. Don't ask them to confirm."
+        } else if input.start_in_minutes.is_some() || input.first_at.is_some() {
             "Task saved. You'll be woken to continue it at its start time; tell the person when that is."
         } else {
             "Task saved. Keep working on it now if you can; when its outcome is reached, call close_task. To check again later, call follow_up."
         };
-        Ok(json!({"id": id, "title": title, "state": "open", "message": message}))
+        Ok(json!({"id": id, "title": title, "state": "open", "task": summary, "message": message}))
     }
 
     /// `attach_to_task`: this request continues an open task.
@@ -280,8 +373,27 @@ impl PgStore {
             FROM relay_tasks t WHERE t.workspace=$1 AND t.agent=$2 AND t.kind='commitment' AND t.outcome IS NULL AND (t.requester=$3 OR t.chat=$4)
             ORDER BY t.created_ms DESC LIMIT 20",
             vec![job.workspace.clone().into(), job.agent.clone().into(), job.requester.clone().into(), job.chat.clone().into()]).await?;
+        // The agent is not told the time otherwise; it needs it to give first_at and until.
+        let clock = if wakeups::lifetimes(&tx).await? {
+            let zone = changes::workspace_zone(&tx, &job.workspace).await?;
+            let now = query(
+                &tx,
+                "SELECT to_char(clock_timestamp() AT TIME ZONE $1,'Dy YYYY-MM-DD HH24:MI') AS now",
+                vec![zone.clone().into()],
+            )
+            .await?
+            .context("Clock unavailable")?
+            .try_get::<String>("", "now")?;
+            json!({"now": now, "timezone": zone})
+        } else {
+            json!({})
+        };
         tx.commit().await?;
-        Ok(json!({"tasks": items}))
+        let mut result = json!({"tasks": items});
+        if let (Some(result), Some(clock)) = (result.as_object_mut(), clock.as_object()) {
+            result.extend(clock.clone());
+        }
+        Ok(result)
     }
 
     /// `close_task`: the agent reached (or gave up on) a task's outcome.
@@ -306,6 +418,8 @@ impl PgStore {
         execute(&tx, "UPDATE relay_tasks SET outcome=$3,result=$4,closed_ms=(extract(epoch FROM clock_timestamp())*1000)::bigint WHERE workspace=$1 AND id=$2",
             vec![job.workspace.clone().into(), input.task.clone().into(), input.outcome.clone().into(), result.into()]).await?;
         wakeups::cancel(&tx, &job.workspace, &input.task).await?;
+        triggers::end_trigger(&tx, &job.workspace, &input.task, &job.requester).await?;
+        checks::ended(&tx, &job.workspace, &input.task).await?;
         tx.commit().await?;
         Ok(json!({"id": task["id"], "state": input.outcome}))
     }

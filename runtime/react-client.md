@@ -33,8 +33,8 @@ server API contracts, authentication, and workspace boundaries.
   request progress and Stop, guided creation, profile editing, approved knowledge
   and permission drafts/previews/activation.
   [The workspace contract](agents-team-workspace.md) describes supported tabs.
-- `web/src/react/agents/automation/`: on-demand shared schedule list, explicit
-  review/create, exact pause/resume and source-authorized run history. Reviewed
+- `web/src/react/agents/automation/`: the Automations pane (work at a time is a task
+  asked for in Chat; schedules were dropped in schema 150). Reviewed
   connected-event triggers add signed source setup, filters, activation and bounded
   delivery history. "When something happens in an app" picks a connected app,
   its event and exact filters, and the controller subscribes at the provider;

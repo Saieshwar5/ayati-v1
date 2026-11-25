@@ -54,7 +54,6 @@ pub(crate) fn automation(system: &str, fields: &[&str]) -> FromSystem {
         name: "Study plan after results".into(),
         instructions: "Read the marks. If a subject is below 50, save a two-week plan.".into(),
         chat: None,
-        memory: None,
         filter: json!({}),
         results: vec![],
     }
@@ -117,17 +116,21 @@ async fn a_system_event_starts_its_automation_with_the_chosen_fields_whole() {
         .await.unwrap().unwrap();
     let job: crate::identity::chat::model::Job =
         serde_json::from_value(row.try_get("", "payload").unwrap()).unwrap();
-    let work: bool = query(
+    let place: String = query(
         &s.db.db,
-        "SELECT work FROM relay_chats WHERE id=$1",
+        "SELECT kind FROM relay_chats WHERE id=$1",
         vec![job.chat.clone().into()],
     )
     .await
     .unwrap()
     .unwrap()
-    .try_get("", "work")
+    .try_get("", "kind")
     .unwrap();
-    assert!(work, "the run happens in a work room");
+    assert_eq!(
+        (place.as_str(), job.requester.as_str()),
+        ("direct", s.owner.id.as_str()),
+        "with no conversation chosen it runs in the person's direct chat with the agent"
+    );
     let context = json!(s.db.event_job_context(&job).await.unwrap()).to_string();
     assert!(
         context.contains("geometry"),

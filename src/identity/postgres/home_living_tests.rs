@@ -3,7 +3,7 @@
 //! while its agreement follows sources.
 use super::super::super::activity::Filters;
 use super::super::super::control_tests::request;
-use super::super::super::home_maintenance_tests::{agreement, claim, observed, setup};
+use super::super::super::home_maintenance_tests::{agreement, claim, due_now, observed, setup};
 use super::super::super::tests::message;
 use super::super::super::*;
 use crate::identity::chat::model::Job;
@@ -32,16 +32,6 @@ async fn runs(db: &PgStore, panel: &str) -> Vec<Value> {
     .into_iter()
     .map(|r| r.try_get("", "v").unwrap())
     .collect()
-}
-
-async fn due_now(db: &PgStore, panel: &str) {
-    execute(
-        &db.db,
-        "UPDATE relay_home_update_wanted SET due_ms=1 WHERE panel=$1",
-        vec![panel.into()],
-    )
-    .await
-    .unwrap();
 }
 
 /// The owner asks the agent something; the agent does it and finishes.

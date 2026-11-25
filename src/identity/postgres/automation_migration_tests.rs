@@ -1,18 +1,11 @@
 use super::{tests::*, *};
-use crate::identity::automations::model::due;
 use sea_orm_migration::MigratorTrait;
-#[test]
-fn automation_due_is_anchored_and_coalesces_without_calendar_or_backward_clock_replay() {
-    assert_eq!(due(10000, None, 100000), (10000, None));
-    assert_eq!(due(10000, Some(5), 27777), (25000, Some(30000)));
-    assert_eq!(due(10000, Some(5), 1000), (10000, Some(15000)));
-}
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn automation_upgrade_preserves_v26_profiles_and_sample_receipts_without_dispatch() {
     let url = std::env::var("RELAY_TEST_DATABASE_URL").unwrap();
     let admin = PgStore::connect(&url).await.unwrap();
-    let schema = format!("relay_schedule_upgrade_{}", uuid::Uuid::new_v4().simple());
+    let schema = format!("relay_automation_upgrade_{}", uuid::Uuid::new_v4().simple());
     admin
         .db
         .execute_unprepared(&format!("CREATE SCHEMA {schema}"))
@@ -24,7 +17,7 @@ async fn automation_upgrade_preserves_v26_profiles_and_sample_receipts_without_d
         .append_pair("options", &format!("-c search_path={schema}"));
     let db = PgStore::connect(scoped.as_str()).await.unwrap();
     migration::Migrator::up(&db.db, Some(26)).await.unwrap();
-    let owner = user(&db, "schedule-upgrade-owner").await;
+    let owner = user(&db, "automation-upgrade-owner").await;
     let w = workspace(&db, &owner).await;
     let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let input = crate::identity::rehearsals::model::Start {
@@ -45,15 +38,12 @@ async fn automation_upgrade_preserves_v26_profiles_and_sample_receipts_without_d
         "Saved before upgrade"
     );
     assert_eq!(db.company_counts(&owner, &w).await.unwrap()["jobs"], 0);
-    assert_eq!(
-        db.schedules(&owner, &w, &a).await.unwrap()["schedules"],
-        serde_json::json!([])
-    );
     assert!(
-        !db.schedules(&owner, &w, &a).await.unwrap()["execution_available"]
+        !db.post_targets(&owner, &w, &a).await.unwrap()["execution_available"]
             .as_bool()
             .unwrap()
     );
+    assert_eq!(db.dispatch_task_wakeups().await.unwrap(), 0);
     assert!(
         db.chat_messages(&owner, &w, &c).await.unwrap()["messages"]
             .as_array()

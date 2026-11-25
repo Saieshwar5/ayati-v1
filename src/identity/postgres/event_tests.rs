@@ -17,7 +17,14 @@ pub(super) struct Setup {
     pub input: Trigger,
 }
 pub(super) async fn setup() -> Setup {
-    let (db, owner, w, c, a) = super::automation_tests::setup().await;
+    setup_on(fixture().await).await
+}
+/// The same on `db`, which may be at an older schema (upgrade tests).
+pub(super) async fn setup_on(mut db: PgStore) -> Setup {
+    db.pooled = true;
+    let owner = user(&db, "automation-author").await;
+    let w = workspace(&db, &owner).await;
+    let (c, a) = super::executor_slot_tests::agent(&db, &owner, &w).await;
     let conn = uuid::Uuid::new_v4().to_string();
     let fp = "a".repeat(43);
     db.control_system(
@@ -64,7 +71,6 @@ pub(super) async fn setup() -> Setup {
         source: source.id.clone(),
         binding: source.fingerprint().unwrap(),
         chat: Some(c.clone()),
-        memory: None,
         name: "Review order change".into(),
         instructions: "Review this change and report blockers.".into(),
         connection_revision: v["connection_revision"].as_i64().unwrap(),
@@ -174,18 +180,8 @@ async fn event_exact_receipts_admit_one_atomic_principal_bound_job_and_isolate_c
     assert_eq!(one.unwrap() + two.unwrap(), 1);
     let job = s.job().await;
     assert_eq!(job.requester, s.owner.id);
-    // Runs happen in a private work room, never the conversation (schema 115).
-    assert_ne!(job.chat, s.c);
-    assert!(
-        query(
-            &s.db.db,
-            "SELECT 1 AS found FROM relay_chats WHERE id=$1 AND work",
-            vec![job.chat.clone().into()]
-        )
-        .await
-        .unwrap()
-        .is_some()
-    );
+    // The run happens in the trigger's conversation, as its person (schema 151).
+    assert_eq!(job.chat, s.c);
     assert!(!job.prompt.contains("PRIVATE-ORDER"));
     let sources = s.db.event_job_context(&job).await.unwrap();
     assert!(json!(sources).to_string().contains("PRIVATE-ORDER-42"));

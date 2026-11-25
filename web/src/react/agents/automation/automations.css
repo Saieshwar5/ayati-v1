@@ -1,19 +1,15 @@
-.shared-schedules { max-width: 980px; min-width: 0; }
-.shared-schedules > .agent-section-heading, .routine-triggers > .agent-section-heading { align-items: start; gap: 18px; }
+.agent-automations { max-width: 980px; min-width: 0; }
+.agent-automations > .agent-section-heading, .routine-triggers > .agent-section-heading { align-items: start; gap: 18px; }
 .routine-row { padding: 22px 0; border-bottom: 1px solid var(--border); min-width: 0; }
 .routine-row header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .routine-row h4 { margin: 0; font-size: 16px; }
 .routine-row header span { font-size: 12px; color: var(--muted); text-transform: capitalize; }
 .routine-row p { margin: 9px 0; overflow-wrap: anywhere; }
 .routine-instructions { white-space: pre-wrap; overflow-wrap: anywhere; }
-.routine-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
-.routine-interval { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; min-width: 0; }
-.routine-interval input, .routine-interval select { min-width: 0; }
 .routine-review { display: grid; gap: 18px; }
 .routine-review p { margin: 0; overflow-wrap: anywhere; }
 .routine-triggers { border-top: 1px solid var(--border); padding-top: 18px; margin-top: 24px; }
-.routine-run { padding: 18px 0; border-bottom: 1px solid var(--border); }
-@media (max-width: 600px) { .shared-schedules > .agent-section-heading, .routine-triggers > .agent-section-heading { flex-wrap: wrap; } .routine-interval { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .agent-automations > .agent-section-heading, .routine-triggers > .agent-section-heading { flex-wrap: wrap; } }
 
 .routine-results { display: grid; gap: 8px; border: 0; padding: 0; margin: 0; }
 .routine-results legend { font-weight: 600; margin-bottom: 6px; }
@@ -21,7 +17,7 @@
 .routine-choice:has(input:checked) { border-color: var(--text); }
 .routine-choice span { display: grid; gap: 4px; }
 .routine-choice small { color: var(--muted); }
-/* Automations tab: two groups, On a schedule and When something happens. */
+/* Automations tab: two groups, At a time (tasks asked for in Chat) and When something happens. */
 .automation-group { margin-top: 22px; }
 .automation-group > .agent-section-heading { align-items: start; gap: 18px; flex-wrap: wrap; }
 .automation-group > .agent-section-heading h4 { margin: 0; font-size: 16px; }
@@ -34,7 +30,7 @@
 .automation-member { max-width: 640px; display: grid; gap: 4px; }
 .automation-member p { margin: 4px 0; }
 .automation-example { background: var(--soft); border-radius: 8px; padding: 8px 12px; font-style: italic; }
-/* New automation: step 1 choices and the schedule form's repeat choices. */
+/* New automation: step 1 choices. */
 .automation-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 12px; }
 .automation-kind { display: grid; gap: 6px; text-align: left; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); color: var(--text); cursor: pointer; }
 .automation-kind:hover:not(:disabled) { border-color: var(--text); }
@@ -42,10 +38,4 @@
 .automation-kind strong { font-size: 15px; }
 .automation-kind small { color: var(--muted); }
 .automation-kind-example { font-style: italic; }
-.routine-repeat { display: flex; flex-wrap: wrap; gap: 8px; border: 0; padding: 0; margin: 0; }
-.routine-repeat legend { font-weight: 600; margin-bottom: 6px; }
-.routine-repeat-choice { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px; cursor: pointer; }
-.routine-repeat-choice:has(input:checked) { border-color: var(--text); font-weight: 600; }
-.routine-sentence { background: var(--soft); border-radius: 10px; padding: 12px 14px; }
-.routine-sentence p { margin: 0 0 6px; }
 .automation-new { white-space: nowrap; flex-shrink: 0; }

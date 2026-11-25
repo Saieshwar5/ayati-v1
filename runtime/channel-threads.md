@@ -17,8 +17,9 @@ message**. The channel shows the question with a thread line under it.
   under the question / In the channel** in the channel's settings
   (`relay_chats.agent_replies`, `thread` by default for every channel, including
   existing ones; `agent_replies` in `POST …/chats/{chat}/settings`).
-- Unchanged: direct chats, a person's own group with agents, work rooms, and
-  requests from schedules, events, email and hand-offs, which keep their places.
+- Unchanged: direct chats, a person's own group with agents, and requests from
+  tasks, events, email and hand-offs, which answer in the main timeline (since
+  schema 151 a channel's task and trigger runs happen in the channel itself).
 - A question asked in the main timeline reads the conversation as before; a
   follow-up in the thread reads that thread first, then the latest main
   messages. Updates, the front-desk line, approvals, hand-offs and a retry of a
@@ -57,7 +58,7 @@ may, and only for a thread's first message.
 With every request in a channel or group, the agent gets "This conversation:
 #orders, a private channel with 6 people." and, when set, the channel's
 description as its managers' words, marked as context, never instructions or
-permission (300 characters). Direct chats and work rooms get nothing extra.
+permission (300 characters). Direct chats get nothing extra.
 
 ## The rule line
 

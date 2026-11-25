@@ -1,100 +1,66 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Agent } from '../model';
 import { Button } from '../../ui';
 import { workspaceUrl } from '../../../workspace-context';
-import { useResource } from '../../requests';
 import { subscribeChanges } from '../../chat/live';
-import { CreateSchedule } from './create-dialog';
-import { ScheduleState } from './state-dialog';
-import { ScheduleRuns } from './runs-dialog';
-import { cadence, date, deviceClock, loadSchedules, results, stateLabels, type Routine } from './model';
-import './schedules.css';
+import './automations.css';
 import { EventTriggers } from './events';
 import { NewAutomation } from './new-automation';
 
-type Open = { kind: 'choose' } | { kind: 'event' } | { kind: 'create' } | { kind: 'runs'; routine: Routine } | { kind: 'state'; routine: Routine; enabled?: boolean };
-/** `start` opens "New automation" at once (the agent page's ＋); `changed` is told when a schedule is saved or changed. */
+/** Where people see what an agent does at a time: the Calendar (tasks, schema 147). */
+const calendarUrl = () => workspaceUrl('/?view=activity&tab=planned');
+
+/** `start` opens "New automation" at once (the agent page's ＋); `changed` is told when a trigger is saved or changed. */
 export function AutomationPane({ agent, openChat, start = false, changed }: { agent: Agent; openChat?: () => void; start?: boolean; changed?: () => void }) {
-  return agent.editable ? <ScheduleWorkspace key={agent.id} agent={agent} start={start} changed={changed} /> : <MemberAutomations agent={agent} openChat={openChat} />;
+  return agent.editable ? <Automations key={agent.id} agent={agent} openChat={openChat} start={start} changed={changed} /> : <MemberAutomations agent={agent} openChat={openChat} />;
 }
-/** People who talk to the agent but don't look after it: they get a schedule by
- * asking in Chat, and it runs as them (designs/automations-simplified 4). */
+/** People who talk to the agent but don't look after it: they get work at a time by
+ * asking in Chat, and it becomes a task that runs as them (designs/agent-tasks). */
 function MemberAutomations({ agent, openChat }: { agent: Agent; openChat?: () => void }) {
   return <section className="automation-member" aria-label={`${agent.name} automations`}>
     <h3>Automations</h3>
-    <p>Only {agent.name}’s owner or an admin can add schedules and triggers here.</p>
-    <p>You can still get one: ask {agent.name} in Chat, in your own words. It suggests a schedule, and you save it.</p>
+    <p>Only {agent.name}’s owner or an admin can add triggers here.</p>
+    <p>For work at a time, ask {agent.name} in Chat, in your own words. It becomes a task that runs as you.</p>
     <p className="automation-example">“Every Friday at 5 pm, send me this week’s delayed orders.”</p>
     <div className="automation-tools">
       {openChat && <Button primary onClick={openChat}>Ask {agent.name} in Chat</Button>}
-      <a className="ui-button" href={workspaceUrl('/?view=activity&tab=upcoming')}>See what runs next in Activity</a>
+      <a className="ui-button" href={calendarUrl()}>See what runs next on the Calendar</a>
     </div>
-    <p className="ui-help">Schedules you save from Chat run as you, with your access. Pause them from Activity › Planned.</p>
+    <p className="ui-help">Pause, skip or end a task from its page in Activity.</p>
   </section>;
 }
-function ScheduleWorkspace({ agent, start, changed }: { agent: Agent; start: boolean; changed?: () => void }) {
-  const load = useCallback(() => loadSchedules(agent.id), [agent.id]);
-  const resource = useResource(load);
-  const [clock] = useState(deviceClock);
-  const [open, setOpen] = useState<Open | undefined>(start ? { kind: 'choose' } : undefined);
-  const saved = async () => { await resource.refresh(); changed?.(); };
-  const opener = useRef<HTMLElement | null>(null), refreshButton = useRef<HTMLButtonElement | null>(null);
+/** Work at a time is a task made in Chat; triggers are set up here. */
+function Automations({ agent, openChat, start, changed }: { agent: Agent; openChat?: () => void; start: boolean; changed?: () => void }) {
+  const [open, setOpen] = useState<'choose' | 'event' | undefined>(start ? 'choose' : undefined);
+  const opener = useRef<HTMLElement | null>(null), newButton = useRef<HTMLButtonElement | null>(null);
   const focusTimer = useRef<number | undefined>(undefined);
-  const show = (next: Open) => { opener.current = document.activeElement as HTMLElement | null; setOpen(next); };
+  const choose = () => { opener.current = document.activeElement as HTMLElement | null; setOpen('choose'); };
   const close = () => {
     setOpen(undefined);
     focusTimer.current = window.setTimeout(() => {
-      if (!opener.current?.isConnected) refreshButton.current?.focus();
+      if (!opener.current?.isConnected) newButton.current?.focus();
     }, 0);
   };
-  const polling = useRef(false);
   useEffect(() => {
-    const refresh = async () => {
-      if (polling.current || document.hidden) return;
-      polling.current = true;
-      try { await resource.refresh(); } catch { /* Resource exposes the failure. */ }
-      finally { polling.current = false; }
-    };
-    const timer = window.setInterval(() => void refresh(), 5000);
     const access = subscribeChanges(change => {
-      if (change.kind !== 'access' && change.kind !== 'reset') return;
-      setOpen(undefined); resource.setData(undefined); void resource.refresh().catch(() => {});
+      if (change.kind === 'access' || change.kind === 'reset') setOpen(undefined);
     });
-    return () => { clearInterval(timer); window.clearTimeout(focusTimer.current); access(); };
-  }, [resource.refresh, resource.setData]);
-  const ready = Boolean(resource.data && !resource.error);
-  return <section className="shared-schedules" aria-label={`${agent.name} automations`}>
+    return () => { window.clearTimeout(focusTimer.current); access(); };
+  }, []);
+  const ask = openChat ? () => { setOpen(undefined); openChat(); } : undefined;
+  return <section className="agent-automations" aria-label={`${agent.name} automations`}>
     <header className="agent-section-heading"><div><h3>Automations</h3></div>
-      <Button primary className="automation-new" disabled={!ready} onClick={() => show({ kind: 'choose' })}>New automation</Button>
+      <Button primary ref={newButton} className="automation-new" onClick={choose}>New automation</Button>
     </header>
-    <section className="automation-group" aria-labelledby={`${agent.id}-on-schedule`}>
-      <header className="agent-section-heading"><div><h4 id={`${agent.id}-on-schedule`}>On a schedule</h4></div></header>
-      {resource.error && <p role="alert">{resource.error}</p>}
-      {!resource.data && !resource.error && <p role="status">Loading schedules…</p>}
-      {resource.data?.execution_available === false && <p role="status">Schedules can’t run on this server. Saved ones stay readable.</p>}
-      {resource.data?.schedules.map(routine => <article className="routine-row" key={routine.id} aria-label={`Schedule: ${routine.name}`}>
-        <header><h4>{routine.name}</h4><span>{stateLabels[routine.state]}</span></header>
-        <p className="routine-instructions">{routine.content}{routine.instructions_long && '…'}</p>
-        <p>{cadence(routine.interval_seconds)} · {routine.timezone}</p>
-        <p>Results: {results(routine.chat, routine.chat_name)} · Set up by {routine.principal_name}</p>
-        {routine.next_ms && <p>Next run: {date(routine.next_ms, routine.timezone)}</p>}
-        {routine.unfinished && <p className="ui-help">An earlier run is still unfinished. View runs to check its progress or use task Stop.</p>}
-        {routine.detail && <p role="status">{routine.detail}</p>}
-        <div className="routine-actions"><Button onClick={() => show({ kind: 'state', routine })}>View instructions</Button><Button onClick={() => show({ kind: 'runs', routine })}>View runs</Button>
-          {routine.state === 'enabled' && <Button disabled={!ready} onClick={() => show({ kind: 'state', routine, enabled: false })}>Pause</Button>}
-          {routine.state !== 'enabled' && routine.state !== 'completed' && <Button disabled={!ready || !routine.can_resume || !resource.data?.execution_available} onClick={() => show({ kind: 'state', routine, enabled: true })}>Review and resume</Button>}
-        </div>
-        {!routine.can_resume && routine.state !== 'enabled' && routine.state !== 'completed' && <p className="ui-help">Only {routine.principal_name} can resume it, with their current access.</p>}
-      </article>)}
-      {resource.data && !resource.data.schedules.length && !resource.data.elsewhere && <p className="ui-help">No schedules yet.</p>}
-      {Boolean(resource.data?.elsewhere) && <p className="ui-help">{resource.data?.elsewhere === 1 ? '1 more schedule posts' : `${resource.data?.elsewhere} more schedules post`} in conversations you’re not in, so {resource.data?.elsewhere === 1 ? 'it stays' : 'they stay'} private. Pausing {agent.name} pauses every schedule.</p>}
-      <div className="automation-tools"><Button ref={refreshButton} onClick={() => void resource.refresh().catch(() => {})}>Refresh schedules</Button></div>
+    <section className="automation-group" aria-labelledby={`${agent.id}-at-a-time`}>
+      <header className="agent-section-heading"><div><h4 id={`${agent.id}-at-a-time`}>At a time</h4>
+        <p>Ask {agent.name} in Chat, in your own words. It becomes a task: it runs on its own and shows on the Calendar, where it can be paused or ended.</p></div></header>
+      <div className="automation-tools">
+        {ask && <Button onClick={ask}>Ask {agent.name} in Chat</Button>}
+        <a className="ui-button" href={calendarUrl()}>Open the Calendar</a>
+      </div>
     </section>
-    <EventTriggers agent={agent.id} start={open?.kind === 'event'} finished={() => { close(); changed?.(); }} />
-    {open?.kind === 'choose' && <NewAutomation agent={agent.name} schedules={Boolean(resource.data?.execution_available)} close={close}
-      choose={kind => setOpen(kind === 'time' ? { kind: 'create' } : { kind: 'event' })} />}
-    {open?.kind === 'create' && resource.data && <CreateSchedule agent={agent.id} agentName={agent.name} data={resource.data} clock={clock} close={close} saved={saved} />}
-    {open?.kind === 'runs' && <ScheduleRuns agent={agent.id} routine={open.routine} close={close} />}
-    {open?.kind === 'state' && <ScheduleState agent={agent.id} routine={open.routine} enabled={open.enabled} close={close} saved={saved} />}
+    <EventTriggers agent={agent.id} agentName={agent.name} start={open === 'event'} finished={() => { close(); changed?.(); }} />
+    {open === 'choose' && <NewAutomation agent={agent.name} ask={ask} close={close} choose={() => setOpen('event')} />}
   </section>;
 }

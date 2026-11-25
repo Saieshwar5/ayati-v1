@@ -28,8 +28,8 @@ pub(super) async fn versions(
             .any(|op| op["id"] == source.read_operation && op["effect"] == "read")),
         "The source operation must be a reviewed read"
     );
-    // A trigger that posts its results somewhere needs the person's access
-    // there; runs themselves happen in a private work room (schema 115).
+    // A trigger runs in its conversation as its person (schema 151), so the
+    // person needs access there.
     if let Some(chat) = chat {
         super::chat::access(db, user, w, chat).await?;
     }
@@ -59,18 +59,19 @@ pub(super) async fn visible(
     data: &Value,
 ) -> Result<()> {
     super::agent_profiles::managed_access(db, &user.id, w, agent, true).await?;
-    // A trigger that posts its results somewhere is seen only by people there.
-    match post_to(data) {
+    // A trigger is seen only by people in the conversation it runs in.
+    match runs_in(data) {
         Some(chat) => super::chat::access(db, user, w, chat).await,
         None => Ok(()),
     }
 }
-/// Where a trigger also posts its result, if anywhere.
-pub(super) fn post_to(data: &Value) -> Option<&str> {
+/// The conversation a trigger runs in (schema 151): the one chosen when it was set
+/// up, or its person's direct chat with the agent.
+pub(super) fn runs_in(data: &Value) -> Option<&str> {
     data["chat"].as_str()
 }
-/// What a trigger needs from its person to start work, as for a schedule: they
-/// look after the agent and may use it, and may post where it posts, if anywhere.
+/// What a trigger needs from its person to start work: they look after the agent
+/// and may use it, and may ask it in the conversation the trigger runs in.
 pub(super) async fn start(
     tx: &DatabaseTransaction,
     user: &User,
@@ -78,7 +79,7 @@ pub(super) async fn start(
     data: &Value,
 ) -> Result<()> {
     let agent = data["agent"].as_str().context("Missing agent")?;
-    super::automation_access::run_authority(tx, user, w, agent, None, post_to(data)).await
+    super::automation_access::run_authority(tx, user, w, agent, runs_in(data)).await
 }
 pub(super) fn principal(data: &Value) -> Result<User> {
     Ok(User {
@@ -102,7 +103,7 @@ pub(super) async fn current(db: &impl ConnectionTrait, w: &str, data: &Value) ->
         &principal(data)?,
         w,
         data["agent"].as_str().unwrap(),
-        post_to(data),
+        runs_in(data),
         &source,
     )
     .await
@@ -136,22 +137,14 @@ pub(super) async fn allowed(
     if !exists(db).await? {
         return Ok(true);
     }
-    let room = if super::automation_memory::ready(db).await? {
-        "d.room"
-    } else {
-        "NULL::text"
-    };
-    let data=query(db,&format!("SELECT to_jsonb(t)-'request_hash' AS data,d.authority,d.revoked,{room} AS room FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2"),vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
+    let data=query(db,"SELECT to_jsonb(t)-'request_hash' AS data,d.authority,d.revoked FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id WHERE d.workspace=$1 AND d.reply=$2",vec![job.workspace.clone().into(),job.reply.clone().into()]).await?;
     let Some(row) = data else { return Ok(true) };
     if row.try_get::<bool>("", "revoked")? {
         return Ok(false);
     }
     let data: Value = row.try_get("", "data")?;
-    // A run happens in its work room; older runs happened in the trigger's
-    // conversation.
-    let room: Option<String> = row.try_get("", "room")?;
-    let ran_in = room.as_deref().or(post_to(&data));
-    if ran_in != Some(job.chat.as_str()) || data["agent"] != job.agent {
+    // A run happens in the trigger's conversation (schema 151).
+    if runs_in(&data) != Some(job.chat.as_str()) || data["agent"] != job.agent {
         return Ok(false);
     }
     let user = User {
@@ -197,4 +190,21 @@ pub(super) async fn pending_counts(
         );
     }
     Ok(())
+}
+
+/// What Activity shows about a run that came from an event trigger: its name,
+/// state, person, the app, the conversation it runs in and its task (schema 148).
+pub(super) async fn run_source(
+    db: &impl ConnectionTrait,
+    w: &str,
+    reply: &str,
+) -> Result<Option<Value>> {
+    if !exists(db).await? {
+        return Ok(None);
+    }
+    Ok(json_rows(db, "SELECT jsonb_build_object('id',t.id,'name',t.input->>'name','agent',t.agent,'state',t.state,'revision',t.revision,
+            'principal',t.principal,'source',t.source_definition->>'name','runs_in',c.name,'task',to_jsonb(t)->>'task') AS data
+        FROM relay_event_deliveries d JOIN relay_event_triggers t ON t.workspace=d.workspace AND t.id=d.trigger_id
+        LEFT JOIN relay_chats c ON c.workspace=t.workspace AND c.id=t.chat
+        WHERE d.workspace=$1 AND d.reply=$2", vec![w.into(), reply.into()]).await?.into_iter().next())
 }

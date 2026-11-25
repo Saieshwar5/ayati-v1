@@ -86,7 +86,8 @@ Connections (admins) lists every app and MCP server connected in the workspace w
   later and every member sees a banner. Any admin can undo until then
   (`POST /settings/deletion`, `POST /settings/deletion/cancel`). When it is due, the
   cleanup job closes the workspace: nobody can open it, it leaves everyone's list,
-  and its agents, schedules and triggers stop. **Not yet built:** erasing the
+  and its agents and triggers stop; its tasks with a run booked pause and nothing booked
+  runs. **Not yet built:** erasing the
   stored records and Library files permanently; that needs its own design because
   many records are append-only. Export data is "Coming later".
 - **Help:** **Report a problem** replaces the internal bug tracker (its page is
@@ -136,8 +137,8 @@ An admin's emergency switch, in **Activity → Work** (the ⋯ menu) and **Setti
   approvals are invalidated, and replies read "Stopped because all agents were
   paused." One audit entry records who, how many requests and why.
 - **While paused:** sending to an agent is refused with HTTP 409 and that reason;
-  person-to-person messages still work. Schedules **skip** a due run and stay on
-  (a one-off waits for its person to run it again). Trigger events that arrive are
+  person-to-person messages still work. A due task run waits and is tried again in
+  five minutes. Trigger events that arrive are
   not handled and say so on the delivery. An approval decided just before the
   pause is not sent. Library questions to agents are refused too.
 - **Every member** sees a banner with who paused, when and why; it arrives live
@@ -146,7 +147,7 @@ An admin's emergency switch, in **Activity → Work** (the ⋯ menu) and **Setti
 - **Resuming** lets agents take work again. Stopped requests don't restart by
   themselves, and agents paused on their own stay paused.
 - The pause is a separate gate from agent access on purpose: lost access
-  permanently blocks schedules and triggers, and a pause must not.
+  permanently blocks task runs and triggers, and a pause must not.
 - API: `GET /agents/pause` (any member; the stop count only for admins),
   `POST /agents/pause` `{note}` and `POST /agents/resume` (admins).
 - Checks: `settings::pause` PostgreSQL tests, `web/tests/agents-pause.test.mjs`,
@@ -192,7 +193,8 @@ lists what removal would affect:
 - shared agents they own, and private agents that stay unused;
 - workspace-wide Library items they look after, and private or selected items
   that stay as they are;
-- enabled schedules and event triggers they authorized;
+- their open repeating tasks (a rule, or a follow-up booked; `repeating_tasks`) and the
+  event triggers they authorized;
 - approvals waiting for them;
 - active tool rules they set up or approve;
 - invitations they sent.
@@ -210,11 +212,13 @@ admin and must be another current member.
   - waiting approvals are cancelled ("request a new action"), because an approval
     belongs to the person authorized to give it;
   - tool rules they set up or approve switch to Block;
-  - their schedules and event triggers are paused for review, because a saved
-    routine runs on its creator's authority and cannot be handed on.
+  - their repeating tasks pause ("Paused because the person it was for left the
+    workspace.", what was booked cancelled) and their event triggers are blocked for
+    review, because every run is for the person who asked and cannot be handed on
+    (schema 150; earlier the same rule paused their schedules).
 - **Records one readable audit sentence** (schema 44, `relay_audit.summary`), for
   example "Arjun Mehta removed Ravi Kumar; 2 agents and 1 Library item moved to
-  Meera Iyer; 2 schedules paused for review; 1 invitation cancelled". Role changes
+  Meera Iyer; 2 repeating tasks paused for review; 1 invitation cancelled". Role changes
   record "… made … an admin" or "… a member". The activity list shows the sentence
   when one exists.
 

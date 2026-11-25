@@ -167,7 +167,7 @@ async fn other_answers_are_recorded_for_a_person_at_one_five_and_thirty_minutes(
     assert_eq!(checks(&s, &id).await[0]["result"], "unknown");
     // Not again until five minutes after it became unconfirmed.
     assert_eq!(round(&s, &provider).await, Round::default());
-    let schedule = query(
+    let next = query(
         &s.db.db,
         "SELECT next_at-since AS after FROM relay_control_outcome_checks WHERE action=$1",
         vec![id.clone().into()],
@@ -175,7 +175,7 @@ async fn other_answers_are_recorded_for_a_person_at_one_five_and_thirty_minutes(
     .await
     .unwrap()
     .unwrap();
-    assert_eq!(schedule.try_get::<i64>("", "after").unwrap(), 300);
+    assert_eq!(next.try_get::<i64>("", "after").unwrap(), 300);
     *provider.answer.lock().unwrap() = "not_happened";
     age(&s, NEXT_CHECK_DUE, &id).await;
     assert_eq!(round(&s, &provider).await, checked);

@@ -7,7 +7,7 @@ import { reactFixture } from './react-fixture.mjs';
 
 // A member's assistant is set up on its agent page, like every agent: what it knows
 // about you (its memory) and its rules in place of an instructions box, regular checks beside its
-// schedules. The notes are its person's alone; an admin sees rules and skills only.
+// tasks. The notes are its person's alone; an admin sees rules and skills only.
 const w = '11111111-1111-4111-8111-111111111111', url = `http://localhost/w/${w}/?view=agents`;
 const session = { user: { id: 'ravi', email: 'ravi@example.test' }, workspaces: [{ id: w, name: 'Northwind', role: 'Member' }] };
 const settings = { provider: '', instructions: 'Never reply to a customer without asking me.', escalation: '', avatar: 'spark', memory: false, browser: false, history: 'all', paused: false };
@@ -31,7 +31,6 @@ function server(writes, { fail = 0, hold, memory = { memories: [], ended: [], mo
     if (short.includes('/library-always/')) return response(noAlways);
     if (short.includes('/skills')) return response({ skills: [], editable: true });
     if (short.includes('/event-triggers')) return response({ choices: [], triggers: [], apps: [], execution_available: true });
-    if (short.includes('/schedules')) return response({ schedules: [], conversations: [], available: true });
     if (short.includes('/requests')) return response({ requests: [], next_before: null });
     return response(directory);
   };
@@ -154,7 +153,7 @@ test('your assistant’s page holds what it remembers about you and its regular 
     await click(button('About you'));
     assert.match(document.querySelector('.profile-panel').textContent, /What Ayati remembers about you and your work/);
     await click(button('Regular checks'));
-    assert.ok(document.querySelector('.profile-panel .assistant-checks'), 'regular checks sit with its schedules and triggers');
+    assert.ok(document.querySelector('.profile-panel .assistant-checks'), 'regular checks sit with its tasks and triggers');
     reads.length = 0;
     const theirs = { ...mine, id: 'priyas', is_owner: false, owner_name: 'Priya', can_talk: false };
     await render(page(theirs));
@@ -163,4 +162,17 @@ test('your assistant’s page holds what it remembers about you and its regular 
     assert.equal(document.querySelector('[aria-label=People] .profile-chip').textContent, 'Only Priya');
     assert.equal(reads.some(path => /\/assistant\/(settings|memories)$/.test(path)), false, 'the viewer’s own memory is never read for someone else’s assistant');
   }, { url, fetch: count(server([])) });
+});
+
+test('regular checks that are on show their task\'s next check and link to it (schema 149)', async () => {
+  const on = { checks: true, every_minutes: 120, checklist: '', learn: true, task: { id: 'check1', next_ms: Date.now() + 3600000, next_text: 'Tue 24 Nov, 18:00', paused: false } };
+  await reactFixture(async ({ render, update }) => {
+    await enter();
+    const { RegularChecks } = await import('../src/react/agents/assistant/regular-checks.tsx');
+    await render(() => createElement(RegularChecks, { name: 'Ayati' }));
+    await update(async () => { await new Promise(resolve => setTimeout(resolve, 20)); });
+    assert.match(document.body.textContent, /Next check Tue 24 Nov, 18:00/);
+    const link = [...document.querySelectorAll('a')].find(a => a.textContent === 'Open its task');
+    assert.ok(link.getAttribute('href').endsWith('task=check1'));
+  }, { url, fetch: async path => path.endsWith('/session') ? response(session) : path.endsWith('/assistant/settings') ? response(on) : response({}) });
 });

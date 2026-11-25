@@ -23,31 +23,6 @@ pub(super) fn routes() -> Router<Shared> {
         )
         .route(&format!("{base}/{{id}}/test-event"), post(test_event))
         .route(&format!("{base}/{{id}}/automations"), post(automation))
-        .route(
-            &format!("{base}/{{id}}/forget-subject"),
-            post(forget_subject),
-        )
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Forget {
-    subject: String,
-}
-
-/// "Forget this subject": the subject's rooms are cleared (C3).
-async fn forget_subject(
-    State(app): State<Shared>,
-    RoutePath((w, agent, id)): RoutePath<(String, String, String)>,
-    headers: HeaderMap,
-    Json(input): Json<Forget>,
-) -> ApiResult<Json<Value>> {
-    let user = identity(&app, &headers).await?;
-    Ok(Json(
-        app.store
-            .forget_subject(&user, &w, &agent, &id, &input.subject)
-            .await?,
-    ))
 }
 
 /// Recent events and the event types received so far, never values.

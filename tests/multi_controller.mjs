@@ -5,12 +5,13 @@ import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { workerFixture } from './fixtures/independent_worker.mjs';
 import { until } from './fixtures/polling.mjs';
+import { dueTask, startedRun, startedRuns } from './fixtures/due_task.mjs';
 
 const options = { skip: !process.env.RELAY_TEST_DATABASE_URL, timeout: 240000 };
 const ready = (app, count = 1) => until(() => Number(app.sql("SELECT count(*) FROM relay_executor_slots WHERE state='ready'")) >= count,
   'Executors did not report ready slots', 35000);
 
-test('two controllers on one database share work exactly once, across sessions, schedules and a controller loss', options, async t => {
+test('two controllers on one database share work exactly once, across sessions, task runs and a controller loss', options, async t => {
   const app = await workerFixture(t, { mode: 'pooled', control: true, resumableHold: true, capacity: 4,
     workspaceLimit: 4, modelLimit: 4, leaseSeconds: 15, apiEnv: { AYATI_METRICS_SECONDS: '2' } });
   const b = await app.startController();
@@ -49,18 +50,16 @@ test('two controllers on one database share work exactly once, across sessions, 
   assert.equal(app.sql(`SELECT count(*) FROM relay_chat_jobs WHERE reply IN (${replies}) AND state<>'finished'`), '0');
   app.pass('A burst across two dispatchers completes every reply exactly once');
 
-  // A schedule becomes due while both controllers run their schedulers.
-  const schedule = randomUUID();
-  await b.request(`${path}/agent-profiles/${app.profile.id}/schedules`, app.cookie, { id: schedule, chat, name: 'Two-controller check',
-    content: 'Report once', first_ms: Date.now() + 2500, interval_seconds: 3600, timezone: 'UTC' });
-  await until(() => app.sql(`SELECT count(*) FROM relay_schedule_occurrences WHERE schedule='${schedule}'`) === '1', 'Schedule did not fire', 20000);
-  const occurrence = { reply: app.sql(`SELECT reply FROM relay_schedule_occurrences WHERE schedule='${schedule}'`) };
-  // The run happens in the schedule's own work room; the channel gets one short result.
-  await until(() => app.sql(`SELECT state FROM relay_chat_messages WHERE id='${occurrence.reply}'`) === 'complete', 'Scheduled run did not complete', 45000);
-  await until(() => app.sql(`SELECT state FROM relay_run_posts WHERE reply='${occurrence.reply}'`) === 'posted', 'Scheduled result was not posted', 15000);
+  // A task run becomes due while both controllers run their scheduler loops.
+  const { task: due } = await dueTask(app, { chat, name: 'Two-controller check', dueMs: Date.now() + 2500 });
+  await until(() => startedRuns(app, due) === '1', 'The task run did not start', 20000);
+  const occurrence = { reply: startedRun(app, due) };
+  // The run happens in the task's own conversation (schema 151), its reply there.
+  assert.equal(app.sql(`SELECT chat FROM relay_chat_messages WHERE id='${occurrence.reply}'`), chat);
+  await until(() => app.sql(`SELECT state FROM relay_chat_messages WHERE id='${occurrence.reply}'`) === 'complete', 'The task run did not complete', 45000);
   await new Promise(resolve => setTimeout(resolve, 3000));
-  assert.equal(app.sql(`SELECT count(*) FROM relay_schedule_occurrences WHERE schedule='${schedule}'`), '1');
-  app.pass('A due schedule fires once although both controllers run the scheduler');
+  assert.equal(startedRuns(app, due), '1');
+  app.pass('A due task run starts once although both controllers run the scheduler');
 
   // Controller A is lost mid-reply; the reply runs on B's executor and finishes.
   await app.stop(onA);

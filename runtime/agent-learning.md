@@ -13,7 +13,7 @@ their own conversation, not in knowledge every user's request carries.
 
 Only conversations people share: channels and groups with two or more people, or
 public ones. Never private chats (the Knowledge tab's promise "Notes are not
-learned automatically from private chats" holds), work rooms, automations or
+learned automatically from private chats" holds), automations or
 anything from outside the workspace. From those, since the agent's last run (at
 most seven days back):
 

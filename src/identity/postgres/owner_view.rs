@@ -9,8 +9,8 @@
 //!
 //! - the requester is one of the agent's owners, or an admin;
 //! - the conversation is their direct chat with the agent, which only they
-//!   read (not a channel, a group, a work room or an email thread);
-//! - a person's message started the request (not a schedule, an event trigger,
+//!   read (not a channel, a group or an email thread);
+//! - a person's message started the request (not a task's run, an event trigger,
 //!   a hand-off or a panel update, whose content may come from outside).
 //!
 //! Anyone else gets "unavailable" and nothing else. Reading one request from a
@@ -43,7 +43,7 @@ pub(crate) struct Look {
     /// active, waiting, done, failed, review, stopped.
     #[serde(default)]
     status: Option<String>,
-    /// chat, schedule, trigger, handoff, panel.
+    /// chat, task, trigger, handoff, panel.
     #[serde(default)]
     kind: Option<String>,
     /// Only work from the last so many hours.
@@ -81,12 +81,12 @@ async fn view(db: &impl ConnectionTrait, job: &Job) -> Result<Option<&'static st
     }
     // Their direct chat with the agent, which only they read, and a request a
     // person's message started.
-    let private: bool = query(db, "SELECT (c.kind='direct' AND NOT COALESCE((to_jsonb(c)->>'work')::boolean,false)
+    let private: bool = query(db, "SELECT (c.kind='direct'
           AND (SELECT count(*) FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id)=1
           AND EXISTS(SELECT 1 FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id=$3)
           AND EXISTS(SELECT 1 FROM relay_chat_agents x WHERE x.workspace=c.workspace AND x.chat=c.id AND x.agent=$4)
           AND NOT EXISTS(SELECT 1 FROM relay_communication_conversations v WHERE v.workspace=c.workspace AND v.chat=c.id)
-          AND NOT EXISTS(SELECT 1 FROM relay_schedule_occurrences o WHERE o.workspace=$1 AND o.reply=$5)
+          AND NOT EXISTS(SELECT 1 FROM relay_task_wakeups k WHERE k.workspace=$1 AND k.reply=$5)
           AND NOT EXISTS(SELECT 1 FROM relay_event_deliveries d WHERE d.workspace=$1 AND d.reply=$5)
           AND NOT EXISTS(SELECT 1 FROM relay_agent_handoffs h WHERE h.workspace=$1 AND h.child=$5)
           AND NOT EXISTS(SELECT 1 FROM relay_home_update_runs hu WHERE hu.workspace=$1 AND hu.reply=$5)) AS private

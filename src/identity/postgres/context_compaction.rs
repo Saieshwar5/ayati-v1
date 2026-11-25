@@ -3,8 +3,8 @@
 //! context window), Cuckoo writes the room's working summary itself,
 //! in the background after the agent's work finishes. It reads exactly what the
 //! agent's own history would show in that room, and nothing from other rooms:
-//! one person's private conversation, a shared conversation's single brief, a
-//! work room or one subject's room. Recent messages still reach the agent word
+//! one person's private conversation or a shared conversation's single brief.
+//! Recent messages still reach the agent word
 //! for word; the summary carries what scrolled out of view. Like the agent's own
 //! summaries it is an untrusted interpretation that cites its messages.
 use super::working_context::Brief;
@@ -136,33 +136,6 @@ impl PgStore {
         tx.commit().await?;
         Ok(saved == 1)
     }
-}
-
-/// Whether this schema lets forgetting remove saved context (120 and later).
-pub(super) async fn forgetting_ready(tx: &DatabaseTransaction) -> Result<bool> {
-    Ok(query(tx, "SELECT EXISTS(SELECT 1 FROM pg_attribute WHERE attrelid=to_regclass('relay_working_context') AND attname='made_by' AND NOT attisdropped) AS ready", vec![])
-        .await?.context("Schema check")?.try_get("", "ready")?)
-}
-
-/// Removes a room's saved context: summaries, history reads and the copies of
-/// the agent's input kept for each attempt. Only inside a transaction that set
-/// `relay.forget_context`.
-pub(super) async fn forget_room(tx: &DatabaseTransaction, w: &str, room: &str) -> Result<()> {
-    execute(
-        tx,
-        "DELETE FROM relay_working_context WHERE workspace=$1 AND chat=$2",
-        vec![w.into(), room.into()],
-    )
-    .await?;
-    execute(tx, "DELETE FROM relay_context_reads r USING relay_context_attempts a WHERE a.workspace=$1 AND a.chat=$2
-        AND r.workspace=a.workspace AND r.task=a.task AND r.claim=a.claim", vec![w.into(), room.into()]).await?;
-    execute(
-        tx,
-        "DELETE FROM relay_context_attempts WHERE workspace=$1 AND chat=$2",
-        vec![w.into(), room.into()],
-    )
-    .await?;
-    Ok(())
 }
 
 /// Whether new messages of this size are due a summary: they are about to

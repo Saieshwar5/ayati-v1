@@ -411,12 +411,12 @@ checked with a real model: whether its lines are good is unproven.
 ## One room (second piece)
 
 - **Schedules and triggers run in its room.** An assistant's schedule or event
-  trigger never opens a work room. Its first run adds one line to the room
+  trigger runs in its room (since schema 151 every task and trigger runs in its
+  conversation, and work rooms are gone). Its first run adds one line to the room
   ("Schedule: Delivery review", "Trigger: New mail"), and every run is a thread
   under that line (`relay_assistant_threads`): the request and the assistant's
-  reply. A run reads the room and the earlier runs. Its Memory setting is not
-  used, because there is one room. Triggers with per-subject memory keep their
-  subject rooms.
+  reply. A run reads the room and the earlier runs. (The Memory setting and
+  per-subject rooms were removed in schema 151.)
 - **It remembers what its tools told it.** For other agents, a reply built from
   a tool call or an event is left out of later context, because being in a
   conversation is not permission to reuse a source. In an assistant's own room
@@ -577,6 +577,36 @@ and `POST …/assistant/take-over` are gone. The two columns it added to
 assistant to do there, and `anchor` is the first message it answers for you.
 The mark on a message's toolbar now asks for one reply to that message.
 
+## Since schema 149: the regular check is a task
+
+Built 2026-11-24, step 5 of [one system](../designs/agent-tasks/one-system.md) (decision
+7). Migration `m20261124_000149_check_tasks` gives every assistant whose checks are on a
+task **"Regular check"** for its person (`origin='check'`,
+`relay_assistant_settings.task`): a minute rule with the chosen interval, `precheck =
+'messages'`, the checklist as `instructions`, in the person's chat with their assistant,
+its next run kept from the old due time. Checks that are off get no task; turning them on
+makes it.
+
+- **The code check comes first.** When a run is due, Cuckoo looks in code for direct
+  messages and mentions since the last check (`checked`). Nothing new and no checklist:
+  the run is recorded as no change and no model is called. Otherwise the assistant runs
+  in the "Regular check" thread, as before; when nothing needs the person it answers
+  `NO_CHANGE` and nothing is shown (before: "Nothing new."). A check due while the last
+  is still running is skipped, as for any task.
+- **The panel edits the task.** Regular checks keeps on/off, how often and the checklist.
+  Saving changes the task in the same transaction: off pauses it, on resumes it, a new
+  interval counts from now, the checklist becomes its instructions. The panel shows the
+  next check and links to the task. Pausing it on the task page shows checks as off;
+  ending it there turns them off. The agent can pause it in chat but not change its times
+  or checklist.
+- **Removed:** the separate check dispatcher (`dispatch_checks`) and its place in the
+  scheduler loop. `GET …/assistant/settings` adds `task` (next run, paused).
+
+Checks: PostgreSQL `tasks::check_tests` (migration from schema 148, quiet runs without a
+model call, a run in the check thread) and
+`assistants::settings::tests::a_regular_check_runs_only_when_something_reached_its_person`
+(on, off, interval, checklist, ending); web `assistant-page`.
+
 ## Drafts, notes about you and regular checks (schema 129)
 
 - **Drafts.** Since 2026-11-21 a draft is asked for by mentioning your
@@ -622,7 +652,7 @@ visit.
   chat, another member unable to talk to it or see it; renaming, and refusals
   for opening it to others, adding an owner and a channel.
 - PostgreSQL `assistants::tests`, second piece: a schedule's runs as one thread in
-  the room with no work room, the second run reading the first; a tool-built
+  the room, the second run reading the first; a tool-built
   reply remembered by an assistant and still left out for another agent.
 - Web `tests/navigation.test.mjs` (the first section, not repeated under Direct
   messages, the chat's line) and `tests/assistant-people.test.mjs` (no Only me

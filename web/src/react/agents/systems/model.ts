@@ -63,12 +63,10 @@ export const sendTestEvent = (agent: string, id: string, type: string, data: Rec
 export type ResultField = { name: string; kind: 'text' | 'number' | 'yes_no' | 'date' };
 export type SystemAutomation = {
   id: string; system: string; event: string; fields: string[]; name: string; instructions: string;
-  chat?: string; memory?: 'fresh' | 'remember' | 'subject'; filter: Record<string, string>; results?: ResultField[];
+  chat?: string; filter: Record<string, string>; results?: ResultField[];
 };
 export const createSystemAutomation = (agent: string, input: SystemAutomation) =>
   identityRequest<{ id: string; state: string }>(path(agent, `/${input.system}/automations`), input);
 /** Event types: lowercase letters, digits, dots and underscores, starting with a letter. */
 export const validType = (type: string) => /^[a-z][a-z0-9_.]{0,63}$/.test(type);
 export const validField = (name: string) => /^[A-Za-z0-9_-]{1,128}$/.test(name);
-export const forgetSubject = (agent: string, id: string, subject: string) =>
-  identityRequest<{ forgotten: number }>(path(agent, `/${id}/forget-subject`), { subject });

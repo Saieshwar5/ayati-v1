@@ -54,7 +54,7 @@ async fn other_side(
            CROSS JOIN LATERAL (
              SELECT 'user' AS kind,p.user_id AS id FROM relay_chat_people p WHERE p.workspace=c.workspace AND p.chat=c.id AND p.user_id<>$3
              UNION ALL SELECT 'agent',a.agent FROM relay_chat_agents a WHERE a.workspace=c.workspace AND a.chat=c.id) o
-         WHERE c.workspace=$1 AND c.id=$2 AND c.kind='direct' AND NOT c.work",
+         WHERE c.workspace=$1 AND c.id=$2 AND c.kind='direct'",
         vec![w.into(), chat.into(), owner.into()],
     )
     .await?;

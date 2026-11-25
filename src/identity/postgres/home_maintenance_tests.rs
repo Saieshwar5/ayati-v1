@@ -13,7 +13,13 @@ use crate::{
 use serde_json::json;
 
 pub(super) async fn setup() -> (PgStore, User, String, Job, String, String, PanelDraft) {
-    let (mut db, owner, w, write, job) = super::control_tests::setup("allow").await;
+    setup_on(fixture().await).await
+}
+/// The same, on a database an upgrade test built at an older schema.
+pub(super) async fn setup_on(
+    db: PgStore,
+) -> (PgStore, User, String, Job, String, String, PanelDraft) {
+    let (mut db, owner, w, write, job) = super::control_tests::setup_on(db, "allow").await;
     let read = uuid::Uuid::new_v4().to_string();
     db.control_system(
         &owner,
@@ -100,6 +106,16 @@ pub(super) async fn claim(db: &PgStore, w: &str, reply: &str) -> Job {
     let mut job: Job = serde_json::from_value(row.try_get("", "payload").unwrap()).unwrap();
     job.claim = Some(claim);
     job
+}
+/// Make the panel's wanted update due now.
+pub(super) async fn due_now(db: &PgStore, panel: &str) {
+    execute(
+        &db.db,
+        "UPDATE relay_home_update_wanted SET due_ms=1 WHERE panel=$1",
+        vec![panel.into()],
+    )
+    .await
+    .unwrap();
 }
 pub(super) async fn panel(db: &PgStore, owner: &User, w: &str) -> Value {
     db.home_panels(owner, w).await.unwrap()["panels"][0].clone()
@@ -284,20 +300,22 @@ async fn home_maintenance_pause_fences_inflight_and_cancels_unstarted_manual_upd
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn home_maintenance_schedule_coalesces_and_revocation_hides_saved_data() {
+async fn home_maintenance_interval_coalesces_and_revocation_hides_saved_data() {
     let (db, owner, w, _original, read, _, p) = setup().await;
     db.save_home_agreement(&owner, &w, &p.id, &agreement(0, Some(60)))
         .await
         .unwrap();
     let state = panel(&db, &owner, &w).await;
-    let due = state["maintenance"]["next_ms"].as_i64().unwrap();
-    let (one, two) = tokio::join!(db.dispatch_schedules_at(due), db.dispatch_schedules_at(due));
+    assert!(state["maintenance"]["next_ms"].as_i64().is_some());
+    due_now(&db, &p.id).await;
+    let (one, two) = tokio::join!(db.dispatch_panel_updates(), db.dispatch_panel_updates());
     assert_eq!(one.unwrap() + two.unwrap(), 1);
     let accepted = db
         .update_home_panel(&owner, &w, &p.id, &update(1))
         .await
         .unwrap();
-    assert_eq!(db.dispatch_schedules_at(due + 120000).await.unwrap(), 0);
+    due_now(&db, &p.id).await;
+    assert_eq!(db.dispatch_panel_updates().await.unwrap(), 0);
     let job = claim(&db, &w, accepted["reply"].as_str().unwrap()).await;
     observed(&db, &job, &read).await;
     db.refresh_home_panel(&job, &refresh("9")).await.unwrap();
@@ -320,7 +338,12 @@ async fn home_maintenance_schedule_coalesces_and_revocation_hides_saved_data() {
     .await;
     assert_eq!(panel(&db, &owner, &w).await["active"]["available"], false);
     assert!(!super::source_access::allowed(&db.db, &job).await.unwrap());
-    assert_eq!(db.dispatch_schedules_at(due + 180000).await.unwrap(), 0);
+    due_now(&db, &p.id).await;
+    assert_eq!(db.dispatch_panel_updates().await.unwrap(), 0);
+    assert!(
+        panel(&db, &owner, &w).await["maintenance"]["next_ms"].is_null(),
+        "a panel that can't update drops its interval"
+    );
     assert!(
         db.update_home_panel(&owner, &w, &p.id, &update(1))
             .await

@@ -28,7 +28,7 @@ node --test tests/controller_roles.mjs
 
 It runs a web controller, a work controller and an executor on one database and
 checks queueing with no work controller, prompt pick-up through PostgreSQL's
-notification, the live stream, a schedule, and the loss of each controller in turn.
+notification, the live stream, a task run, and the loss of each controller in turn.
 
 ## Generic preparation before readiness
 

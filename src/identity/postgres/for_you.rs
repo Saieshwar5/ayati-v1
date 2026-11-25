@@ -52,7 +52,6 @@ impl PgStore {
     pub async fn for_you(&self, user: &User, w: &str, before: Option<&str>) -> Result<Value> {
         let tx = self.read_tx(w).await?;
         role(&tx, w, &user.id).await?;
-        let hidden = super::work_rooms::hidden(&tx).await?;
         let for_me =
             super::channel_threads::for_me("$2", super::channel_threads::ready(&tx).await?);
         let name = "CASE WHEN m.kind='agent' THEN (SELECT a.name FROM relay_shared_agents a WHERE a.workspace=m.workspace AND a.id=m.author)
@@ -62,7 +61,7 @@ impl PgStore {
                'author',m.author,'kind',m.kind,'name',{name},'state',m.state,'revision',m.revision,'at',m.at,
                'content',left(m.content,{PREVIEW}),'reason',{REASON}) AS data
              FROM {UNREAD_FROM}
-             WHERE c.workspace=$1{hidden} AND c.kind<>'direct' AND {VISIBLE_WHERE} AND {for_me}"
+             WHERE c.workspace=$1 AND c.kind<>'direct' AND {VISIBLE_WHERE} AND {for_me}"
         );
         let mut new = if before.is_none() {
             let sql =

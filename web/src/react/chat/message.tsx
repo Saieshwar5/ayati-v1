@@ -4,7 +4,6 @@ import { MessageReceipt, useSeen } from './receipt';
 import { filesOnlyContent, type Directory, type Message } from './model';
 import { ApprovalCard } from '../approvals/approval-card';
 import { FollowUpLine, TaskChip } from './task-chip';
-import { RoutineCard } from './routine-proposal';
 import { AgentDraftCard } from './agent-draft-card';
 import { ReplyProgress, useCancelReply } from './reply-progress';
 import { QuotedMessage } from './quoted-message';
@@ -78,7 +77,6 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
     <CoordinationView data={message.coordination} shownIn={message.thread ?? null} />
     {message.approval && <ApprovalCard reference={message.approval} />}
     {message.task && <TaskChip task={message.task} />}
-    {message.routines?.map(routine => <RoutineCard key={routine.id} routine={routine} agent={name} />)}
     {message.agent_setup && <AgentDraftCard reply={message.id} ready={message.state === 'complete'} assistant={name} />}
     {message.questions && <QuestionCards questions={message.questions} />}
     {message.kind === 'agent' && pictures}
@@ -86,6 +84,8 @@ export function ChatMessage({ message, directory, thread, openThread, reply, quo
     {!own && edited}
     <ReactionBar message={message} reactions={reactions} directory={directory} />
   </>;
+  // A task run that found nothing to report stays out of the conversation.
+  if (message.quiet) return null;
   if (message.follow_up) return <FollowUpLine element={element} id={message.id} task={message.follow_up} time={time} />;
   // Tapping a message on a touch screen focuses it and reveals its actions.
   return <article ref={element} tabIndex={-1} data-message-id={message.id} className={`chat-message${own ? ' chat-message-own' : ''}${compact ? ' chat-message-compact' : ''}${focused ? ' chat-message-focused' : ''}`} aria-label={own ? 'Message from you' : `Message from ${name}`}>

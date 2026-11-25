@@ -43,7 +43,6 @@ pub(super) async fn event_setup() -> (Setup, String, Source) {
         source: source.id.clone(),
         binding: source.fingerprint().unwrap(),
         chat: Some(s.c.clone()),
-        memory: None,
         name: "Source task".into(),
         instructions: "Review the event and obtain help if needed.".into(),
         connection_revision: authority["connection_revision"].as_i64().unwrap(),
@@ -63,21 +62,7 @@ pub(super) async fn event_setup() -> (Setup, String, Source) {
     .await
     .unwrap();
     s.db.dispatch_events().await.unwrap();
-    // Since schema 115 an event run happens in a private work room, where there
-    // is no hand-off (`a_new_event_run_cannot_hand_off`). Deliveries accepted
-    // before then ran in the trigger's channel and may still hand off; these
-    // tests keep their source guards covered by moving the run there.
-    execute(&s.db.db, "UPDATE relay_chat_messages SET chat=$1 WHERE id IN (SELECT message FROM relay_event_deliveries WHERE event_id='source-event' UNION SELECT reply FROM relay_event_deliveries WHERE event_id='source-event')",
-        vec![s.c.clone().into()]).await.unwrap();
-    execute(&s.db.db, "UPDATE relay_chat_jobs SET payload=jsonb_set(payload,'{chat}',to_jsonb($1::text)) WHERE reply=(SELECT reply FROM relay_event_deliveries WHERE event_id='source-event')",
-        vec![s.c.clone().into()]).await.unwrap();
-    execute(
-        &s.db.db,
-        "UPDATE relay_event_deliveries SET room=NULL WHERE event_id='source-event'",
-        vec![],
-    )
-    .await
-    .unwrap();
+    // The run happens in the trigger's channel (schema 151), where it may hand off.
     let row = query(
         &s.db.db,
         "SELECT reply FROM relay_event_deliveries WHERE event_id='source-event'",
@@ -96,8 +81,8 @@ pub(super) async fn event_setup() -> (Setup, String, Source) {
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
 async fn a_new_event_run_cannot_hand_off() {
-    // Like a schedule's run, an event run happens in a private work room
-    // (schema 115), which has no other agents to ask.
+    // A trigger set up without a conversation runs in its person's direct chat
+    // with the agent (schema 151), which has no other agents to ask.
     let s = setup().await;
     s.db.cancel_assignment(&s.owner, &s.w, &s.c, &s.parent.reply)
         .await
@@ -132,7 +117,6 @@ async fn a_new_event_run_cannot_hand_off() {
         source: source.id.clone(),
         binding: source.fingerprint().unwrap(),
         chat: None,
-        memory: None,
         name: "Room task".into(),
         instructions: "Review the event.".into(),
         connection_revision: authority["connection_revision"].as_i64().unwrap(),

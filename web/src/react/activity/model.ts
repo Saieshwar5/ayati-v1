@@ -12,7 +12,7 @@ export type ActivityItem = {
   id: string; chat: string; thread: string | null; conversation_name: string; conversation_kind: string; in_conversation: boolean;
   /** The door the request came through when not Chat (E3). */
   door?: string | null;
-  agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'schedule' | 'trigger' | 'handoff' | 'panel';
+  agent: string; agent_name: string; agent_avatar: string | null; kind: 'chat' | 'task' | 'trigger' | 'handoff' | 'panel';
   /** A Home panel refresh names its panel. */
   panel?: { id: string; title: string } | null;
   /** The task this request works towards, if any. */
@@ -20,14 +20,10 @@ export type ActivityItem = {
   requester: string; requester_name: string | null; summary: string; state: string; latest_update: string;
   created_ms: number; finished_ms: number | null; can_cancel: boolean; approvals: { id: string; title: string; state: string }[];
 };
-/** The schedule a run came from, and whether its result was posted (schema 56). */
-export type RunSchedule = { id: string; name: string; agent: string; state: string; revision: number; principal: string; interval_seconds: number | null;
-  post_to: string | null; posted: 'posted' | 'skipped' | null; post_reason: string | null;
-  /** The run happened in the schedule's own work room, which isn't a conversation. */
-  room: boolean };
-/** The event trigger a run came from (schema 115): the same facts as a schedule's. */
-export type RunTrigger = Omit<RunSchedule, 'interval_seconds'> & { source: string | null; memory: 'fresh' | 'remember' | 'subject' };
-export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; schedule?: RunSchedule | null; trigger?: RunTrigger | null;
+/** The event trigger a run came from; the run happened in its conversation (schema 151). */
+export type RunTrigger = { id: string; name: string; agent: string; state: string; revision: number; principal: string;
+  runs_in: string | null; source: string | null; task: string | null };
+export type Details = ActivityItem & { message: string | null; reply: string; steps: Step[]; fix: string | null; disagreement: string | null; trigger?: RunTrigger | null;
   /** What the person added while it ran (Phase 4), and whether the agent saw it. */
   added?: { text: string; from: string; at: number; seen: boolean; carried: string | null }[];
   /** Tokens through the model gateway (core-agent CA3); zero calls without it. */
@@ -36,7 +32,7 @@ export const steerRequest = (reply: string, text: string) => identityRequest(`${
 export const steerTask = (task: string, text: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/steer`, { text });
 export type Totals = {
   requests: number; done: number; failed: number; review: number; waiting: number; automatic: number; approved: number;
-  people: number; channels: number; schedule_runs: number;
+  people: number; channels: number; task_runs: number;
   per_day: { day: string; count: number }[]; by_agent: { agent: string; name: string; avatar: string | null; count: number }[];
 };
 export type AgentCard = { id: string; name: string; role: string; avatar: string | null; paused: boolean; paused_note: string | null;
@@ -58,7 +54,7 @@ export type FixKind = 'request' | 'needs' | 'tasks' | 'agent' | 'settings' | 'ne
 export type FixGroup = { cause: string; title: string; count: number; fix: { kind: FixKind; label: string; ref?: string };
   agents: { id: string; name: string }[];
   items: { agent: string; agent_name: string; ref: string; detail: string | null; at: number | null; cause?: string; request?: string; fix?: string | null }[] };
-export type ComingItem = { kind: 'routine' | 'follow_up' | 'due'; id: string; agent: string; agent_name: string; title: string; at: number; revision?: number; can_pause: boolean };
+export type ComingItem = { kind: 'follow_up' | 'due'; id: string; agent: string; agent_name: string; title: string; at: number; can_pause: boolean };
 export const dismissNeed = (id: string) => identityRequest(`${root}/needs/${encodeURIComponent(id)}/dismiss`, {});
 export const cancelFollowUp = (task: string) => identityRequest(`${root}/tasks/${encodeURIComponent(task)}/follow-up/cancel`, {});
 /** An event no agent acted on, with the recorded reason; never the event's contents. */
@@ -116,9 +112,12 @@ export function status(item: { state: string; approvals?: { state: string }[] })
     default: return { label: 'Working', tone: 'working' };
   }
 }
-export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', schedule: 'Schedule', trigger: 'Trigger', handoff: 'Hand-off', panel: 'Panel update' };
-const place = (item: ActivityItem) => item.kind === 'panel' ? 'Home panel' : item.kind === 'schedule' ? `Schedule · ${item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
-  : item.conversation_kind === 'direct' ? 'direct chat' : `#${item.conversation_name}`;
+export const kindLabels: Record<ActivityItem['kind'], string> = { chat: 'Chat', task: 'Task run', trigger: 'Trigger', handoff: 'Hand-off', panel: 'Panel update' };
+/** The conversation a request happened in; a task's or trigger's run happens in its
+ * conversation too (schema 151). */
+export const conversationLabel = (item: ActivityItem) => item.conversation_kind === 'direct' ? 'direct chat' : `#${item.conversation_name}`;
+const place = (item: ActivityItem) => item.kind === 'panel' ? 'Home panel' : item.kind === 'task' ? `Task · ${item.task?.title ?? item.conversation_name}` : item.kind === 'trigger' ? `trigger in ${item.conversation_name}`
+  : conversationLabel(item);
 export const where = (item: ActivityItem) => [place(item), doorLabel(item.door)].filter(Boolean).join(' · ');
 export const clock = (ms: number) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 export function dayLabel(ms: number): string {
@@ -157,19 +156,36 @@ export function foldPanelUpdates(items: ActivityItem[]): HistoryEntry[] {
 }
 
 /** A task: a promise with an outcome (people-and-agents-first, Phase 2). */
-export type TaskStatus = 'open' | 'working' | 'waiting' | 'needs_fixing' | 'scheduled' | 'late' | 'done' | 'failed' | 'cancelled' | 'not_task';
-export type TaskRef = { id: string; title: string; kind: 'automatic' | 'commitment'; status: TaskStatus };
+export type TaskStatus = 'open' | 'working' | 'waiting' | 'needs_fixing' | 'scheduled' | 'late' | 'paused' | 'done' | 'failed' | 'cancelled' | 'not_task';
+/** A task on a message; schema 144 adds who it is for, whether it repeats and its next run. */
+export type TaskRef = { id: string; title: string; kind: 'automatic' | 'commitment'; status: TaskStatus;
+  requester?: string; repeats?: boolean; paused?: boolean; next_text?: string | null;
+  /** On a wake-up's input in Chat: what woke the task (a run, an event, a follow-up, the next part). */
+  wakeup?: 'repeat' | 'event' | 'follow_up' | 'continue' };
+/** A task's lifetime (designs/agent-tasks): its rule as a sentence and its next run. */
+export type TaskLifetime = { rule_text: string | null; next_ms: number | null; next_text: string | null; timezone: string;
+  runs: number; max_runs: number | null; paused: boolean };
+export type TaskRunState = 'planned' | 'working' | 'done' | 'failed' | 'cancelled' | 'no_change' | 'skipped' | 'missed' | 'blocked';
+export type TaskRun = { at: number; kind: string; run: number | null; detail: string; reply: string | null; state: TaskRunState };
+export const runLabels: Record<TaskRunState, string> = {
+  planned: 'Planned', working: 'Working', done: 'Done', failed: 'Failed', cancelled: 'Stopped', no_change: 'No change',
+  skipped: 'Skipped', missed: 'Missed', blocked: "Couldn't start",
+};
 export type TaskItem = TaskRef & {
   origin: string; done_when: string | null; waiting_on: 'approval' | 'question' | 'helper' | null;
   agent: string; agent_name: string; agent_avatar: string | null; requester: string; requester_name: string | null;
   chat: string; conversation_name: string; conversation_kind: string; created_ms: number; start_ms: number | null; due_ms: number | null;
-  closed_ms: number | null; outcome: string | null; result: string | null; steps: number;
+  closed_ms: number | null; outcome: string | null; result: string | null; steps: number; repeats?: boolean; paused?: boolean;
   /** The agent's next booked follow-up, and why the last one couldn't run. */
   next_wakeup_ms?: number | null; blocked_wakeup?: string | null;
 };
-export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[] };
+export type TaskDetail = TaskItem & { may_close: boolean; requests: { id: string; state: string; created_ms: number; summary: string }[];
+  lifetime?: TaskLifetime | null; runs?: TaskRun[]; notes?: { note: string; created_ms: number }[]; paused_reason?: string | null;
+  /** The event trigger that wakes this task (schema 148); it resumes on the agent's page. */
+  trigger?: TaskTrigger | null };
+export type TaskTrigger = { id: string; state: 'enabled' | 'paused' | 'blocked' | 'removed'; detail: string; source: string | null };
 export const taskLabels: Record<TaskStatus, string> = {
-  open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Follow-up set', late: 'Late',
+  open: 'Open', working: 'Working', waiting: 'Waiting', needs_fixing: 'Needs fixing', scheduled: 'Follow-up set', late: 'Late', paused: 'Paused',
   done: 'Done', failed: 'Failed', cancelled: 'Cancelled', not_task: 'Not a task',
 };
 export const taskTone = (status: TaskStatus) => status === 'needs_fixing' || status === 'late' || status === 'failed' ? 'problem'
@@ -180,5 +196,8 @@ export const loadTasks = (scope: Scope, signal?: AbortSignal) =>
 export const loadTask = (id: string, signal?: AbortSignal) => identityRequest<TaskDetail>(`${root}/tasks/${encodeURIComponent(id)}`, undefined, signal);
 export const closeTask = (id: string, outcome: 'done' | 'cancelled' | 'not_task') =>
   identityRequest<{ id: string; outcome: string }>(`${root}/tasks/${encodeURIComponent(id)}/close`, { outcome });
+export const pauseTask = (id: string, paused: boolean) =>
+  identityRequest<TaskLifetime>(`${root}/tasks/${encodeURIComponent(id)}/pause`, { paused });
+export const skipNextRun = (id: string) => identityRequest<TaskLifetime>(`${root}/tasks/${encodeURIComponent(id)}/skip`, {});
 export const makeTask = (reply: string) => identityRequest<{ id: string; title: string }>(`${root}/requests/${encodeURIComponent(reply)}/task`, {});
 export const taskUrl = (id: string) => workspaceUrl(`/?view=activity&tab=open&task=${encodeURIComponent(id)}`);
