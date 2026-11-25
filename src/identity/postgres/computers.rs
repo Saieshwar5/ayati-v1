@@ -104,17 +104,13 @@ impl PgStore {
                 .is_some_and(|c| c.on))
     }
 
-    /// An agent's computer can be turned on only where computers are set up; one already
-    /// on stays saveable if they are taken away.
+    /// "On" is every agent's default and takes effect only where computers are set up
+    /// (`computer_on`), so it is always saveable.
     pub(super) fn computer_allowed(
         &self,
-        input: &crate::identity::agents::config::SaveAgent,
-        was_on: bool,
+        _input: &crate::identity::agents::config::SaveAgent,
+        _was_on: bool,
     ) -> Result<()> {
-        ensure!(
-            !input.settings.computer.on || was_on || self.computers.is_some(),
-            "Computers are not set up on this Cuckoo yet"
-        );
         Ok(())
     }
 

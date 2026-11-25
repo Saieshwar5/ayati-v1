@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 #[serde(default, deny_unknown_fields)]
 pub struct ComputerSettings {
-    /// Off for every agent until its owner or an admin turns it on.
+    /// On for every agent unless its owner or an admin turns it off: an agent works on
+    /// Library files on its computer. It still needs computers set up on this Cuckoo.
     pub on: bool,
     /// small, standard or large.
     pub size: String,
@@ -24,7 +25,7 @@ pub struct ComputerSettings {
 impl Default for ComputerSettings {
     fn default() -> Self {
         Self {
-            on: false,
+            on: true,
             size: "standard".into(),
             programs: "allow".into(),
             browser: "allow".into(),
@@ -99,7 +100,7 @@ mod tests {
     fn settings_are_checked_and_turned_into_network_rules() {
         let mut settings = ComputerSettings::default();
         settings.validate().unwrap();
-        assert_eq!((settings.on, settings.internet()), (false, Internet::None));
+        assert_eq!((settings.on, settings.internet()), (true, Internet::None));
         settings.internet = "listed".into();
         settings.websites = vec!["portal.sharmatraders.in".into(), "*.zoho.in".into()];
         settings.validate().unwrap();

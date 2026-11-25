@@ -94,7 +94,8 @@ async fn idle_for_an_hour(s: &Setup) {
 async fn an_agent_works_with_commands_and_files_in_its_requests_folder() {
     let s = setup().await;
     let job = ask(&s, "Total the May invoices").await;
-    // Off until its owner turns it on; nothing is made at the provider.
+    // Switched off by its owner: nothing is made at the provider.
+    computer(&s, json!({"on": false})).await;
     let off = run(&s, &job, "ls").await;
     assert_eq!(off["state"], "denied");
     assert!(off["message"].as_str().unwrap().contains("switched off"));
@@ -422,18 +423,16 @@ async fn programs_can_ask_first_or_be_blocked_and_computers_need_setting_up() {
     let ran = run(&s, &resumed, "python3 report.py").await;
     assert_eq!(ran["state"], "completed", "{ran}");
 
-    // Without a providers file nothing can be turned on, and agents are told plainly.
+    // "On" is the default and saves anywhere; without a providers file it has no effect,
+    // and agents are told plainly.
     s.db.computers = None;
     let save: crate::identity::agents::config::SaveAgent = serde_json::from_value(json!({
         "id": "new-agent", "name": "Mira", "role": "Accounts", "model": "fixture", "audience": "only_me",
         "revision": 0, "settings": {"computer": {"on": true}}
     }))
     .unwrap();
-    assert!(s.db.computer_allowed(&save, false).is_err());
-    assert!(
-        s.db.computer_allowed(&save, true).is_ok(),
-        "already on stays saveable"
-    );
+    assert!(s.db.computer_allowed(&save, false).is_ok());
+    assert!(!s.db.computer_on(&s.w, &s.agent).await.unwrap());
     assert!(!s.db.computer_on(&s.w, &s.agent).await.unwrap());
     assert_eq!(run(&s, &resumed, "ls").await["state"], "unavailable");
 }
