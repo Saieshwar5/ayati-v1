@@ -53,6 +53,7 @@ pub fn observed(name: &str, input: &Value) -> bool {
             | "file_document"
             | "set_document_fields"
             | "open_document"
+            | "propose_meaning_search"
             | "save_file"),
         ) => crate::library_schema::observed(name, input),
         Some(name @ ("web_search" | "read_web_page")) => crate::web_schema::observed(name, input),

@@ -45,7 +45,7 @@ impl PgStore {
         if vectors(&self.db).await?.is_none() {
             return Ok(None);
         }
-        const WAITING: &str = "FROM relay_library_passages p JOIN relay_library_items i ON i.workspace=p.workspace AND i.id=p.item AND NOT i.trashed AND p.revision=i.revision LEFT JOIN relay_library_embeddings e ON e.workspace=p.workspace AND e.item=p.item AND e.position=p.position AND e.model=$1 AND e.revision=p.revision WHERE e.item IS NULL";
+        const WAITING: &str = "FROM relay_library_passages p JOIN relay_library_items i ON i.workspace=p.workspace AND i.id=p.item AND NOT i.trashed AND p.revision=i.revision LEFT JOIN relay_library_embeddings e ON e.workspace=p.workspace AND e.item=p.item AND e.position=p.position AND e.model=$1 AND e.revision=p.revision WHERE e.item IS NULL AND relay_library_meaning(i.workspace,i.id)";
         let Some(row) = query(
             &self.db,
             &format!("SELECT p.workspace {WAITING} LIMIT 1"),
@@ -86,7 +86,7 @@ impl PgStore {
 
     /// Up to a few documents whose summary is missing or older than their revision.
     pub(crate) async fn library_pending_summaries(&self, limit: i64) -> Result<Vec<Value>> {
-        json_rows(&self.db,&format!("SELECT jsonb_build_object('workspace',i.workspace,'item',i.id,'revision',i.revision,'title',i.title,'text',(SELECT left(string_agg(p.text,E'\\n' ORDER BY p.position),6000) FROM relay_library_passages p WHERE p.workspace=i.workspace AND p.item=i.id AND p.revision=i.revision)) AS data FROM relay_library_items i JOIN relay_library_indexed x ON x.workspace=i.workspace AND x.item=i.id AND x.revision=i.revision LEFT JOIN relay_library_summaries s ON s.workspace=i.workspace AND s.item=i.id AND s.revision=i.revision WHERE s.item IS NULL AND NOT i.trashed AND i.kind<>'folder' AND EXISTS(SELECT 1 FROM relay_library_passages p WHERE p.workspace=i.workspace AND p.item=i.id) ORDER BY i.updated DESC LIMIT {limit}"),vec![]).await
+        json_rows(&self.db,&format!("SELECT jsonb_build_object('workspace',i.workspace,'item',i.id,'revision',i.revision,'title',i.title,'text',(SELECT left(string_agg(p.text,E'\\n' ORDER BY p.position),6000) FROM relay_library_passages p WHERE p.workspace=i.workspace AND p.item=i.id AND p.revision=i.revision)) AS data FROM relay_library_items i JOIN relay_library_indexed x ON x.workspace=i.workspace AND x.item=i.id AND x.revision=i.revision LEFT JOIN relay_library_summaries s ON s.workspace=i.workspace AND s.item=i.id AND s.revision=i.revision WHERE s.item IS NULL AND NOT i.trashed AND i.kind<>'folder' AND relay_library_meaning(i.workspace,i.id) AND EXISTS(SELECT 1 FROM relay_library_passages p WHERE p.workspace=i.workspace AND p.item=i.id) ORDER BY i.updated DESC LIMIT {limit}"),vec![]).await
     }
 
     pub(crate) async fn library_store_summary(
@@ -119,7 +119,7 @@ pub(super) async fn nearest(
   JOIN relay_library_items i ON i.workspace=p.workspace AND i.id=p.item AND NOT i.trashed AND i.revision=p.revision
   JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) AND NOT s.trashed
   JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2
-  WHERE e.workspace=$1 AND e.model=$6 AND ($5='' OR s.id=$5) ORDER BY distance,p.item,p.position LIMIT 200),
+  WHERE e.workspace=$1 AND e.model=$6 AND ($5='' OR s.id=$5) AND relay_library_meaning(i.workspace,i.id) ORDER BY distance,p.item,p.position LIMIT 200),
  usable AS (SELECT item FROM (SELECT DISTINCT item FROM hits) d WHERE relay_library_agent_use($1,d.item,$2,$3) IS NOT NULL)
  SELECT jsonb_build_object('id',h.item,'title',h.title,'folder',h.folder,'section',h.section,'passage',h.position,'revision',h.revision,'access_revision',h.access_revision,
   'preview',left(h.text,300),'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=$1 AND m.item=h.item AND m.revision=h.revision)) AS data

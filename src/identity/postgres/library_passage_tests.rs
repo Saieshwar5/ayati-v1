@@ -278,3 +278,60 @@ async fn what_search_showed_fences_the_reply_even_when_never_read() {
         .unwrap();
     assert_eq!(found["results"][0]["title"], "Holiday rota");
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn exact_search_finds_these_characters_and_nothing_like_them() {
+    let s = setup().await;
+    let db = &s.db;
+    let room = chat(db, &s.member, &s.w, vec![], vec![s.agent.clone()]).await;
+    let job = ask(&s, &s.member, &room, "Find the refund wording").await;
+    let job = &job;
+    let search = |query: &'static str, exact: bool| async move {
+        invoke(
+            db,
+            job,
+            "search_library",
+            json!({"query": query, "exact": exact}),
+        )
+        .await
+        .unwrap()
+    };
+    // Words like it match by stem; exactly these characters don't.
+    assert_eq!(
+        search("refunded windows", false).await["results"][0]["title"],
+        "Returns policy"
+    );
+    assert!(
+        search("refunded windows", true).await["results"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let found = search("30 DAYS from", true).await;
+    assert_eq!(found["results"][0]["title"], "Returns policy");
+    assert!(
+        found["results"][0]["preview"]
+            .as_str()
+            .unwrap()
+            .contains("30 days from delivery")
+    );
+    // HR is not for this colleague, exact or not, and a missed code is not an unanswered question.
+    assert!(
+        search("40k", true).await["results"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let gaps: i64 = query(
+        &db.db,
+        "SELECT count(*) AS n FROM relay_library_gaps WHERE workspace=$1",
+        vec![s.w.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap();
+    assert_eq!(gaps, 0);
+}

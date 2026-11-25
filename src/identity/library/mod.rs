@@ -46,6 +46,10 @@ pub(super) fn routes() -> Router<Shared> {
         )
         .route("/api/identity/workspaces/{w}/library/{id}/hold", post(hold))
         .route(
+            "/api/identity/workspaces/{w}/library/{id}/meaning",
+            get(meaning).post(meaning_set),
+        )
+        .route(
             "/api/identity/workspaces/{w}/library/{id}/delete-forever",
             post(delete_forever),
         )
@@ -230,6 +234,28 @@ async fn hold(
     let user = identity(&app, &headers).await?;
     Ok(Json(
         app.store.library_hold_set(&user, &w, &id, &input).await?,
+    ))
+}
+/// A folder's meaning search: off until its manager turns it on (schema 156).
+async fn meaning(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_meaning(&user, &w, &id).await?))
+}
+async fn meaning_set(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::MeaningSwitch>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .library_meaning_set(&user, &w, &id, &input)
+            .await?,
     ))
 }
 /// Deletes one trashed item for good, then its stored file (LB7).

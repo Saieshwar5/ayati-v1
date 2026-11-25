@@ -10,6 +10,7 @@ pub(super) mod file_versions;
 pub(super) mod folders;
 pub(super) mod keeping;
 pub(super) mod meaning;
+pub(super) mod meaning_folders;
 pub(super) mod nested;
 mod pages;
 pub(super) mod passages;

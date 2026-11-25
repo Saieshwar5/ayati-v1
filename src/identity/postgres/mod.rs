@@ -474,6 +474,7 @@ pub(crate) use library::always::AlwaysRead;
 pub(crate) use library::answers::SaveAnswer;
 pub(crate) use library::edits::Decision;
 pub(crate) use library::keeping::{Hold, Keeping};
+pub(crate) use library::meaning_folders::MeaningSwitch;
 pub(crate) use library::tables::SaveTable;
 pub(crate) use library::upkeep::{GapAction, Review};
 pub(crate) use library::watching::Watch;

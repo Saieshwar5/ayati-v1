@@ -145,6 +145,40 @@ AYATI_LIBRARY_SUMMARY_MODEL=openai:gpt-5-mini                  # provider:model
   its current revision. The text of every document is sent to the configured provider
   for embedding and summarising, like any model request.
 
+### Words first; meaning search per folder (schema 156)
+
+Vectors are no longer made by default. The agent chooses how to find things, cheapest
+first: browse (`list_folder`), words (`search_library`), exact characters
+(`search_library` with `exact: true`), open the file on its computer
+(`open_document`), and meaning search only where a folder has it on.
+
+- **Exact search** finds exactly the characters asked for, ignoring case, in passages
+  and titles: invoice numbers, product codes, names, phrases. It uses the same grants and
+  audience as word search and never asks a model. A miss is not counted as an unanswered
+  question.
+- **Meaning search is off until a folder's manager turns it on** (**Turn on meaning
+  search** on the folder; `GET/POST …/library/{folder}/meaning` with `{on}`). It covers
+  everything in the folder at any depth. Only that text is sent to the embedding and
+  summary models; turning it off deletes the embeddings. The switch is audited ("Turned
+  on meaning search for "Policies": its text is sent to the model provider"). Agents' own
+  folders can't have it.
+- With no folder on, a question's meaning is never asked of the model, so the feature
+  costs nothing until someone chooses it. Upgrading deletes existing embeddings, since no
+  folder starts with it on; summaries already written stay.
+- **Agents propose, people decide**: `propose_meaning_search({folder, reason})` leaves a
+  note the folder's manager sees on the folder ("Nova suggests turning on meaning
+  search: …"), with **Turn on** or **Dismiss**.
+- An item moved out of such a folder keeps its embeddings unused until the folder is
+  switched off; they are never searched.
+
+Checks: PostgreSQL with pgvector 0.6.0 (`postgres/library_meaning_tests.rs`: nothing is
+embedded and the model is not asked by default; the agent proposes for a folder it may
+use and not for HR; a member can't turn it on; the manager sees the proposal and turns it
+on; only that folder's page is embedded and summarised and is then found by meaning;
+turning off deletes the embeddings. `postgres/library_passage_tests.rs`: exact search
+finds "30 DAYS from" and not a stem match, never HR, and records no unanswered question),
+web (`tests/library-meaning.test.mjs`).
+
 ### Text in images and "always read" documents (schema 73, LB2c)
 
 - **Images** (PNG, JPEG, up to 40 megapixels) are read by text recognition: Tesseract
