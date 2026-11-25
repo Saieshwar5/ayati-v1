@@ -31,10 +31,10 @@ checking who will read an answer before an agent may use a document for it.
 | B4 | Open on the computer and Save back (schema 154) | Built and tested with the stand-in computer |
 | B5 | Five agent tools instead of ten | Next: `open_document` and `save_file` exist beside the old tools |
 | B6 | A computer for every agent | Not started |
-| C7 | Each agent's own folder | Not started |
+| C7 | Each agent's own folder (schema 155) | Built and tested; made when the agent first saves a file |
 | C8 | Chat attachments as Library items | Not started |
 | D9 | Exact search mode | Not started |
-| D10 | Meaning search per folder, off by default | Not started |
+| D10 | Meaning search per folder, off by default | Next |
 | D11 | Descriptions instead of automatic summaries | Not started |
 | D12 | Unanswered questions counted per question | Not started |
 | E13 | One share dialog for people and agents | Not started |

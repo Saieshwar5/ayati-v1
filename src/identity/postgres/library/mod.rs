@@ -1,4 +1,5 @@
 mod actions;
+pub(super) mod agent_folders;
 pub(super) mod agent_tools;
 mod agents;
 pub(super) mod always;

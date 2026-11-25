@@ -233,6 +233,28 @@ them, and earlier requests' copies gone; a stored file and a table changed and s
 number column refusing text, a new file refused without "save here" and then filed).
 Not yet run with a real model or a real provider computer.
 
+### Each agent's own folder (schema 155)
+
+- An agent has one folder, named after it, with **one subfolder per conversation**
+  (`relay_library_agent_folders`). They are made when first needed: today, when the agent
+  saves a new file with `save_file` and names no folder.
+- A conversation's subfolder follows **who is in the conversation**: its people (every
+  member, for a public channel) can open and add to it, checked when they ask, so joining
+  or leaving changes it at once. Someone else asking the same agent gets their own
+  subfolder and never sees this one. The agent's owners and admins open all of them.
+- The agent may save there and use what is there only for that conversation's people
+  (the "people who can see it" rule).
+- These folders can't be shared, moved, trashed or made to follow another folder by hand.
+
+Checks: PostgreSQL (`postgres/library_workbench_tests.rs`: a file saved with no folder is
+in the owner's conversation subfolder and theirs; a second goes to the same place; a
+colleague can't open it, the agent won't open it for them, and their own file goes to
+another subfolder; both sit in the agent's folder, which the colleague can't open; the
+folders refuse sharing, moving and Trash).
+
+Not built yet: chat attachments landing in these folders (C8), and the screens that show
+an agent's folder on its page.
+
 **Fencing (schema 71).** Library edits and sharing changes no longer raise the
 workspace-wide context epoch, which used to hide every earlier agent answer in the
 workspace and stop running work whenever anyone saved a page. Instead an answer that

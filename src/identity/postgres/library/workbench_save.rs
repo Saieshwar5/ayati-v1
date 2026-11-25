@@ -197,10 +197,23 @@ impl PgStore {
         bytes: Vec<u8>,
     ) -> Result<Value> {
         let w = &job.workspace;
-        let Some(folder) = &input.folder else {
-            return Ok(invalid(
-                "This file didn't come from the Library. Name the folder to save it in (an id from list_folder).",
-            ));
+        // With no folder named, the file goes to the agent's own folder for this conversation.
+        let folder = &match &input.folder {
+            Some(folder) => folder.clone(),
+            None => {
+                let tx = self.workspace_tx(w).await?;
+                super::super::control_actions::authorize(&tx, job, true).await?;
+                let own = super::agent_folders::for_conversation(
+                    &tx,
+                    w,
+                    &job.agent,
+                    &job.chat,
+                    &job.requester,
+                )
+                .await?;
+                tx.commit().await?;
+                own
+            }
         };
         let name = input
             .title

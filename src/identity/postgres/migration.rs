@@ -162,6 +162,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::library::file_versions::LibraryFileVersions),
             Box::new(super::library::nested::LibraryNested),
             Box::new(super::library::workbench::LibraryWorkbench),
+            Box::new(super::library::agent_folders::LibraryAgentFolders),
         ]
     }
 }

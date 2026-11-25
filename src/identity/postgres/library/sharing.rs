@@ -46,6 +46,7 @@ impl PgStore {
             current["folder"].is_null() || current["kind"] == "folder",
             "This item follows its folder's sharing; share the folder or move the item out"
         );
+        agent_folders::not_agents(&tx, w, id).await?;
         let payload = json!({"share":id,"input":input});
         if let Some(result) = retry(&tx, user, w, &input.request, &payload).await? {
             tx.commit().await?;

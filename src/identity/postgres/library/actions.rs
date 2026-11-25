@@ -27,6 +27,9 @@ impl PgStore {
             tx.commit().await?;
             return Ok(result);
         }
+        if ["trash", "follow_folder"].contains(&input.action.as_str()) {
+            super::agent_folders::not_agents(&tx, w, id).await?;
+        }
         if input.action == "star" || input.action == "unstar" {
             execute(
                 &tx,

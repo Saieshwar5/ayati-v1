@@ -113,6 +113,7 @@ impl PgStore {
         if current["access_revision"].as_i64() != Some(input.revision) {
             return Err(Conflict.into());
         }
+        super::agent_folders::not_agents(&tx, w, id).await?;
         let target = match &input.folder {
             Some(folder) => {
                 let target = open_folder(&tx, user, w, folder).await?;
