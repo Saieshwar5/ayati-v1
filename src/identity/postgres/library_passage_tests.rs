@@ -334,4 +334,14 @@ async fn exact_search_finds_these_characters_and_nothing_like_them() {
     .try_get("", "n")
     .unwrap();
     assert_eq!(gaps, 0);
+    // One request is one question: two missed wordings count once, and a third that
+    // finds the policy means it was answered after all.
+    let count = || async {
+        query(&db.db, "SELECT COALESCE(sum(asked),0)::bigint AS n FROM relay_library_gaps WHERE workspace=$1 AND state='open'", vec![s.w.clone().into()]).await.unwrap().unwrap().try_get::<i64>("", "n").unwrap()
+    };
+    search("visitor parking", false).await;
+    search("where do guests park", false).await;
+    assert_eq!(count().await, 1);
+    search("refund window", false).await;
+    assert_eq!(count().await, 0);
 }

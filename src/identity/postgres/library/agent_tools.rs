@@ -261,6 +261,8 @@ impl PgStore {
         // A missing code or phrase isn't an unanswered question.
         if results.is_empty() && !input.exact {
             super::upkeep::record_gap(&tx, job, query_text).await?;
+        } else if !results.is_empty() {
+            super::upkeep::found_after_all(&tx, job).await?;
         }
         // What the agent was shown fences its reply, even if it never reads it.
         for result in &results {

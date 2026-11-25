@@ -164,6 +164,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::library::workbench::LibraryWorkbench),
             Box::new(super::library::agent_folders::LibraryAgentFolders),
             Box::new(super::library::meaning_folders::LibraryMeaningFolders),
+            Box::new(super::library::meaning_folders::LibraryGapQuestions),
         ]
     }
 }

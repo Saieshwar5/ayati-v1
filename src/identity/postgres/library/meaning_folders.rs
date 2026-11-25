@@ -30,6 +30,28 @@ impl MigrationTrait for LibraryMeaningFolders {
     }
 }
 
+/// Schema 157: unanswered questions counted once per request.
+pub(crate) struct LibraryGapQuestions;
+impl MigrationName for LibraryGapQuestions {
+    fn name(&self) -> &str {
+        "m20261125_000157_library_gap_questions"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for LibraryGapQuestions {
+    async fn up(&self, m: &SchemaManager) -> std::result::Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("gap_questions.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> std::result::Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "Library gap questions require a forward migration".into(),
+        ))
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct MeaningSwitch {
