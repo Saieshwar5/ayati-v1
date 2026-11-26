@@ -267,6 +267,24 @@ them, and earlier requests' copies gone; a stored file and a table changed and s
 number column refusing text, a new file refused without "save here" and then filed).
 Not yet run with a real model or a real provider computer.
 
+### Fewer tools, access levels and merged saves (2026-11-26)
+
+- Agents are offered `list_folder`, `search_library`, `read_document`, `lookup`,
+  `open_document`, `save_file`, `file_document`, `set_document_fields`,
+  `propose_meaning_search`, `conversation_files` and `open_attachment`. A page or table
+  is changed by opening it and saving the file; `suggest_edit`, `edit_document`,
+  `save_document` and `set_table_row` are no longer offered (their handlers stay). On a
+  Cuckoo without computers an agent can therefore no longer change pages.
+- `list_folder` and `open_document` say the agent's **level** on each document.
+- When someone saved meanwhile, `save_file` keeps both changes if they touched different
+  sections of a page (cut at its headings) or different rows of a table (by key), and
+  says so; the same section or row, or a changed set of sections or columns, is refused
+  as before (`library/page_merge.rs`, `library/tables_csv.rs`).
+
+Checks: unit (section and row merges), PostgreSQL (`postgres/library_merge_tests.rs`: a
+person changes Shipping while the agent changes Returns and both are in revision 4; the
+same section is refused; a table row each).
+
 ### A conversation's files (schema 159)
 
 Files belong to their conversation, not to the Library. Schema 155 gave each agent a
