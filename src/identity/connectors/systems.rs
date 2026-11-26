@@ -46,6 +46,12 @@ pub(crate) fn server_name(connection: &str) -> String {
     format!("system-{connection}")
 }
 
+/// Whether an MCP server is a workspace's connected system (named by
+/// [`server_name`], or the preview of one) rather than one of the operator's own.
+pub(crate) fn is_system(server: &str) -> bool {
+    server.starts_with("system-")
+}
+
 /// The circuit breaker a system's calls count against: its own, so one broken
 /// system never pauses another.
 pub(crate) fn breaker(server: &str) -> Option<String> {
@@ -65,7 +71,8 @@ pub(crate) struct Address {
 }
 impl Address {
     pub(crate) fn validate(&self) -> Result<()> {
-        crate::identity::control::endpoint(&self.url)?;
+        use crate::identity::control::{LOCAL_SYSTEMS, system_endpoint};
+        system_endpoint(&self.url, LOCAL_SYSTEMS)?;
         if let Some(key) = &self.key {
             ensure!(
                 !key.trim().is_empty() && key.len() <= 4096 && !key.chars().any(char::is_control),

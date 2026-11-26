@@ -313,3 +313,18 @@ pub(crate) fn endpoint(input: &str) -> Result<reqwest::Url> {
     );
     Ok(url)
 }
+
+/// Unit tests connect systems to local stand-ins; a running controller never does.
+pub(crate) const LOCAL_SYSTEMS: bool = cfg!(test);
+
+/// An address a workspace member typed for a connected system. Unlike the
+/// operator's own servers it may never name this machine, whose loopback reaches
+/// the controller's internal services; `local` is [`LOCAL_SYSTEMS`] outside tests.
+pub(crate) fn system_endpoint(input: &str, local: bool) -> Result<reqwest::Url> {
+    let url = endpoint(input)?;
+    ensure!(
+        local || url.host_str() != Some("127.0.0.1"),
+        "Use the system's public HTTPS address; an address on Cuckoo's own server can't be connected"
+    );
+    Ok(url)
+}
