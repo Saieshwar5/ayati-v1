@@ -273,8 +273,9 @@ Not yet run with a real model or a real provider computer.
   `open_document`, `save_file`, `file_document`, `set_document_fields`,
   `propose_meaning_search`, `conversation_files` and `open_attachment`. A page or table
   is changed by opening it and saving the file; `suggest_edit`, `edit_document`,
-  `save_document` and `set_table_row` are no longer offered (their handlers stay). On a
-  Cuckoo without computers an agent can therefore no longer change pages.
+  `save_document` and `set_table_row` were removed. On a Cuckoo without computers an
+  agent can therefore no longer change pages. Sections below that name those tools
+  describe how they worked before 2026-11-26.
 - `list_folder` and `open_document` say the agent's **level** on each document.
 - When someone saved meanwhile, `save_file` keeps both changes if they touched different
   sections of a page (cut at its headings) or different rows of a table (by key), and

@@ -1,8 +1,6 @@
 //! Library tools: what an agent may browse, find, read, open on its computer and save
 //! back. The controller decides which documents fit the people in the conversation.
-//! Pages and tables are changed by opening them and saving the file; the earlier
-//! text tools (suggest_edit, edit_document, save_document, set_table_row) are no longer
-//! offered, though a request that already holds one is still accepted.
+//! Pages and tables are changed by opening them and saving the file.
 use serde_json::{Value, json};
 
 pub(crate) fn tools() -> Vec<Value> {
@@ -45,32 +43,6 @@ pub(crate) fn observed(name: &str, input: &Value) -> bool {
                     .and_then(Value::as_str)
                     .is_some_and(|s| s.len() <= 64)
                 && v.get("passage").is_none_or(Value::is_u64)
-        }
-        "suggest_edit" | "edit_document" => {
-            v.keys()
-                .all(|k| ["id", "revision", "text", "note"].contains(&k.as_str()))
-                && v.get("id")
-                    .and_then(Value::as_str)
-                    .is_some_and(|s| s.len() <= 64)
-                && v.get("text")
-                    .and_then(Value::as_str)
-                    .is_some_and(|s| s.len() <= 240_000)
-                && v.get("note")
-                    .is_none_or(|n| n.as_str().is_some_and(|s| s.len() <= 2000))
-                && (name == "suggest_edit" || v.get("revision").is_some_and(Value::is_u64))
-        }
-        "save_document" => {
-            v.keys()
-                .all(|k| ["folder", "title", "text"].contains(&k.as_str()))
-                && v.get("folder")
-                    .and_then(Value::as_str)
-                    .is_some_and(|s| s.len() <= 64)
-                && v.get("title")
-                    .and_then(Value::as_str)
-                    .is_some_and(|s| s.len() <= 720)
-                && v.get("text")
-                    .and_then(Value::as_str)
-                    .is_some_and(|s| s.len() <= 240_000)
         }
         "lookup" => {
             v.keys().all(|k| k == "table" || k == "key")
@@ -120,19 +92,6 @@ pub(crate) fn observed(name: &str, input: &Value) -> bool {
                 && v.get("fields")
                     .and_then(Value::as_object)
                     .is_some_and(|o| o.len() <= 20)
-        }
-        "set_table_row" => {
-            v.keys()
-                .all(|k| ["table", "revision", "key", "values"].contains(&k.as_str()))
-                && v.get("table")
-                    .and_then(Value::as_str)
-                    .is_some_and(|s| s.len() <= 64)
-                && v.get("revision").is_some_and(Value::is_u64)
-                && v.get("key")
-                    .and_then(Value::as_str)
-                    .is_some_and(|s| s.len() <= 2000)
-                && v.get("values")
-                    .is_some_and(|x| x.as_object().is_some_and(|o| o.len() <= 20))
         }
         _ => false,
     }
@@ -213,37 +172,9 @@ mod tests {
         ));
         assert!(!super::observed("read_document", &json!({"passage":1})));
         assert!(super::observed(
-            "suggest_edit",
-            &json!({"id":"x","text":"New","note":"why"})
-        ));
-        assert!(super::observed(
-            "edit_document",
-            &json!({"id":"x","revision":3,"text":"New"})
-        ));
-        assert!(
-            !super::observed("edit_document", &json!({"id":"x","text":"New"})),
-            "an edit names the revision read"
-        );
-        assert!(super::observed(
-            "save_document",
-            &json!({"folder":"f","title":"Quote","text":"Hi"})
-        ));
-        assert!(!super::observed(
-            "save_document",
-            &json!({"folder":"f","title":"Quote"})
-        ));
-        assert!(super::observed(
             "lookup",
             &json!({"table":"t","key":"Standing desk"})
         ));
         assert!(!super::observed("lookup", &json!({"table":"t"})));
-        assert!(super::observed(
-            "set_table_row",
-            &json!({"table":"t","revision":2,"key":"Chair","values":{"Price":320}})
-        ));
-        assert!(!super::observed(
-            "set_table_row",
-            &json!({"table":"t","key":"Chair","values":{}})
-        ));
     }
 }

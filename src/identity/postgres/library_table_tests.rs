@@ -1,7 +1,7 @@
 //! Library LB4: tables are versioned Library items; agents look rows up exactly (cited)
 //! and change a row only with Edit; a company rule can take its limit from a table.
 use super::super::{tests::*, *};
-use super::folders::{ask, grant, setup, share};
+use super::folders::{ask, setup};
 use crate::identity::control::broker::invoke;
 use crate::identity::library::model::*;
 use crate::identity::postgres::SaveTable;
@@ -21,7 +21,7 @@ fn prices(id: &str, revision: i64, folder: Option<&str>, desk: i64) -> SaveTable
 
 #[tokio::test]
 #[ignore = "requires disposable PostgreSQL"]
-async fn agents_look_rows_up_exactly_and_change_them_only_with_edit() {
+async fn agents_look_rows_up_exactly_and_tables_restore_like_pages() {
     let s = setup().await;
     let db = &s.db;
     let policies = db.library_get(&s.owner, &s.w, &s.returns).await.unwrap()["folder"]
@@ -72,17 +72,6 @@ async fn agents_look_rows_up_exactly_and_change_them_only_with_edit() {
         searched["results"][0]["title"], "Price list",
         "a table's rows are searchable"
     );
-    assert_eq!(
-        invoke(
-            db,
-            &job,
-            "set_table_row",
-            json!({"table":table,"revision":1,"key":"Chair","values":{"Price":320}})
-        )
-        .await
-        .unwrap()["state"],
-        "not_allowed"
-    );
     db.chat_finish(&job, "1250.", "complete").await.unwrap();
     let answer: String = query(
         &db.db,
@@ -98,65 +87,13 @@ async fn agents_look_rows_up_exactly_and_change_them_only_with_edit() {
         answer.contains("[Price list › Standing desk · revision 1]"),
         "{answer}"
     );
-    // With Edit, for a person who may edit, one row changes as a version marked with the agent.
-    let folder = db.library_get(&s.owner, &s.w, &policies).await.unwrap();
-    let mut g = grant(&s.agent, "staff");
-    g.level = "edit".into();
-    db.library_share(
-        &s.owner,
-        &s.w,
-        &policies,
-        &share(
-            folder["access_revision"].as_i64().unwrap(),
-            "private",
-            vec![],
-            vec![g],
-        ),
-    )
-    .await
-    .unwrap();
-    let private = chat(db, &s.owner, &s.w, vec![], vec![s.agent.clone()]).await;
-    let mine = ask(&s, &s.owner, &private, "Raise the chair to 320").await;
-    assert_eq!(
-        invoke(
-            db,
-            &mine,
-            "set_table_row",
-            json!({"table":table,"revision":9,"key":"Chair","values":{"Price":320}})
-        )
+    // A person's save is revision 2. (Agents change a table by opening it on their
+    // computer and saving the file; see the workbench and merge tests.)
+    let mut cheaper = prices(&table, 1, None, 1250);
+    cheaper.table["rows"][1][1] = json!(320);
+    db.library_table_save(&s.owner, &s.w, &cheaper)
         .await
-        .unwrap()["state"],
-        "changed"
-    );
-    assert_eq!(
-        invoke(
-            db,
-            &mine,
-            "set_table_row",
-            json!({"table":table,"revision":1,"key":"Chair","values":{"Price":"cheap"}})
-        )
-        .await
-        .unwrap()["state"],
-        "invalid"
-    );
-    assert_eq!(
-        invoke(
-            db,
-            &mine,
-            "set_table_row",
-            json!({"table":table,"revision":1,"key":"Chair","values":{"Price":320}})
-        )
-        .await
-        .unwrap()["revision"],
-        2
-    );
-    let saved = db.library_get(&s.owner, &s.w, &table).await.unwrap();
-    assert_eq!(saved["document"]["rows"][1], json!(["Chair", 320, null]));
-    assert_eq!(
-        db.library_versions(&s.owner, &s.w, &table).await.unwrap()["versions"][0]["agent"],
-        "Pool agent"
-    );
-    db.chat_finish(&mine, "Done.", "complete").await.unwrap();
+        .unwrap();
     // Restoring the first version is the undo, for tables too.
     db.library_action(
         &s.owner,

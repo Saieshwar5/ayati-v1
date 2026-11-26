@@ -1,11 +1,11 @@
-//! Agents changing the Library (LB3). An agent's level on a folder or item, each
-//! including the ones before: read, suggest (a tracked suggestion a person accepts),
-//! edit (a new version, marked with the agent and task), save (new pages in a folder).
+//! Agents changing pages. An agent's level on a folder or item, each including the ones
+//! before: read, suggest (a tracked suggestion a person accepts), edit (a new version,
+//! marked with the agent and task), save (new files in a folder). The agent reaches
+//! these by saving a file from its computer (`workbench_save`).
 //! The person the agent works for must be allowed the same change, "use for" must fit
 //! the conversation, and every change is a version that History can restore.
 use super::*;
 use crate::identity::chat::model::Job;
-use crate::identity::library::page_text;
 use sea_orm_migration::prelude::{DbErr, MigrationName, MigrationTrait, SchemaManager};
 use serde::Deserialize;
 
@@ -31,24 +31,6 @@ impl MigrationTrait for LibraryEdits {
     }
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct Change {
-    id: String,
-    /// The revision the agent read; a newer page is not overwritten.
-    #[serde(default)]
-    revision: Option<i64>,
-    text: String,
-    #[serde(default)]
-    note: String,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct NewPage {
-    folder: String,
-    title: String,
-    text: String,
-}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Decision {
@@ -84,15 +66,6 @@ pub(super) async fn standing(
 pub(super) fn unavailable() -> Value {
     json!({"state":"not_found","message":"No such page among the Library items you can change for the people in this conversation."})
 }
-fn checked(text: &str) -> Result<(Value, String)> {
-    ensure!(
-        text.chars().count() <= 60000,
-        "Write at most 60,000 characters"
-    );
-    let document = page_text::document(text);
-    let plain = crate::identity::library::model::document(&document)?;
-    Ok((document, plain))
-}
 pub(super) async fn name_of(tx: &DatabaseTransaction, w: &str, agent: &str) -> Result<String> {
     Ok(query(
         tx,
@@ -125,13 +98,8 @@ pub(super) async fn write_revision(
 }
 
 impl PgStore {
-    pub(crate) async fn library_suggest_edit(&self, job: &Job, input: &Change) -> Result<Value> {
-        let (document, text) = checked(&input.text)?;
-        self.library_suggest_page(job, &input.id, &input.note, document, text)
-            .await
-    }
     /// A suggested new text for a page, waiting for a person who can edit it.
-    pub(super) async fn library_suggest_page(
+    pub(in crate::identity::postgres) async fn library_suggest_page(
         &self,
         job: &Job,
         id: &str,
@@ -178,13 +146,8 @@ impl PgStore {
         )
     }
 
-    pub(crate) async fn library_edit_document(&self, job: &Job, input: &Change) -> Result<Value> {
-        let (document, text) = checked(&input.text)?;
-        self.library_edit_page(job, &input.id, input.revision, document, text)
-            .await
-    }
     /// A page's new content as its next revision, from the revision the agent read.
-    pub(super) async fn library_edit_page(
+    pub(in crate::identity::postgres) async fn library_edit_page(
         &self,
         job: &Job,
         id: &str,
@@ -237,59 +200,6 @@ impl PgStore {
         tx.commit().await?;
         Ok(
             json!({"state":"edited","revision":revision,"link":format!("/w/{}/?view=library&item={}",job.workspace,id),"next":"The change is saved as a new version; anyone who can edit the page can restore the earlier one from History."}),
-        )
-    }
-
-    pub(crate) async fn library_save_document(&self, job: &Job, input: &NewPage) -> Result<Value> {
-        title(&input.title)?;
-        let (document, text) = checked(&input.text)?;
-        let tx = self.workspace_tx(&job.workspace).await?;
-        super::super::control_actions::authorize(&tx, job, true).await?;
-        let Some((level, access, folder)) = standing(&tx, job, &input.folder).await? else {
-            tx.commit().await?;
-            return Ok(
-                json!({"state":"not_found","message":"No such folder among the Library items you can use here."}),
-            );
-        };
-        if folder["kind"] != "folder" || level < 3 || access.as_deref() != Some("edit") {
-            tx.commit().await?;
-            return Ok(
-                json!({"state":"not_allowed","message":"You can't save new documents in this folder. Give the text to the person instead."}),
-            );
-        }
-        let count: i64 = query(
-            &tx,
-            "SELECT count(*) AS n FROM relay_library_items WHERE workspace=$1",
-            vec![job.workspace.clone().into()],
-        )
-        .await?
-        .context("Count")?
-        .try_get("", "n")?;
-        ensure!(
-            count < MAX_ITEMS,
-            "This workspace's Library limit is 10,000 items"
-        );
-        let id = uuid::Uuid::new_v4().to_string();
-        execute(&tx, "INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,document,text,created,updated,folder) VALUES($1,$2,'page',$3,$4,$4,$5,$6,$7,$7,$8)", vec![job.workspace.clone().into(), id.clone().into(), input.title.trim().into(), job.requester.clone().into(), document.clone().into(), text.clone().into(), now().into(), input.folder.clone().into()]).await?;
-        execute(&tx, "INSERT INTO relay_library_versions(workspace,item,revision,author,title,document,text,created,agent,job) VALUES($1,$2,1,$3,$4,$5,$6,$7,$8,$9)", vec![job.workspace.clone().into(), id.clone().into(), job.requester.clone().into(), input.title.trim().into(), document.into(), text.into(), now().into(), job.agent.clone().into(), job.reply.clone().into()]).await?;
-        super::passages::index_item(&tx, &job.workspace, &id).await?;
-        let name = name_of(&tx, &job.workspace, &job.agent).await?;
-        audit_with_summary(
-            &tx,
-            &job.requester,
-            Some(&job.workspace),
-            "library_page_saved_by_agent",
-            &id,
-            &format!(
-                "{name} saved \"{}\" in \"{}\"",
-                input.title.trim(),
-                folder["title"].as_str().unwrap_or("")
-            ),
-        )
-        .await?;
-        tx.commit().await?;
-        Ok(
-            json!({"state":"saved","id":id,"link":format!("/w/{}/?view=library&item={id}",job.workspace),"next":"Share the link with the person."}),
         )
     }
 

@@ -29,7 +29,7 @@ checking who will read an answer before an agent may use a document for it.
 | A2 | Folders inside folders (schema 153) | Built and tested |
 | A3 | Admins can open everything, audited (schema 153) | Built and tested |
 | B4 | Open on the computer and Save back (schema 154) | Built and tested with the stand-in computer |
-| B5 | Fewer agent tools | Partly: agents are offered 11 Library and file tools, not 15; the four text-editing tools are hidden, their handlers remain |
+| B5 | Fewer agent tools | Built: 11 Library and file tools; the four text-editing tools are removed. `lookup`, `file_document` and `set_document_fields` stay for table citations and watched folders |
 | B6 | A computer for every agent | Built: on by default, released after use unless `keep_between_requests` |
 | C7 | Each agent's own folder | Built, then removed (schema 159): files belong to the conversation |
 | C8 | Conversation files | Built and tested: agents list, open and attach; people see Files in a conversation and on the agent's page, and Save to Library |
@@ -63,8 +63,8 @@ checking who will read an answer before an agent may use a document for it.
 ## Left to do
 
 1. **Run it with a real model and a real provider computer.** Nothing here has.
-2. Remove the hidden text tools and `lookup`, `file_document` and `set_document_fields`
-   once watched folders and company rules no longer need them.
+2. `lookup`, `file_document` and `set_document_fields` stay until watched folders and
+   table citations have another way.
 3. **Files above 25 MiB**: streamed uploads and streamed copies to the computer.
 4. **Workspace lock**: every Library change and agent search still takes it.
 5. **One list** for people and agents in the share dialog.
