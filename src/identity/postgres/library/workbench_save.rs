@@ -25,6 +25,12 @@ impl PgStore {
         };
         let bytes = self.computer_get(&ready, &path).await;
         self.computer_used(job).await?;
+        if bytes
+            .as_ref()
+            .is_err_and(|e| e.is::<crate::identity::computers::TooLarge>())
+        {
+            return Ok(invalid("Save a file between 1 byte and 25 MiB."));
+        }
         let Ok(bytes) = bytes else {
             return Ok(invalid(&format!(
                 "There is no file {relative} on your computer."

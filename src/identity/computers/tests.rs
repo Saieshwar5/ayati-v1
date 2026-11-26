@@ -194,6 +194,61 @@ async fn a_computer_is_created_used_slept_woken_and_deleted_through_the_adapter(
 }
 
 #[tokio::test]
+async fn a_file_larger_than_the_limit_is_refused_without_reading_it_whole() {
+    let fake = fake::start().await;
+    let dir = tempfile::tempdir().unwrap();
+    let (routed, key) = routed(&fake, dir.path());
+    let call = Call {
+        api: &routed.api,
+        computers: &routed.computers,
+        key: &key,
+    };
+    let provider = routed.provider;
+    let spec = Spec {
+        image: "cuckoo-standard",
+        awake_seconds: 600,
+        internet: &Internet::None,
+        label: "test",
+    };
+    let computer = provider.create(&call, &spec).await.unwrap();
+    let home = format!("{HOME}/requests/r1");
+    let make = format!(
+        "head -c {} /dev/zero > big && head -c {MAX_READ} /dev/zero > fits",
+        MAX_READ + 1
+    );
+    let ran = provider
+        .run(&call, &computer, &make, &home, Duration::from_secs(30))
+        .await
+        .unwrap();
+    assert_eq!(ran.exit_code, 0, "{ran:?}");
+    let error = provider
+        .read(&call, &computer, &format!("{home}/big"))
+        .await
+        .unwrap_err();
+    assert!(error.is::<TooLarge>(), "{error:#}");
+    let fits = provider
+        .read(&call, &computer, &format!("{home}/fits"))
+        .await
+        .unwrap();
+    assert_eq!(fits.len(), MAX_READ);
+}
+
+#[tokio::test]
+async fn a_file_with_no_stated_size_stops_at_the_first_chunk_past_the_limit() {
+    let response = |chunks: usize| {
+        let parts =
+            (0..chunks).map(|_| Ok::<_, std::io::Error>(axum::body::Bytes::from(vec![7u8; 10])));
+        reqwest::Response::from(axum::http::Response::new(reqwest::Body::wrap_stream(
+            futures_util::stream::iter(parts),
+        )))
+    };
+    assert_eq!(response(3).content_length(), None, "no size is stated");
+    assert_eq!(e2b::read_capped(response(3), 30).await.unwrap().len(), 30);
+    let error = e2b::read_capped(response(4), 30).await.unwrap_err();
+    assert!(error.is::<TooLarge>(), "{error:#}");
+}
+
+#[tokio::test]
 async fn a_wrong_key_is_refused() {
     let fake = fake::start().await;
     let call = Call {

@@ -25,6 +25,22 @@ pub(crate) const KEPT_BYTES: usize = 64 * 1024;
 pub(crate) const SHOWN_CHARS: usize = 8_000;
 /// The longest one command may run.
 pub(crate) const LONGEST_COMMAND: Duration = Duration::from_secs(600);
+/// The largest file read from a computer into the controller's memory. Larger files
+/// are refused as soon as they pass it, so one agent can't fill the shared controller.
+pub(crate) const MAX_READ: usize = crate::identity::library::model::MAX_FILE;
+
+/// A computer's file is larger than [`MAX_READ`].
+#[derive(Debug)]
+pub(crate) struct TooLarge;
+impl std::fmt::Display for TooLarge {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "The file is larger than 25 MiB, so it can't be read whole"
+        )
+    }
+}
+impl std::error::Error for TooLarge {}
 /// Cuckoo's browser helper, uploaded to each computer before its first browser use, so
 /// it always matches this controller (deploy/agent-computer/cuckoo-browser.mjs).
 pub(crate) const BROWSER_HELPER: &str =
