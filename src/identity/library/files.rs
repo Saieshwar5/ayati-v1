@@ -1,6 +1,42 @@
 use super::*;
-use axum::http::HeaderMap;
-static TRANSFERS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(4);
+use axum::{body::Bytes, http::HeaderMap};
+use std::time::Duration;
+/// The longest an upload's body may take: 25 MiB at about 90 KB/s.
+const UPLOAD_TIME: Duration = Duration::from_secs(300);
+/// A download ends when its client reads nothing for this long.
+const STALLED: Duration = Duration::from_secs(60);
+const CHUNK: usize = 64 * 1024;
+
+/// A transfer's place, taken only after sign-in and access are checked.
+fn slot(app: &App, w: &str) -> ApiResult<transfer_slots::Slot> {
+    app.runtimes
+        .library_transfers
+        .take(w)
+        .map_err(|why| Error(anyhow::anyhow!(why), StatusCode::TOO_MANY_REQUESTS))
+}
+
+/// The response body, sent in 64 KiB pieces by a task that holds the
+/// transfer's slot. A client that reads nothing for `stalled` ends the
+/// transfer, so a stuck connection can't keep the slot, and the file in
+/// memory, for ever.
+fn streamed(bytes: Bytes, slot: transfer_slots::Slot, stalled: Duration) -> Body {
+    let (sender, receiver) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(1);
+    tokio::spawn(async move {
+        let _slot = slot;
+        let mut offset = 0;
+        while offset < bytes.len() {
+            let end = (offset + CHUNK).min(bytes.len());
+            match tokio::time::timeout(stalled, sender.send(Ok(bytes.slice(offset..end)))).await {
+                Ok(Ok(())) => offset = end,
+                // The client stopped reading or left.
+                _ => return,
+            }
+        }
+    });
+    Body::from_stream(futures_util::stream::unfold(receiver, |mut r| async move {
+        r.recv().await.map(|piece| (piece, r))
+    }))
+}
 pub(super) async fn start(
     State(app): State<Shared>,
     RoutePath(w): RoutePath<String>,
@@ -41,17 +77,16 @@ pub(super) async fn upload(
     RoutePath((w, id)): RoutePath<(String, String)>,
     request: Request<Body>,
 ) -> ApiResult<Json<Value>> {
-    let _slot = TRANSFERS.try_acquire().map_err(|_| {
-        Error(
-            anyhow::anyhow!("Four file transfers are active. Retry shortly."),
-            StatusCode::TOO_MANY_REQUESTS,
-        )
-    })?;
     let user = identity(&app, request.headers()).await?;
     let session = app.store.library_upload_session(&user, &w, &id).await?;
-    let bytes = axum::body::to_bytes(request.into_body(), MAX_FILE)
-        .await
-        .context("File exceeds the 25 MiB limit or transfer was interrupted")?;
+    let _slot = slot(&app, &w)?;
+    let bytes = tokio::time::timeout(
+        UPLOAD_TIME,
+        axum::body::to_bytes(request.into_body(), MAX_FILE),
+    )
+    .await
+    .context("The upload took longer than five minutes. Retry on a faster connection.")?
+    .context("File exceeds the 25 MiB limit or transfer was interrupted")?;
     check(
         bytes.len() as i64 == session["size"].as_i64().unwrap_or(0)
             && checksum(&bytes) == session["checksum"],
@@ -91,14 +126,9 @@ pub(super) async fn download(
     headers: HeaderMap,
     Query(input): Query<Download>,
 ) -> ApiResult<Response> {
-    let slot = TRANSFERS.try_acquire().map_err(|_| {
-        Error(
-            anyhow::anyhow!("File transfers busy. Retry shortly."),
-            StatusCode::TOO_MANY_REQUESTS,
-        )
-    })?;
     let user = identity(&app, &headers).await?;
     let mut item = app.store.library_file(&user, &w, &id).await?;
+    let slot = slot(&app, &w)?;
     if let Some(version) = input.version {
         let held = app
             .store
@@ -125,22 +155,10 @@ pub(super) async fn download(
     )?;
     // A revocation during the storage read must fence the outgoing response too.
     app.store.library_file(&user, &w, &id).await?;
-    // Keep the transfer slot with a bounded-chunk body so a slow reader cannot
-    // release capacity while its entire file is still queued for transmission.
+    // The slot stays with the body while the file is sent, and is freed when the
+    // client finishes, leaves or stalls.
     let mut response = crate::media::ranged(&headers, bytes, |selected| {
-        Body::from_stream(futures_util::stream::unfold(
-            (selected, 0, slot),
-            |(bytes, offset, slot)| async move {
-                if offset >= bytes.len() {
-                    return None;
-                }
-                let end = (offset + 64 * 1024).min(bytes.len());
-                Some((
-                    Ok::<_, std::io::Error>(bytes.slice(offset..end)),
-                    (bytes, end, slot),
-                ))
-            },
-        ))
+        streamed(selected, slot, STALLED)
     })?;
     let mime = item["mime"].as_str().unwrap_or("application/octet-stream");
     let inline = input.inline
@@ -164,4 +182,37 @@ pub(super) async fn download(
         "sandbox; default-src 'none'".parse()?,
     );
     Ok(response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_download_nobody_reads_frees_its_place() {
+        let transfers = transfer_slots::Transfers::default();
+        let slots: Vec<_> = (0..transfer_slots::PER_WORKSPACE)
+            .map(|_| transfers.take("w").unwrap())
+            .collect();
+        assert!(transfers.take("w").is_err());
+        // Two bodies whose client never reads past the first piece.
+        let file = Bytes::from(vec![1u8; 4 * CHUNK]);
+        let bodies: Vec<Body> = slots
+            .into_iter()
+            .map(|slot| streamed(file.clone(), slot, Duration::from_millis(50)))
+            .collect();
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(transfers.take("w").is_ok(), "stalled transfers ended");
+        drop(bodies);
+    }
+
+    #[tokio::test]
+    async fn a_download_that_is_read_arrives_whole() {
+        let transfers = transfer_slots::Transfers::default();
+        let file = Bytes::from((0..3 * CHUNK + 7).map(|i| i as u8).collect::<Vec<_>>());
+        let body = streamed(file.clone(), transfers.take("w").unwrap(), STALLED);
+        let read = axum::body::to_bytes(body, usize::MAX).await.unwrap();
+        assert_eq!(read, file);
+        assert!(transfers.take("w").is_ok() && transfers.take("w").is_ok());
+    }
 }

@@ -12,6 +12,7 @@ pub(crate) mod page_text;
 pub(crate) mod passages;
 mod storage;
 pub(crate) mod tables;
+pub(in crate::identity) mod transfer_slots;
 pub(crate) mod tables_csv;
 use super::*;
 use axum::{
