@@ -80,6 +80,8 @@ impl Fake {
                 {"size": "small", "cpu": 1, "memory_gb": 2, "disk_gb": 10, "usd_per_hour": 0.09, "routes": route("cuckoo-small")},
                 {"size": "standard", "cpu": 2, "memory_gb": 4, "disk_gb": 20, "usd_per_hour": 0.18, "routes": route("cuckoo-standard")}],
             "providers": [{"provider": "e2b", "key_file": key, "base_url": self.url, "computer_url": self.url}],
+            // The existing checks cover a kept computer; released ones have their own.
+            "keep_between_requests": true,
         }).to_string()).unwrap();
         file
     }

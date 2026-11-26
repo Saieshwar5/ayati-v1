@@ -267,39 +267,34 @@ them, and earlier requests' copies gone; a stored file and a table changed and s
 number column refusing text, a new file refused without "save here" and then filed).
 Not yet run with a real model or a real provider computer.
 
-### Each agent's own folder (schema 155)
+### A conversation's files (schema 159)
 
-- An agent has one folder, named after it, with **one subfolder per conversation**
-  (`relay_library_agent_folders`). They are made when first needed: today, when the agent
-  saves a new file with `save_file` and names no folder.
-- A conversation's subfolder follows **who is in the conversation**: its people (every
-  member, for a public channel) can open and add to it, checked when they ask, so joining
-  or leaving changes it at once. Someone else asking the same agent gets their own
-  subfolder and never sees this one. The agent's owners and admins open all of them.
-- The agent may save there and use what is there only for that conversation's people
-  (the "people who can see it" rule).
-- These folders can't be shared, moved, trashed or made to follow another folder by hand.
+Files belong to their conversation, not to the Library. Schema 155 gave each agent a
+Library folder with a subfolder per conversation; schema 159 removed that (duplicate
+files across agents, a folder per conversation, Library items pointing at Chat's bytes).
 
-Checks: PostgreSQL (`postgres/library_workbench_tests.rs`: a file saved with no folder is
-in the owner's conversation subfolder and theirs; a second goes to the same place; a
-colleague can't open it, the agent won't open it for them, and their own file goes to
-another subfolder; both sit in the agent's folder, which the colleague can't open; the
-folders refuse sharing, moving and Trash).
+- **What they are**: what people attached to messages, and what an agent made there
+  (`relay_objects.made_by`). The people in the conversation open them, by Chat's own rule.
+- **Agents**: `conversation_files()` lists them; `open_attachment({id})` puts one in
+  `attachments/` on the agent's computer. `save_file` with no folder attaches the file to
+  the agent's reply (at most eight per reply); with a folder it is saved to the Library.
+- **People**: **Files** in a conversation's Details lists them
+  (`GET …/chats/{chat}/files`), each with a download and **Save to Library**
+  (`POST …/objects/{id}/keep` with `{id, folder?, title?}`): a copy, private or in a
+  folder the person can add to, read for search, audited, and the same item on a retry.
+- **An agent's Files** on its page (`GET …/agent-profiles/{agent}/artifacts`): files sent
+  to it or made by it, grouped by conversation. A person sees the conversations they are
+  in; the agent's owners and admins also see the names of the rest, without opening them.
 
-**Attachments.** A file attached to a message that asks an agent is kept in that
-agent's subfolder for the conversation, as a Library file the agent can open on its
-computer (`open_document`). The item names Chat's own stored bytes (`chat/<workspace>/<id>`):
-nothing is stored twice, the bytes don't count toward the Library quota, and deleting the
-Library item never deletes Chat's file. Limits: it works where Chat stores files in the
-shared file storage (hosted); on a local development server Chat keeps files elsewhere and
-the agent is told the copy can't be reached. The text of an attachment is not read for
-search yet; the agent reads it on its computer. Attachments in conversations without an
-agent stay out of the Library.
+Checks: PostgreSQL (`postgres/conversation_file_tests.rs`: a file the agent makes is
+attached, listed as the agent's, not in the Library, hidden from someone outside the
+conversation, and capped at eight per reply; an attachment is listed and opened on the
+computer, not in another conversation; a person keeps it once, an admin outside the
+conversation can't), web (`tests/conversation-files.test.mjs`).
 
-An agent uses a document only for people it was shared with (`relay_library_granted`): an
-admin's access to everything is for opening things themselves, which is audited.
-
-Not built yet: the screens that show an agent's folder on its page.
+An agent uses a Library document only for people it was shared with
+(`relay_library_granted`): an admin's access to everything is for opening things
+themselves, which is audited.
 
 **Fencing (schema 71).** Library edits and sharing changes no longer raise the
 workspace-wide context epoch, which used to hide every earlier agent answer in the

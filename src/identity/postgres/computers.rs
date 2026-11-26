@@ -325,8 +325,10 @@ impl PgStore {
             let agent: String = row.try_get("", "agent")?;
             let provider: String = row.try_get("", "provider")?;
             let id: Option<String> = row.try_get("", "provider_id")?;
+            // Released after use unless this Cuckoo keeps computers between requests.
             let removing = row.try_get::<String>("", "state")? == "deleting"
-                || row.try_get::<bool>("", "orphaned")?;
+                || row.try_get::<bool>("", "orphaned")?
+                || !file.keep_between_requests;
             let outcome = async {
                 let routed = file.routed(&provider)?;
                 let key = routed.key()?;
