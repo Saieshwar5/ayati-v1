@@ -6,10 +6,13 @@ pub(in crate::identity) mod keeping;
 pub(crate) mod model;
 pub(crate) mod models;
 mod office;
+pub(crate) mod page_markdown;
+pub(crate) mod page_merge;
 pub(crate) mod page_text;
 pub(crate) mod passages;
 mod storage;
 pub(crate) mod tables;
+pub(crate) mod tables_csv;
 use super::*;
 use axum::{
     Json,
@@ -19,6 +22,8 @@ use model::*;
 use serde::Deserialize;
 use serde_json::{Value, json};
 pub(super) use storage::Storage;
+/// What kind of file these bytes are, and their text for search, when it can be read.
+pub(in crate::identity) use extract::{mime as file_mime, text as file_text};
 
 pub(super) fn routes() -> Router<Shared> {
     Router::new()
@@ -30,7 +35,7 @@ pub(super) fn routes() -> Router<Shared> {
         )
         .route(
             "/api/identity/workspaces/{w}/library-folders",
-            post(create_folder),
+            get(folders).post(create_folder),
         )
         .route(
             "/api/identity/workspaces/{w}/library/{id}/review",
@@ -41,6 +46,14 @@ pub(super) fn routes() -> Router<Shared> {
             get(keeping).post(keeping_set),
         )
         .route("/api/identity/workspaces/{w}/library/{id}/hold", post(hold))
+        .route(
+            "/api/identity/workspaces/{w}/library/{id}/description",
+            post(describe),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/library/{id}/meaning",
+            get(meaning).post(meaning_set),
+        )
         .route(
             "/api/identity/workspaces/{w}/library/{id}/delete-forever",
             post(delete_forever),
@@ -228,6 +241,38 @@ async fn hold(
         app.store.library_hold_set(&user, &w, &id, &input).await?,
     ))
 }
+/// One line saying what an item is (schema 158).
+async fn describe(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::Description>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_describe(&user, &w, &id, &input).await?))
+}
+/// A folder's meaning search: off until its manager turns it on (schema 156).
+async fn meaning(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_meaning(&user, &w, &id).await?))
+}
+async fn meaning_set(
+    State(app): State<Shared>,
+    RoutePath((w, id)): RoutePath<(String, String)>,
+    headers: axum::http::HeaderMap,
+    Json(input): Json<crate::identity::postgres::MeaningSwitch>,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(
+        app.store
+            .library_meaning_set(&user, &w, &id, &input)
+            .await?,
+    ))
+}
 /// Deletes one trashed item for good, then its stored file (LB7).
 async fn delete_forever(
     State(app): State<Shared>,
@@ -360,6 +405,14 @@ async fn decide(
             .library_decide_suggestion(&user, &w, &id, &suggestion, &input)
             .await?,
     ))
+}
+async fn folders(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_folders(&user, &w).await?))
 }
 async fn create_folder(
     State(app): State<Shared>,

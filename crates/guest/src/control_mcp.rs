@@ -45,13 +45,14 @@ pub fn observed(name: &str, input: &Value) -> bool {
             name @ ("list_folder"
             | "search_library"
             | "read_document"
-            | "suggest_edit"
-            | "edit_document"
-            | "save_document"
             | "lookup"
-            | "set_table_row"
             | "file_document"
-            | "set_document_fields"),
+            | "set_document_fields"
+            | "open_document"
+            | "conversation_files"
+            | "open_attachment"
+            | "propose_meaning_search"
+            | "save_file"),
         ) => crate::library_schema::observed(name, input),
         Some(name @ ("web_search" | "read_web_page")) => crate::web_schema::observed(name, input),
         Some(

@@ -7,7 +7,9 @@ export type AgentGrant = {
   use_for: 'viewers' | 'staff';
 };
 export const levelName = (value: string) =>
-  ({ read: 'Read', suggest: 'Suggest edits', edit: 'Edit', save: 'Edit and save here' })[value] ??
+  ({ read: 'Can view', suggest: 'Can edit, asks first', edit: 'Can edit', save: 'Can edit and add files' })[
+    value
+  ] ??
   value;
 export type Item = {
   id: string;
@@ -32,8 +34,18 @@ export type Item = {
   /** The folder this item is filed in; its sharing comes from there. */
   folder?: string | null;
   folder_title?: string | null;
+  /** The item whose sharing this one follows: itself, or a folder above it. */
+  source?: string;
+  /** False when an admin can open it only because admins can open everything. */
+  granted?: boolean;
   item_count?: number;
   review_due?: boolean;
+  /** The passage that matched a search. */
+  snippet?: string | null;
+  /** Agents that have this open on their computer in a running request. */
+  working?: string[];
+  /** One line saying what the item is, searched with its text. */
+  description?: string;
 };
 export type Listing = { items: Item[]; more: boolean; available: boolean; storage: string };
 export const base = `/workspaces/${workspaceId}/library`;
@@ -45,7 +57,7 @@ export const itemUrl = (id?: string) =>
 export const folderUrl = (id: string) =>
   workspaceUrl(`/?view=library&folder=${encodeURIComponent(id)}`);
 export const useForName = (value: string) =>
-  ({ viewers: 'People who can see it', staff: 'All staff' })[value] ?? value;
+  ({ viewers: 'For people who can see it', staff: 'For anyone in the company' })[value] ?? value;
 export const downloadUrl = (id: string, inline = false) =>
   `/api/identity${base}/${id}/download${inline ? '?inline=true' : ''}`;
 export const draftKey = (id: string) => storageScope(`cuckoo.library.draft.${id}`);

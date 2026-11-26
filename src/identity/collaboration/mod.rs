@@ -1,5 +1,6 @@
 //! Shared company features use the PostgreSQL workspace transaction boundary.
 mod catalog;
+mod conversation_files;
 mod files;
 pub(crate) use files::copy_forwarded;
 mod work;
@@ -49,6 +50,18 @@ pub(super) fn routes() -> Router<Shared> {
         .route(
             "/api/identity/workspaces/{w}/objects/{id}",
             get(files::download),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/chats/{chat}/files",
+            get(conversation_files::listed),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/objects/{id}/keep",
+            post(conversation_files::keep),
+        )
+        .route(
+            "/api/identity/workspaces/{w}/agent-profiles/{agent}/artifacts",
+            get(conversation_files::artifacts),
         )
 }
 #[derive(Deserialize)]

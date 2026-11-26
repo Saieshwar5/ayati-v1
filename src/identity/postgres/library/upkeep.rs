@@ -47,8 +47,19 @@ pub(crate) struct GapAction {
 pub(super) const DUE: &str = "EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=i.workspace AND rv.item=i.id AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp())))";
 
 /// A search that found nothing: remembered once per agent and question, counted.
+/// An agent's search found nothing. One request is one question: trying other words
+/// doesn't count it again (schema 157).
 pub(super) async fn record_gap(tx: &DatabaseTransaction, job: &Job, question: &str) -> Result<()> {
-    execute(tx, "INSERT INTO relay_library_gaps(workspace,id,query,agent,first_at,last_at) VALUES($1,$2,$3,$4,$5,$5) ON CONFLICT(workspace,agent,lower(query)) WHERE state='open' DO UPDATE SET asked=relay_library_gaps.asked+1,last_at=EXCLUDED.last_at", vec![job.workspace.clone().into(), uuid::Uuid::new_v4().to_string().into(), question.chars().take(256).collect::<String>().into(), job.agent.clone().into(), now().into()]).await?;
+    if query(tx, "SELECT 1 AS found FROM relay_library_gaps WHERE workspace=$1 AND agent=$2 AND reply=$3 AND state='open' LIMIT 1", vec![job.workspace.clone().into(), job.agent.clone().into(), job.reply.clone().into()]).await?.is_some() {
+        return Ok(());
+    }
+    execute(tx, "INSERT INTO relay_library_gaps(workspace,id,query,agent,first_at,last_at,reply) VALUES($1,$2,$3,$4,$5,$5,$6) ON CONFLICT(workspace,agent,lower(query)) WHERE state='open' DO UPDATE SET asked=relay_library_gaps.asked+1,last_at=EXCLUDED.last_at,reply=EXCLUDED.reply", vec![job.workspace.clone().into(), uuid::Uuid::new_v4().to_string().into(), question.chars().take(256).collect::<String>().into(), job.agent.clone().into(), now().into(), job.reply.clone().into()]).await?;
+    Ok(())
+}
+/// A later wording in the same request found something: the question was answered.
+pub(super) async fn found_after_all(tx: &DatabaseTransaction, job: &Job) -> Result<()> {
+    execute(tx, "DELETE FROM relay_library_gaps WHERE workspace=$1 AND agent=$2 AND reply=$3 AND state='open' AND asked=1", vec![job.workspace.clone().into(), job.agent.clone().into(), job.reply.clone().into()]).await?;
+    execute(tx, "UPDATE relay_library_gaps SET asked=asked-1,reply=NULL WHERE workspace=$1 AND agent=$2 AND reply=$3 AND state='open'", vec![job.workspace.clone().into(), job.agent.clone().into(), job.reply.clone().into()]).await?;
     Ok(())
 }
 

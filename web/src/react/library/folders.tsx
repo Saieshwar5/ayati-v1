@@ -5,7 +5,9 @@ import { Button, Dialog } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { ShareDialog, useAttempt } from './dialogs';
 import { KeepingControl } from './keeping';
+import { MeaningControl } from './meaning';
 import { FolderWatch } from './watching';
+import { loadFolders } from './library-nav';
 import {
   folderUrl,
   itemUrl,
@@ -13,7 +15,6 @@ import {
   useForName,
   visibilityName,
   type Item,
-  type Listing,
 } from './model';
 
 /** The open folder: its name, whose it is, and its sharing, which its items follow. */
@@ -23,6 +24,9 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
   const mutation = useMutation();
   const [sharing, setSharing] = useState(false);
   const item = folder.data;
+  // A subfolder follows the folder it is in until it is shared separately.
+  const follows = Boolean(item?.folder && item.source !== item.id);
+  const [moving, setMoving] = useState(false);
   const refresh = () => {
     void folder.refresh().catch(() => {});
     changed();
@@ -33,6 +37,12 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
         <nav aria-label="Folder path" className="library-path">
           <a href={itemUrl()}>Library</a>
           <span aria-hidden="true">›</span>
+          {item?.folder && (
+            <>
+              <a href={folderUrl(item.folder)}>{item.folder_title ?? 'Folder'}</a>
+              <span aria-hidden="true">›</span>
+            </>
+          )}
           <span>{item?.title ?? 'Folder'}</span>
         </nav>
         <h2>{item?.title ?? 'Opening folder…'}</h2>
@@ -43,11 +53,20 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
               ` · ${item.agents.length} agent${item.agents.length === 1 ? '' : 's'} (${[
                 ...new Set(item.agents.map((g) => useForName(g.use_for).toLowerCase())),
               ].join(', ')})`}
-            . Pages and files here follow the folder's sharing.
+            .{' '}
+            {follows
+              ? `This folder follows the sharing of ${item.folder_title ?? 'its folder'}.`
+              : "Everything here follows the folder's sharing."}
           </p>
         )}
-        {item && <KeepingControl item={item} />}
-        {item && <FolderWatch item={item} />}
+        {item && (
+          <details className="library-folder-details">
+            <summary>Folder details: keeping, meaning search and watching</summary>
+            <KeepingControl item={item} />
+            <MeaningControl item={item} />
+            <FolderWatch item={item} />
+          </details>
+        )}
         {(folder.error || mutation.status) && (
           <p className="library-notice" role="alert">
             {folder.error || mutation.status}
@@ -56,7 +75,27 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
       </div>
       {item?.manageable && (
         <div className="library-folder-actions">
-          <Button onClick={() => setSharing(true)}>Share folder</Button>
+          <Button onClick={() => setSharing(true)}>
+            {follows ? 'Share separately' : 'Share folder'}
+          </Button>
+          {item.folder && !follows && (
+            <Button
+              disabled={mutation.busy}
+              onClick={() =>
+                void mutation.run(async () => {
+                  await request(`/${id}/action`, {
+                    request: crypto.randomUUID(),
+                    revision: item.revision,
+                    action: 'follow_folder',
+                  });
+                  refresh();
+                })
+              }
+            >
+              Follow {item.folder_title ?? 'folder'}
+            </Button>
+          )}
+          <Button onClick={() => setMoving(true)}>Move</Button>
           <Button
             disabled={mutation.busy}
             onClick={() =>
@@ -68,7 +107,7 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
                   action: 'trash',
                 });
                 changed();
-                navigate(itemUrl());
+                navigate(item.folder ? folderUrl(item.folder) : itemUrl());
               })
             }
           >
@@ -79,15 +118,20 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
       {sharing && item && (
         <ShareDialog item={item} close={() => setSharing(false)} changed={refresh} />
       )}
+      {moving && item && (
+        <MoveDialog item={item} close={() => setMoving(false)} changed={refresh} />
+      )}
     </header>
   );
 }
 
-export function NewFolderDialog({ close }: { close: () => void }) {
+export function NewFolderDialog({ folder, close }: { folder?: string; close: () => void }) {
   const mutation = useMutation();
   const [title, setTitle] = useState('');
   // One folder identity per attempt, so a retried create never makes two folders.
-  const attempt = useRef<{ id: string; request: string; title: string }>(undefined);
+  const attempt = useRef<{ id: string; request: string; title: string; folder?: string }>(
+    undefined,
+  );
   const create = () =>
     void mutation.run(async () => {
       if (attempt.current?.title !== title.trim())
@@ -95,6 +139,7 @@ export function NewFolderDialog({ close }: { close: () => void }) {
           id: crypto.randomUUID(),
           request: crypto.randomUUID(),
           title: title.trim(),
+          folder,
         };
       await identityRequest(`/workspaces/${workspaceId}/library-folders`, attempt.current);
       navigate(folderUrl(attempt.current.id));
@@ -119,7 +164,7 @@ export function NewFolderDialog({ close }: { close: () => void }) {
     >
       <p>
         Folders keep related pages and files together. Share the folder once and everything in it
-        follows.
+        follows.{folder ? ' A folder made here follows this folder until you share it separately.' : ''}
       </p>
       <label className="library-field">
         Folder name
@@ -148,12 +193,14 @@ export function MoveDialog({
   close: () => void;
   changed: () => void;
 }) {
-  const load = useCallback(() => request<Listing>('?view=all&q=&offset=0'), []);
+  // Any folder the person can add to, at any depth.
+  const load = useCallback(() => loadFolders(), []);
   const listing = useResource(load);
   const mutation = useMutation();
   const withRequest = useAttempt();
   const [target, setTarget] = useState(item.folder ?? '');
-  const folders = listing.data?.items.filter((i) => i.kind === 'folder' && i.editable) ?? [];
+  const folders =
+    listing.data?.folders?.filter((f) => f.editable && f.id !== item.id) ?? [];
   return (
     <Dialog
       title="Move to folder"

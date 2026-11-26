@@ -242,7 +242,10 @@ pub async fn serve(config: crate::config::Controller) -> Result<()> {
         .open(data.join("server.lock"))?;
     lock.try_lock()
         .context("Another identity server uses this data directory")?;
-    let store = postgres::PgStore::open(&config).await?;
+    let mut store = postgres::PgStore::open(&config).await?;
+    // Agents read and write a conversation's files where Chat keeps them.
+    store.files.chat_root = Some(data.join("workspaces"));
+    store.files.hosted = config.hosted();
     let runtimes = workspaces::Runtimes::new(data.join("workspaces"));
     configure_process(&config)?;
     let app = Arc::new(App {

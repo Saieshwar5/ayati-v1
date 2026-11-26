@@ -278,3 +278,91 @@ async fn what_search_showed_fences_the_reply_even_when_never_read() {
         .unwrap();
     assert_eq!(found["results"][0]["title"], "Holiday rota");
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn exact_search_finds_these_characters_and_nothing_like_them() {
+    let s = setup().await;
+    let db = &s.db;
+    let room = chat(db, &s.member, &s.w, vec![], vec![s.agent.clone()]).await;
+    let job = ask(&s, &s.member, &room, "Find the refund wording").await;
+    let job = &job;
+    let search = |query: &'static str, exact: bool| async move {
+        invoke(
+            db,
+            job,
+            "search_library",
+            json!({"query": query, "exact": exact}),
+        )
+        .await
+        .unwrap()
+    };
+    // Words like it match by stem; exactly these characters don't.
+    assert_eq!(
+        search("refunded windows", false).await["results"][0]["title"],
+        "Returns policy"
+    );
+    assert!(
+        search("refunded windows", true).await["results"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let found = search("30 DAYS from", true).await;
+    assert_eq!(found["results"][0]["title"], "Returns policy");
+    assert!(
+        found["results"][0]["preview"]
+            .as_str()
+            .unwrap()
+            .contains("30 days from delivery")
+    );
+    // People search by word forms too, and see the passage that matched.
+    let listed = db
+        .library_list(&s.owner, &s.w, "all", "refunded windows", "", 0)
+        .await
+        .unwrap();
+    assert_eq!(listed["items"][0]["title"], "Returns policy");
+    assert!(
+        listed["items"][0]["snippet"]
+            .as_str()
+            .unwrap()
+            .contains("refund window"),
+        "{listed}"
+    );
+    assert!(
+        db.library_list(&s.member, &s.w, "all", "salary", "", 0)
+            .await
+            .unwrap()["items"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    // HR is not for this colleague, exact or not, and a missed code is not an unanswered question.
+    assert!(
+        search("40k", true).await["results"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let gaps: i64 = query(
+        &db.db,
+        "SELECT count(*) AS n FROM relay_library_gaps WHERE workspace=$1",
+        vec![s.w.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap();
+    assert_eq!(gaps, 0);
+    // One request is one question: two missed wordings count once, and a third that
+    // finds the policy means it was answered after all.
+    let count = || async {
+        query(&db.db, "SELECT COALESCE(sum(asked),0)::bigint AS n FROM relay_library_gaps WHERE workspace=$1 AND state='open'", vec![s.w.clone().into()]).await.unwrap().unwrap().try_get::<i64>("", "n").unwrap()
+    };
+    search("visitor parking", false).await;
+    search("where do guests park", false).await;
+    assert_eq!(count().await, 1);
+    search("refund window", false).await;
+    assert_eq!(count().await, 0);
+}

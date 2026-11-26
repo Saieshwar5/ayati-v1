@@ -94,7 +94,8 @@ async fn idle_for_an_hour(s: &Setup) {
 async fn an_agent_works_with_commands_and_files_in_its_requests_folder() {
     let s = setup().await;
     let job = ask(&s, "Total the May invoices").await;
-    // Off until its owner turns it on; nothing is made at the provider.
+    // Switched off by its owner: nothing is made at the provider.
+    computer(&s, json!({"on": false})).await;
     let off = run(&s, &job, "ls").await;
     assert_eq!(off["state"], "denied");
     assert!(off["message"].as_str().unwrap().contains("switched off"));
@@ -422,18 +423,67 @@ async fn programs_can_ask_first_or_be_blocked_and_computers_need_setting_up() {
     let ran = run(&s, &resumed, "python3 report.py").await;
     assert_eq!(ran["state"], "completed", "{ran}");
 
-    // Without a providers file nothing can be turned on, and agents are told plainly.
+    // "On" is the default and saves anywhere; without a providers file it has no effect,
+    // and agents are told plainly.
     s.db.computers = None;
     let save: crate::identity::agents::config::SaveAgent = serde_json::from_value(json!({
         "id": "new-agent", "name": "Mira", "role": "Accounts", "model": "fixture", "audience": "only_me",
         "revision": 0, "settings": {"computer": {"on": true}}
     }))
     .unwrap();
-    assert!(s.db.computer_allowed(&save, false).is_err());
-    assert!(
-        s.db.computer_allowed(&save, true).is_ok(),
-        "already on stays saveable"
-    );
+    assert!(s.db.computer_allowed(&save, false).is_ok());
+    assert!(!s.db.computer_on(&s.w, &s.agent).await.unwrap());
     assert!(!s.db.computer_on(&s.w, &s.agent).await.unwrap());
     assert_eq!(run(&s, &resumed, "ls").await["state"], "unavailable");
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn a_computer_is_released_after_use_and_the_next_request_starts_empty() {
+    let s = setup().await;
+    // This Cuckoo does not keep computers between requests (the default).
+    let file = s._dir.path().join("computers.json");
+    let mut settings: Value =
+        serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+    settings
+        .as_object_mut()
+        .unwrap()
+        .remove("keep_between_requests");
+    std::fs::write(&file, settings.to_string()).unwrap();
+    let first = ask(&s, "Make a note").await;
+    assert_eq!(
+        run(
+            &s,
+            &first,
+            "mkdir -p ../../shared && echo kept > ../../shared/note.txt && ls ../../shared"
+        )
+        .await["exit_code"],
+        0
+    );
+    let id = provider_id(&s).await;
+    PgStore::computer_release(&s.db.db, &s.w, &first.reply)
+        .await
+        .unwrap();
+    idle_for_an_hour(&s).await;
+    assert_eq!(s.db.computers_sweep().await.unwrap(), 1);
+    assert!(
+        !s.fake.exists(&id),
+        "released at the provider, not put to sleep"
+    );
+    let charged: i64 = query(
+        &s.db.db,
+        "SELECT count(*) AS n FROM relay_computer_sessions WHERE agent=$1 AND slept_at IS NOT NULL",
+        vec![s.agent.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap();
+    assert_eq!(charged, 1, "its time is still charged");
+    // The next request gets a new, empty computer.
+    let next = ask(&s, "Read the note").await;
+    let ran = run(&s, &next, "ls ../../shared 2>/dev/null | wc -l").await;
+    assert_eq!(ran["stdout"].as_str().unwrap().trim(), "0", "{ran}");
+    assert_ne!(provider_id(&s).await, id);
 }

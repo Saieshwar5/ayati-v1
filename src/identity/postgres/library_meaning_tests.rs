@@ -82,17 +82,95 @@ async fn a_question_finds_the_passage_with_its_meaning_and_documents_carry_summa
     s.db.library_models = Some(configured.clone());
     index(&s.db, &configured).await;
     let db = &s.db;
-    let embedded: i64 = query(
-        &db.db,
-        "SELECT count(*) AS n FROM relay_library_embeddings WHERE workspace=$1",
-        vec![s.w.clone().into()],
+    let embedded = || async {
+        query(
+            &db.db,
+            "SELECT count(*) AS n FROM relay_library_embeddings WHERE workspace=$1",
+            vec![s.w.clone().into()],
+        )
+        .await
+        .unwrap()
+        .unwrap()
+        .try_get::<i64>("", "n")
+        .unwrap()
+    };
+    // Off by default: nothing is sent to the model and words alone find nothing.
+    assert_eq!(embedded().await, 0);
+    let policies = db.library_get(&s.owner, &s.w, &s.returns).await.unwrap()["folder"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let first = chat(db, &s.member, &s.w, vec![], vec![s.agent.clone()]).await;
+    let job = ask(&s, &s.member, &first, "Can I send something back?").await;
+    let missed = invoke(
+        db,
+        &job,
+        "search_library",
+        json!({"query":"can I send something back?"}),
     )
     .await
-    .unwrap()
-    .unwrap()
-    .try_get("", "n")
     .unwrap();
-    assert_eq!(embedded, 2, "both pages' passages are embedded");
+    assert_eq!(
+        (
+            missed["by_meaning"].as_bool(),
+            missed["results"].as_array().unwrap().len()
+        ),
+        (Some(false), 0)
+    );
+    // The agent proposes it for the folder; only the folder's manager turns it on.
+    let proposed = invoke(
+        db,
+        &job,
+        "propose_meaning_search",
+        json!({"folder":policies,"reason":"People ask about returns in other words"}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(proposed["state"], "proposed", "{proposed}");
+    assert_eq!(
+        invoke(
+            db,
+            &job,
+            "propose_meaning_search",
+            json!({"folder":s.hr,"reason":"x"})
+        )
+        .await
+        .unwrap()["state"],
+        "not_found",
+        "not a folder it may use for this person"
+    );
+    db.chat_finish(&job, "I couldn't find it.", "complete")
+        .await
+        .unwrap();
+    let on = crate::identity::postgres::MeaningSwitch { on: true };
+    assert!(
+        db.library_meaning_set(&s.member, &s.w, &policies, &on)
+            .await
+            .is_err()
+    );
+    let seen = db.library_meaning(&s.owner, &s.w, &policies).await.unwrap();
+    assert_eq!(
+        (
+            seen["on"].as_bool(),
+            seen["proposals"][0]["reason"].as_str()
+        ),
+        (Some(false), Some("People ask about returns in other words"))
+    );
+    db.library_meaning_set(&s.owner, &s.w, &policies, &on)
+        .await
+        .unwrap();
+    assert!(
+        db.library_meaning(&s.owner, &s.w, &policies).await.unwrap()["proposals"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    index(db, &configured).await;
+    assert_eq!(
+        embedded().await,
+        1,
+        "the Policies page only; HR stays on the server"
+    );
     let theirs = chat(db, &s.member, &s.w, vec![], vec![s.agent.clone()]).await;
     let job = ask(&s, &s.member, &theirs, "Can I send something back?").await;
     // No word in common with "The refund window is 30 days from delivery."
@@ -162,7 +240,7 @@ async fn a_question_finds_the_passage_with_its_meaning_and_documents_carry_summa
     .unwrap()
     .try_get("", "n")
     .unwrap();
-    assert!(used >= 3, "one embedding batch and two summaries");
+    assert!(used >= 2, "one embedding batch and one summary");
     let current = db.library_get(&s.owner, &s.w, &s.returns).await.unwrap();
     db.library_save(&s.owner, &s.w, &crate::identity::library::model::SavePage {
         id: s.returns.clone(),
@@ -195,4 +273,14 @@ async fn a_question_finds_the_passage_with_its_meaning_and_documents_carry_summa
     .try_get("", "revision")
     .unwrap();
     assert_eq!(summary, current["revision"].as_i64().unwrap() + 1);
+    // Turning it off removes what was made.
+    db.library_meaning_set(
+        &s.owner,
+        &s.w,
+        &policies,
+        &crate::identity::postgres::MeaningSwitch { on: false },
+    )
+    .await
+    .unwrap();
+    assert_eq!(embedded().await, 0);
 }

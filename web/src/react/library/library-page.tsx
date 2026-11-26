@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { navigate } from '../../navigation';
-import { currentWorkspace, identityRequest, workspaceId } from '../../workspace-context';
+import { identityRequest, workspaceId } from '../../workspace-context';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { LibraryItem } from './item';
@@ -19,15 +19,8 @@ import {
 } from './model';
 import { useUploads } from './uploads';
 import { LibraryIcon } from './icon';
+import { LibraryFilters, LibraryNav, draggedItem, viewLabel } from './library-nav';
 import './library.css';
-const views = [
-  { id: 'all', label: 'All items' },
-  { id: 'private', label: 'Private' },
-  { id: 'shared', label: 'Shared' },
-  { id: 'starred', label: 'Starred' },
-  { id: 'review', label: 'Due for review' },
-  { id: 'trash', label: 'Trash' },
-];
 export function LibraryPage({ href }: { href: string }) {
   const selected = new URL(href).searchParams.get('item');
   const folder = new URL(href).searchParams.get('folder');
@@ -161,54 +154,63 @@ export function LibraryPage({ href }: { href: string }) {
               >
                 ↑ Upload
               </Button>
-              {!folder && (
-                <Button disabled={!listing.data?.available} onClick={() => setNaming(true)}>
-                  ＋ New folder
-                </Button>
-              )}
-              <Button disabled={!listing.data?.available || mutation.busy} onClick={createTable}>
-                ＋ New table
-              </Button>
-              <Button primary disabled={!listing.data?.available || mutation.busy} onClick={create}>
-                ＋ New page
-              </Button>
+              <details className="library-new">
+                <summary className="ui-button primary">＋ New</summary>
+                <div className="library-new-menu">
+                  <Button disabled={!listing.data?.available || mutation.busy} onClick={create}>
+                    New page
+                  </Button>
+                  <Button
+                    disabled={!listing.data?.available || mutation.busy}
+                    onClick={createTable}
+                  >
+                    New table
+                  </Button>
+                  <Button disabled={!listing.data?.available} onClick={() => setNaming(true)}>
+                    New folder
+                  </Button>
+                </div>
+              </details>
             </div>
           </header>
           <div className="library-layout">
             <aside className="library-sidebar">
-              <span className="library-eyebrow">Browse</span>
-              <nav aria-label="Library views">
-                {[...views, ...(currentWorkspace()?.role === 'Admin' ? [{ id: 'gaps', label: 'Unanswered' }] : [])].map((option) => (
-                  <Button
-                    key={option.id}
-                    aria-current={view === option.id ? 'page' : undefined}
-                    onClick={() => {
-                      setView(option.id);
-                      setOffset(0);
-                      if (folder) navigate(itemUrl());
-                    }}
-                  >
-                    <span>
-                      <LibraryIcon name={option.id} />
-                    </span>
-                    {option.label}
-                  </Button>
-                ))}
-              </nav>
+              <LibraryNav
+                view={view}
+                folder={folder}
+                refreshKey={refreshKey}
+                moved={changed}
+                pick={(next) => {
+                  setView(next);
+                  setOffset(0);
+                  if (folder) navigate(itemUrl());
+                }}
+              />
               <p>
-                Start small.
-                <br />
-                New pages and files are private until you share them.
+                New pages and files are private until you share them. Workspace admins can open
+                everything in the Library. Files from conversations are not here: open the
+                conversation, or the agent's Files.
               </p>
               {listing.data?.storage === 'local' && <small>Local development file storage</small>}
             </aside>
-            <main className="library-list">
+            <main
+              className="library-list"
+              onDragOver={(event) => {
+                if (filesEnabled && event.dataTransfer.types.includes('Files'))
+                  event.preventDefault();
+              }}
+              onDrop={(event) => {
+                if (!filesEnabled || event.dataTransfer.files.length === 0) return;
+                event.preventDefault();
+                upload.choose(event.dataTransfer.files);
+              }}
+            >
               {folder && view === 'all' && !query ? (
                 <FolderHeader key={folder} id={folder} changed={changed} />
               ) : (
                 <header>
                   <div>
-                    <h2>{view === 'gaps' ? 'Unanswered questions' : views.find((v) => v.id === view)?.label}</h2>
+                    <h2>{view === 'gaps' ? 'Unanswered questions' : viewLabel(view)}</h2>
                     <p>
                       {query
                         ? `Results for “${query}”`
@@ -245,6 +247,15 @@ export function LibraryPage({ href }: { href: string }) {
                     <Button onClick={() => void listing.refresh().catch(() => {})}>Refresh</Button>
                   </div>
                 </header>
+              )}
+              {!folder && view !== 'gaps' && view !== 'trash' && (
+                <LibraryFilters
+                  view={view}
+                  pick={(next) => {
+                    setView(next);
+                    setOffset(0);
+                  }}
+                />
               )}
               {view === 'gaps' && <UnansweredQuestions />}
               {(listing.error || mutation.status) && (
@@ -298,7 +309,18 @@ export function LibraryPage({ href }: { href: string }) {
                     <span role="columnheader">Actions</span>
                   </div>
                   {listing.data.items.map((item) => (
-                    <div className="library-table-row" role="row" key={item.id}>
+                    <div
+                      className="library-table-row"
+                      role="row"
+                      key={item.id}
+                      draggable={item.manageable && view !== 'trash'}
+                      onDragStart={(event) =>
+                        event.dataTransfer.setData(
+                          draggedItem,
+                          JSON.stringify({ id: item.id, revision: item.access_revision }),
+                        )
+                      }
+                    >
                       <div role="cell" className="library-name">
                         <span className={`library-type ${item.kind}`}>
                           <LibraryIcon name={item.kind} />
@@ -325,6 +347,7 @@ export function LibraryPage({ href }: { href: string }) {
                               item.folder !== folder &&
                               ` · in ${item.folder_title}`}
                           </small>
+                          {item.snippet && <small className="library-snippet">{item.snippet}</small>}
                         </div>
                       </div>
                       <span role="cell">{visibilityName(item.visibility)}</span>
@@ -426,7 +449,7 @@ export function LibraryPage({ href }: { href: string }) {
               )}
             </main>
           </div>
-          {naming && <NewFolderDialog close={() => setNaming(false)} />}
+          {naming && <NewFolderDialog folder={folder ?? undefined} close={() => setNaming(false)} />}
         </>
       )}
     </div>

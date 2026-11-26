@@ -23,6 +23,9 @@ pub(crate) struct SearchLibrary {
     query: String,
     #[serde(default)]
     folder: Option<String>,
+    /// Find these exact characters (a code, a name, a phrase) instead of words like them.
+    #[serde(default)]
+    exact: bool,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -35,15 +38,29 @@ pub(crate) struct ReadDocument {
 
 /// Items `i` whose folder (or self) `s` this agent ($2) was given and may use for this
 /// reply ($3). The grant join keeps the per-item audience check to granted items.
-const USABLE: &str = "relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2 WHERE i.workspace=$1 AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$2,$3) IS NOT NULL";
-const SUMMARY: &str = "jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'updated',i.updated,'folder',CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END,'use_for',g.use_for,'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=i.workspace AND m.item=i.id AND m.revision=i.revision),'review_due',EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=i.workspace AND rv.item=i.id AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp()))))";
+pub(super) const USABLE: &str = "relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2 WHERE i.workspace=$1 AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$2,$3) IS NOT NULL";
+const SUMMARY: &str = "jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'updated',i.updated,'folder',(SELECT f.title FROM relay_library_items f WHERE f.workspace=i.workspace AND f.id=i.folder),'use_for',g.use_for,'level',g.level,'summary',COALESCE(NULLIF(to_jsonb(i)->>'description',''),(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=i.workspace AND m.item=i.id AND m.revision=i.revision)),'review_due',EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=i.workspace AND rv.item=i.id AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp()))))";
+/// Passages holding exactly these characters ($4), ignoring case: for codes, names and
+/// phrases that word search would loosen. Same grants and audience as `MATCHES`.
+const EXACT: &str = "WITH hits AS MATERIALIZED (SELECT p.item,p.position,p.section,p.text,p.revision,i.title,i.access_revision,i.updated,(SELECT f.title FROM relay_library_items f WHERE f.workspace=i.workspace AND f.id=i.folder) AS folder,strpos(lower(p.text),lower($4)) AS at
+  FROM relay_library_passages p JOIN relay_library_items i ON i.workspace=p.workspace AND i.id=p.item AND NOT i.trashed
+  JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) AND NOT s.trashed
+  JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2
+  WHERE p.workspace=$1 AND p.revision=i.revision AND (strpos(lower(p.text),lower($4))>0 OR strpos(lower(i.title),lower($4))>0) AND ($5='' OR s.id=$5)
+  ORDER BY i.updated DESC,p.item,p.position LIMIT 200),
+ usable AS (SELECT item FROM (SELECT DISTINCT item FROM hits) d WHERE relay_library_agent_use($1,d.item,$2,$3) IS NOT NULL)
+ SELECT jsonb_build_object('id',h.item,'title',h.title,'folder',h.folder,'section',h.section,'passage',h.position,'revision',h.revision,'access_revision',h.access_revision,
+  'preview',substr(h.text,greatest(h.at-120,1),300),
+  'summary',(SELECT m.summary FROM relay_library_summaries m WHERE m.workspace=$1 AND m.item=h.item AND m.revision=h.revision),
+  'review_due',EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=$1 AND rv.item=h.item AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp())))) AS data
+ FROM hits h WHERE h.item IN (SELECT item FROM usable) ORDER BY h.updated DESC,h.item,h.position LIMIT 60";
 /// Passages matching any of the question's words ($4), best first, among documents
 /// granted to this agent (optionally in one folder, $5); the audience check runs once
 /// per matching document.
 const MATCHES: &str = "WITH q AS (SELECT replace(plainto_tsquery('english',$4)::text,'&','|')::tsquery AS q),
- hits AS MATERIALIZED (SELECT p.item,p.position,p.section,p.text,p.revision,i.title,i.access_revision,CASE WHEN i.folder IS NULL THEN NULL ELSE s.title END AS folder,ts_rank_cd(p.search,q.q) AS rank,q.q
+ hits AS MATERIALIZED (SELECT p.item,p.position,p.section,p.text,p.revision,i.title,i.access_revision,(SELECT f.title FROM relay_library_items f WHERE f.workspace=i.workspace AND f.id=i.folder) AS folder,ts_rank_cd(p.search,q.q) AS rank,q.q
   FROM relay_library_passages p JOIN relay_library_items i ON i.workspace=p.workspace AND i.id=p.item AND NOT i.trashed
-  JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) AND NOT s.trashed
+  JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=relay_library_source(i.workspace,i.id) AND NOT s.trashed
   JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$2, q
   WHERE p.workspace=$1 AND p.revision=i.revision AND p.search @@ q.q AND ($5='' OR s.id=$5)
   ORDER BY rank DESC,p.item,p.position LIMIT 200),
@@ -54,10 +71,10 @@ const MATCHES: &str = "WITH q AS (SELECT replace(plainto_tsquery('english',$4)::
   'review_due',EXISTS(SELECT 1 FROM relay_library_reviews rv WHERE rv.workspace=$1 AND rv.item=h.item AND rv.reviewed+rv.every_days*86400 < floor(extract(epoch FROM clock_timestamp())))) AS data
  FROM hits h WHERE h.item IN (SELECT item FROM usable) ORDER BY h.rank DESC,h.item,h.position LIMIT 60";
 
-fn link(w: &str, id: &str) -> String {
+pub(super) fn link(w: &str, id: &str) -> String {
     format!("/w/{w}/?view=library&item={id}")
 }
-fn binds(job: &Job) -> Vec<sea_orm::Value> {
+pub(super) fn binds(job: &Job) -> Vec<sea_orm::Value> {
     vec![
         job.workspace.clone().into(),
         job.agent.clone().into(),
@@ -124,7 +141,7 @@ fn outline(passages: &[Value]) -> Vec<Value> {
 }
 
 /// A receipt for a document an agent was shown; `cited` once it was read.
-async fn receipt(
+pub(super) async fn receipt(
     tx: &DatabaseTransaction,
     job: &Job,
     found: &Value,
@@ -212,8 +229,11 @@ impl PgStore {
         // The question's meaning, asked before taking the workspace lock. Without a
         // model, or if it fails, word search answers alone.
         let mut meaning = None;
-        if let Some(models) = &self.library_models
+        if !input.exact
+            && let Some(models) = &self.library_models
             && let Some(settings) = models.embedding()
+            // No folder has meaning search on: nothing is asked of the model.
+            && super::meaning_folders::any_on(&self.db, &job.workspace).await?
             && let Ok((mut vectors, _)) =
                 crate::identity::library::models::embed(&settings, &[query_text.to_owned()]).await
         {
@@ -230,7 +250,7 @@ impl PgStore {
         let mut values = binds(job);
         values.push(query_text.into());
         values.push(folder.clone().into());
-        let words = json_rows(&tx, MATCHES, values).await?;
+        let words = json_rows(&tx, if input.exact { EXACT } else { MATCHES }, values).await?;
         let near = match &meaning {
             Some((vector, model)) => {
                 super::meaning::nearest(&tx, job, vector, &folder, model).await?
@@ -238,8 +258,11 @@ impl PgStore {
             None => vec![],
         };
         let results = best(fuse(words, near));
-        if results.is_empty() {
+        // A missing code or phrase isn't an unanswered question.
+        if results.is_empty() && !input.exact {
             super::upkeep::record_gap(&tx, job, query_text).await?;
+        } else if !results.is_empty() {
+            super::upkeep::found_after_all(&tx, job).await?;
         }
         // What the agent was shown fences its reply, even if it never reads it.
         for result in &results {

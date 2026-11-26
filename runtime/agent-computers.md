@@ -1,8 +1,13 @@
 # Agent computers (schemas 103–106)
 
 An agent can have its own Linux computer for work with files and programs: reading a
-PDF or spreadsheet, converting a file, working through data or running a script. It
-is off for every agent until its owner or an admin turns it on. Its compute runs only
+PDF or spreadsheet, converting a file, working through data or running a script. Since
+2026-11-25 it is on for every agent by default (its owner or an admin can turn it off)
+and takes effect only where computers are set up on this Cuckoo. A computer is
+**released once its work is done**: after `sleep_after_minutes` without use it is deleted
+at the provider and the next request starts on a new, empty one, so nothing an agent
+needs later may live only on the computer. Set `"keep_between_requests": true` in the
+providers file to keep it asleep with its files instead. Its compute runs only
 while the agent works; asleep, it keeps its files and costs nothing. People never see
 which provider runs it. Designed in [designs/agent-computers](../designs/agent-computers/README.md);
 the provider check is in [agent-computer-providers](agent-computer-providers.md).

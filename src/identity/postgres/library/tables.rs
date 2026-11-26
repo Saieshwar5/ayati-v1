@@ -46,14 +46,6 @@ pub(crate) struct Lookup {
     table: String,
     key: Value,
 }
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct SetRow {
-    table: String,
-    revision: i64,
-    key: Value,
-    values: Value,
-}
 
 impl PgStore {
     pub(crate) async fn library_table_save(
@@ -82,8 +74,8 @@ impl PgStore {
             .context("Count")?
             .try_get("", "n")?;
             ensure!(
-                count < 1000,
-                "This workspace's initial Library limit is 1,000 items"
+                count < MAX_ITEMS,
+                "This workspace's Library limit is 10,000 items"
             );
             if let Some(folder) = &input.folder {
                 super::folders::open_folder(&tx, user, w, folder).await?;
@@ -165,68 +157,5 @@ impl PgStore {
                 json!({"state":"no_row","table":found["title"],"revision":found["revision"],"columns":columns,"message":"No row has this key. Keys are matched exactly, ignoring case; say so rather than guessing."})
             }
         })
-    }
-
-    /// An agent with Edit on the table changes one row, as a new version marked with it.
-    pub(crate) async fn library_set_row(&self, job: &Job, input: &SetRow) -> Result<Value> {
-        let tx = self.workspace_tx(&job.workspace).await?;
-        super::super::control_actions::authorize(&tx, job, true).await?;
-        let found = json_rows(&tx, "SELECT jsonb_build_object('title',i.title,'revision',i.revision,'table',i.document,'level',g.level,'access',relay_library_access(i.workspace,i.id,$3)) AS data FROM relay_library_items i JOIN relay_library_items s ON s.workspace=i.workspace AND s.id=COALESCE(i.folder,i.id) JOIN relay_library_agents g ON g.workspace=s.workspace AND g.item=s.id AND g.agent=$4 WHERE i.workspace=$1 AND i.id=$2 AND i.kind='table' AND NOT i.trashed AND relay_library_agent_use(i.workspace,i.id,$4,$5) IS NOT NULL", vec![job.workspace.clone().into(), input.table.clone().into(), job.requester.clone().into(), job.agent.clone().into(), job.reply.clone().into()]).await?.into_iter().next();
-        let Some(found) = found else {
-            tx.commit().await?;
-            return Ok(
-                json!({"state":"not_found","message":"No such table among the Library items you can change here."}),
-            );
-        };
-        if super::edits::rank(found["level"].as_str().unwrap_or("")) < 2
-            || found["access"] != "edit"
-        {
-            tx.commit().await?;
-            return Ok(
-                json!({"state":"not_allowed","message":"You may only look rows up in this table."}),
-            );
-        }
-        if found["revision"].as_i64() != Some(input.revision) {
-            tx.commit().await?;
-            return Ok(
-                json!({"state":"changed","revision":found["revision"],"message":"The table changed since you read it; look the row up again."}),
-            );
-        }
-        let changed = match tables::set_row(&found["table"], &input.key, &input.values) {
-            Ok(table) => table,
-            Err(error) => {
-                tx.commit().await?;
-                return Ok(json!({"state":"invalid","message":error.to_string()}));
-            }
-        };
-        let text = tables::validate(&changed)?;
-        let title = found["title"].as_str().unwrap_or("").to_owned();
-        let revision: i64 = query(&tx, "UPDATE relay_library_items SET document=$3,text=$4,revision=revision+1,updated=$5 WHERE workspace=$1 AND id=$2 RETURNING revision", vec![job.workspace.clone().into(), input.table.clone().into(), changed.clone().into(), text.clone().into(), now().into()]).await?.context("Table unavailable")?.try_get("", "revision")?;
-        execute(&tx, "INSERT INTO relay_library_versions(workspace,item,revision,author,title,document,text,created,agent,job) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)", vec![job.workspace.clone().into(), input.table.clone().into(), revision.into(), job.requester.clone().into(), title.clone().into(), changed.into(), text.into(), now().into(), job.agent.clone().into(), job.reply.clone().into()]).await?;
-        super::passages::index_item(&tx, &job.workspace, &input.table).await?;
-        super::pages::prune_versions(&tx, &job.workspace, &input.table).await?;
-        let name: String = query(
-            &tx,
-            "SELECT name FROM relay_shared_agents WHERE workspace=$1 AND id=$2",
-            vec![job.workspace.clone().into(), job.agent.clone().into()],
-        )
-        .await?
-        .map(|r| r.try_get("", "name"))
-        .transpose()?
-        .unwrap_or_default();
-        audit_with_summary(
-            &tx,
-            &job.requester,
-            Some(&job.workspace),
-            "library_table_row_set",
-            &input.table,
-            &format!(
-                "{name} changed the row \"{}\" in \"{title}\" (revision {revision})",
-                input.key.as_str().unwrap_or("")
-            ),
-        )
-        .await?;
-        tx.commit().await?;
-        Ok(json!({"state":"changed_row","revision":revision}))
     }
 }

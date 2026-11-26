@@ -47,6 +47,7 @@ async fn a_skill_script_runs_on_the_agents_computer_under_its_programs_rule() {
     let s = setup().await;
     invoice_skill(&s).await;
     // Without a computer nothing runs; the script stays text to read.
+    computer(&s, json!({"on": false})).await;
     let job = ask(&s, "Make the invoice line for order 1042").await;
     let none = invoke(&s.db, &job, "run_skill_script", run())
         .await

@@ -104,26 +104,32 @@ impl PgStore {
                 .is_some_and(|c| c.on))
     }
 
-    /// An agent's computer can be turned on only where computers are set up; one already
-    /// on stays saveable if they are taken away.
+    /// "On" is every agent's default and takes effect only where computers are set up
+    /// (`computer_on`), so it is always saveable.
     pub(super) fn computer_allowed(
         &self,
-        input: &crate::identity::agents::config::SaveAgent,
-        was_on: bool,
+        _input: &crate::identity::agents::config::SaveAgent,
+        _was_on: bool,
     ) -> Result<()> {
-        ensure!(
-            !input.settings.computer.on || was_on || self.computers.is_some(),
-            "Computers are not set up on this Cuckoo yet"
-        );
         Ok(())
     }
 
-    /// Holds the agent's computer for this request and makes sure it is awake with the
-    /// agent's current internet rule, or says why it can't be used now.
+    /// The agent's computer, ready for this request, with nothing on it that earlier
+    /// requests opened from the Library.
     pub(super) async fn computer_ready(
         &self,
         job: &Job,
     ) -> Result<std::result::Result<Ready, Value>> {
+        let ready = self.computer_take(job).await?;
+        if let Ok(ready) = &ready {
+            self.workbench_tidy(job, ready).await?;
+        }
+        Ok(ready)
+    }
+
+    /// Holds the agent's computer for this request and makes sure it is awake with the
+    /// agent's current internet rule, or says why it can't be used now.
+    async fn computer_take(&self, job: &Job) -> Result<std::result::Result<Ready, Value>> {
         // An agent the workspace gave its own computer uses that one (B3).
         if let Some(shared) =
             super::shared_computers::assigned(&self.db, &job.workspace, &job.agent).await?
@@ -319,8 +325,10 @@ impl PgStore {
             let agent: String = row.try_get("", "agent")?;
             let provider: String = row.try_get("", "provider")?;
             let id: Option<String> = row.try_get("", "provider_id")?;
+            // Released after use unless this Cuckoo keeps computers between requests.
             let removing = row.try_get::<String>("", "state")? == "deleting"
-                || row.try_get::<bool>("", "orphaned")?;
+                || row.try_get::<bool>("", "orphaned")?
+                || !file.keep_between_requests;
             let outcome = async {
                 let routed = file.routed(&provider)?;
                 let key = routed.key()?;

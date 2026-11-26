@@ -4,6 +4,8 @@ use serde_json::Value;
 
 pub const MAX_FILE: usize = 25 * 1024 * 1024;
 pub const WORKSPACE_QUOTA: i64 = 1024 * 1024 * 1024;
+/// Items a workspace may hold, counting folders, agents' folders and kept Trash.
+pub const MAX_ITEMS: i64 = 10_000;
 
 #[derive(Debug)]
 pub struct Denied;
@@ -88,6 +90,9 @@ pub struct CreateFolder {
     pub id: String,
     pub request: String,
     pub title: String,
+    /// The folder to create it in, or none for the top level.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub folder: Option<String>,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -114,6 +119,15 @@ pub struct UploadFile {
     pub title: String,
     pub size: i64,
     pub checksum: String,
+    /// When the upload replaces a file: that file and the revision it was read at.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<Replaces>,
+}
+#[derive(Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Replaces {
+    pub item: String,
+    pub revision: i64,
 }
 #[derive(Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

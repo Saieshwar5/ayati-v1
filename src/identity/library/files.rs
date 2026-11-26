@@ -58,7 +58,8 @@ pub(super) async fn upload(
         "Selected file does not match this upload; reselect the original file",
     )?;
     if session["state"] == "stored" {
-        return Ok(Json(app.store.library_get(&user, &w, &id).await?));
+        let target = session["item"].as_str().unwrap_or(&id);
+        return Ok(Json(app.store.library_get(&user, &w, target).await?));
     }
     let key = session["object_key"]
         .as_str()
@@ -81,6 +82,8 @@ pub(super) async fn upload(
 pub(super) struct Download {
     #[serde(default)]
     inline: bool,
+    /// An earlier version of the file, for people who can edit it.
+    version: Option<i64>,
 }
 pub(super) async fn download(
     State(app): State<Shared>,
@@ -95,7 +98,16 @@ pub(super) async fn download(
         )
     })?;
     let user = identity(&app, &headers).await?;
-    let item = app.store.library_file(&user, &w, &id).await?;
+    let mut item = app.store.library_file(&user, &w, &id).await?;
+    if let Some(version) = input.version {
+        let held = app
+            .store
+            .library_file_version(&user, &w, &id, version)
+            .await?;
+        for field in ["title", "object_key", "mime", "size", "checksum"] {
+            item[field] = held[field].clone();
+        }
+    }
     let bytes = tokio::time::timeout(
         std::time::Duration::from_secs(60),
         app.library.get(

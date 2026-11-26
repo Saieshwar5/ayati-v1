@@ -159,6 +159,15 @@ impl MigratorTrait for Migrator {
             Box::new(super::tasks::migration::CheckTasks),
             Box::new(super::tasks::migration::DropSchedules),
             Box::new(super::tasks::migration::TasksInConversations),
+            Box::new(super::library::file_versions::LibraryFileVersions),
+            Box::new(super::library::nested::LibraryNested),
+            Box::new(super::library::workbench::LibraryWorkbench),
+            Box::new(super::library::agent_folders::LibraryAgentFolders),
+            Box::new(super::library::meaning_folders::LibraryMeaningFolders),
+            Box::new(super::library::meaning_folders::LibraryGapQuestions),
+            Box::new(super::library::descriptions::LibraryDescriptions),
+            Box::new(super::conversation_files::ConversationFiles),
+            Box::new(super::library::nested::LibrarySourceColumn),
         ]
     }
 }

@@ -1,4 +1,5 @@
-//! Library folders (LB1): one level of folders whose sharing their pages and files follow.
+//! Library folders (LB1): folders whose sharing their pages and files follow. Since
+//! schema 153 folders nest; see `nested`.
 use super::*;
 use sea_orm_migration::prelude::{DbErr, MigrationName, MigrationTrait, SchemaManager};
 
@@ -25,7 +26,7 @@ impl MigrationTrait for LibraryFolders {
 }
 
 /// A folder this person may file items into: it exists, is not in Trash and they can edit it.
-pub(super) async fn open_folder(
+pub(in crate::identity::postgres) async fn open_folder(
     db: &impl ConnectionTrait,
     user: &User,
     w: &str,
@@ -65,10 +66,15 @@ impl PgStore {
         .context("Library count unavailable")?
         .try_get("", "n")?;
         ensure!(
-            count < 1000,
-            "This workspace's initial Library limit is 1,000 items"
+            count < MAX_ITEMS,
+            "This workspace's Library limit is 10,000 items"
         );
-        execute(&tx,"INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,created,updated) VALUES($1,$2,'folder',$3,$4,$4,$5,$5)",vec![w.into(),input.id.clone().into(),input.title.trim().into(),user.id.clone().into(),now().into()]).await?;
+        // A folder made inside another follows that folder's sharing until it is shared.
+        if let Some(parent) = &input.folder {
+            open_folder(&tx, user, w, parent).await?;
+            super::nested::fits(&tx, w, None, parent).await?;
+        }
+        execute(&tx,"INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,created,updated,folder) VALUES($1,$2,'folder',$3,$4,$4,$5,$5,$6)",vec![w.into(),input.id.clone().into(),input.title.trim().into(),user.id.clone().into(),now().into(),input.folder.clone().into()]).await?;
         let result = json!({"id":input.id});
         remember(&tx, user, w, &input.request, payload, &result).await?;
         audit_with_summary(
@@ -101,10 +107,6 @@ impl PgStore {
             return Ok(result);
         }
         ensure!(
-            current["kind"] != "folder",
-            "Folders can't go inside folders"
-        );
-        ensure!(
             current["manageable"] == true,
             "Only the creator can move this item"
         );
@@ -112,7 +114,13 @@ impl PgStore {
             return Err(Conflict.into());
         }
         let target = match &input.folder {
-            Some(folder) => Some(open_folder(&tx, user, w, folder).await?),
+            Some(folder) => {
+                let target = open_folder(&tx, user, w, folder).await?;
+                if current["kind"] == "folder" {
+                    super::nested::fits(&tx, w, Some(id), folder).await?;
+                }
+                Some(target)
+            }
             None => None,
         };
         for table in ["relay_library_people", "relay_library_agents"] {
@@ -123,7 +131,8 @@ impl PgStore {
             )
             .await?;
         }
-        execute(&tx,"UPDATE relay_library_items SET folder=$3,visibility='private',access_revision=access_revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),input.folder.clone().into()]).await?;
+        execute(&tx,"UPDATE relay_library_items SET folder=$3,visibility='private',shares=false,access_revision=access_revision+1 WHERE workspace=$1 AND id=$2",vec![w.into(),id.into(),input.folder.clone().into()]).await?;
+        super::nested::touch_inside(&tx, w, id).await?;
         let name = current["title"].as_str().unwrap_or("Library item");
         audit_with_summary(
             &tx,

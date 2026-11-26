@@ -1,0 +1,8 @@
+.conversation-files { display: grid; gap: 8px; }
+.conversation-files h3, .conversation-files h4 { margin: 8px 0 0; font-size: 0.95rem; }
+.conversation-files h4 small { color: var(--muted); font-weight: 400; }
+.conversation-files ul { list-style: none; margin: 0; padding: 0; }
+.conversation-file { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.conversation-file .chat-file-text { flex: 1; min-width: 140px; display: grid; }
+.conversation-file .chat-file-text small { color: var(--muted); }
+.conversation-file-kept { color: var(--success); font-size: 0.85rem; }

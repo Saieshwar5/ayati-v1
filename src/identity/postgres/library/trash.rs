@@ -32,7 +32,7 @@ impl PgStore {
         );
         let mut files = vec![];
         if let Some(gone) = purge(&tx, w, id, now()).await? {
-            files.extend(gone.file);
+            files.extend(gone.files);
             audit_with_summary(
                 &tx,
                 &user.id,
@@ -55,11 +55,11 @@ impl PgStore {
     ) -> Result<(usize, Vec<String>)> {
         let tx = self.workspace_tx(w).await?;
         role(&tx, w, &user.id).await?;
-        let ids: Vec<String> = rows(&tx, &format!("SELECT i.id FROM relay_library_items i WHERE i.workspace=$1 AND i.trashed AND i.purged IS NULL AND i.steward=$2 AND NOT EXISTS(SELECT 1 FROM relay_library_holds h WHERE h.workspace=i.workspace AND h.item IN (i.id, i.folder)) ORDER BY i.updated LIMIT {EMPTY}"), vec![w.into(), user.id.clone().into()]).await?.into_iter().map(|r| r.try_get("", "id")).collect::<std::result::Result<_, _>>()?;
+        let ids: Vec<String> = rows(&tx, &format!("SELECT i.id FROM relay_library_items i WHERE i.workspace=$1 AND i.trashed AND i.purged IS NULL AND i.steward=$2 AND NOT EXISTS(SELECT 1 FROM relay_library_holds h WHERE h.workspace=i.workspace AND h.item = ANY(relay_library_path(i.workspace,i.id))) ORDER BY i.updated LIMIT {EMPTY}"), vec![w.into(), user.id.clone().into()]).await?.into_iter().map(|r| r.try_get("", "id")).collect::<std::result::Result<_, _>>()?;
         let mut files = vec![];
         for id in &ids {
             if let Some(gone) = purge(&tx, w, id, now()).await? {
-                files.extend(gone.file);
+                files.extend(gone.files);
             }
         }
         if !ids.is_empty() {

@@ -24,6 +24,7 @@ pub(super) async fn folder(db: &PgStore, user: &User, w: &str, title: &str) -> S
             id: id.clone(),
             request: uuid::Uuid::new_v4().to_string(),
             title: title.into(),
+            folder: None,
         },
     )
     .await
@@ -162,7 +163,11 @@ async fn items_in_a_folder_follow_its_sharing() {
     db.library_move(&member, &w, &mine.id, &moving(2, None))
         .await
         .unwrap();
-    assert!(db.library_get(&owner, &w, &mine.id).await.is_err());
+    // (Its admin can still open it, as an admin: not because it was shared.)
+    assert_eq!(
+        db.library_get(&owner, &w, &mine.id).await.unwrap()["granted"],
+        false
+    );
     // A folder goes to Trash only when empty; an item restored from it comes back unfiled.
     let action = |action: &str, revision: i64| ItemAction {
         request: uuid::Uuid::new_v4().to_string(),

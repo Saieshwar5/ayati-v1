@@ -27,6 +27,10 @@ pub(crate) struct ProvidersFile {
     /// The longest a computer stays awake in one go.
     #[serde(default = "longest_default")]
     pub longest_work_minutes: u32,
+    /// False (the default): a computer is released once its work is done and the next
+    /// request starts on an empty one. True keeps it asleep with its files in between.
+    #[serde(default)]
+    pub keep_between_requests: bool,
 }
 fn sleep_default() -> u32 {
     5

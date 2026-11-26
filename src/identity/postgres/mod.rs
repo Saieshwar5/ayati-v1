@@ -259,6 +259,7 @@ mod invite_link_migration;
 #[cfg(test)]
 mod invite_link_tests;
 pub(crate) mod invite_links;
+pub(crate) mod conversation_files;
 mod jobs;
 mod library;
 #[cfg(test)]
@@ -360,6 +361,8 @@ pub struct PgStore {
     pub(crate) web_search: Option<crate::identity::web_search::WebSearch>,
     /// Agent computers (schema 103), when configured.
     pub(crate) computers: Option<crate::identity::computers::Computers>,
+    /// Where Library and conversation files are stored, for agents (schemas 154, 159).
+    pub(crate) files: conversation_files::Files,
 }
 impl PgStore {
     /// A store whose every query fails, for HTTP tests that must reject a
@@ -381,6 +384,7 @@ impl PgStore {
             model_catalog: None,
             web_search: None,
             computers: None,
+            files: Default::default(),
         }
     }
     /// Connect with the controller's execution and store policy, then verify the schema.
@@ -393,6 +397,7 @@ impl PgStore {
         store.model_catalog = crate::identity::models::catalog::Files::from(config);
         store.web_search = crate::identity::web_search::WebSearch::from(config)?;
         store.computers = crate::identity::computers::Computers::from(config)?;
+        store.files.library = crate::identity::library::Storage::from_settings(&config.library)?;
         store.verify_schema().await?;
         Ok(store)
     }
@@ -466,13 +471,11 @@ mod profile_tests;
 #[cfg(test)]
 pub(in crate::identity) mod tests;
 pub(crate) use agent_knowledge::KnowledgeInput;
-pub(crate) use library::always::AlwaysRead;
-pub(crate) use library::answers::SaveAnswer;
-pub(crate) use library::edits::Decision;
-pub(crate) use library::keeping::{Hold, Keeping};
-pub(crate) use library::tables::SaveTable;
-pub(crate) use library::upkeep::{GapAction, Review};
-pub(crate) use library::watching::Watch;
+pub(crate) use library::{
+    always::AlwaysRead, answers::SaveAnswer, descriptions::Description, edits::Decision, keeping::Hold, keeping::Keeping,
+    meaning_folders::MeaningSwitch, tables::SaveTable, upkeep::GapAction, upkeep::Review,
+    watching::Watch,
+};
 pub(crate) use worker_control::model_usage::{
     ModelCall, micro_dollars as model_usage_micro_dollars,
 };

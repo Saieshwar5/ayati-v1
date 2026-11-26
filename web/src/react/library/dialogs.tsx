@@ -11,7 +11,9 @@ import { useMutation, useResource } from '../requests';
 import {
   request,
   itemUrl,
+  bytesLabel,
   dateLabel,
+  downloadUrl,
   levelName,
   useForName,
   type AgentGrant,
@@ -239,8 +241,9 @@ export function ShareDialog({
           <p>No available workspace agents. Create or request access to one in Agents.</p>
         )}
         <small>
-          People who can see it: the agent uses it only when everyone who will read the answer can
-          open it. All staff: any colleague's question can use it, without opening the document.
+          Agents are given access in the same words as people. For people who can see it: the
+          agent uses it only when everyone who will read the answer can open it. For anyone in the
+          company: any colleague's question can use it, without them opening the document.
         </small>
       </section>
       <section className="library-link">
@@ -353,6 +356,7 @@ export function HistoryDialog({
           author: string;
           agent?: string | null;
           created: number;
+          size?: number;
         }[];
       }>(`/${item.id}/versions`),
     [item.id],
@@ -374,8 +378,9 @@ export function HistoryDialog({
       status={mutation.status || history.error}
     >
       <p>
-        Inspect the last 50 saved revisions. Restoring creates a new revision. Versions referenced
-        in Chat are also retained.
+        {item.kind === 'file'
+          ? 'The last 20 versions of this file are kept. Restoring one creates a new version.'
+          : 'Inspect the last 50 saved revisions. Restoring creates a new revision. Versions referenced in Chat are also retained.'}
       </p>
       {preview && (
         <section className="library-version-preview">
@@ -394,8 +399,14 @@ export function HistoryDialog({
             <small>
               {version.author}
               {version.agent ? ` · by ${version.agent}` : ''} · {dateLabel(version.created)}
+              {item.kind === 'file' && version.size ? ` · ${bytesLabel(version.size)}` : ''}
             </small>
           </div>
+          {item.kind === 'file' ? (
+            <a className="ui-button" href={`${downloadUrl(item.id)}?version=${version.revision}`}>
+              Download
+            </a>
+          ) : (
           <Button
             disabled={mutation.busy}
             onClick={() =>
@@ -406,6 +417,7 @@ export function HistoryDialog({
           >
             View
           </Button>
+          )}
           <Button
             disabled={mutation.busy || version.revision === item.revision}
             onClick={() =>

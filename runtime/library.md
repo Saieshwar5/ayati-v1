@@ -29,7 +29,7 @@ restore creates a new revision. Native pages export structured JSON.
 
 List/search filter current access before pagination. Results contain at most 50
 items per page. Search matches titles and prepared text, including supported file
-excerpts. Stars are personal. The first release limits a workspace to 1,000 items,
+excerpts. Stars are personal. A workspace holds up to 10,000 items,
 including retained trash. Trash remains recoverable and is not automatically
 purged. File bytes in trash continue to count toward the 1 GiB file quota.
 Native page/history database storage is separate from that binary-file quota.
@@ -41,9 +41,17 @@ Only admins invite or remove workspace members through Settings.
 
 - New items are private. The creator manages sharing and trash.
 - Native pages offer Can view or Can edit. Edit does not grant resharing. The
-  initial file-sharing UI offers view/download access; file replacement is deferred.
+  file-sharing UI offers view/download access; editors replace a file with a new version.
 - Workspace visibility gives current members view access; named editors can edit.
-- Another admin does not automatically read private/selected-people content.
+- **Admins can open and manage everything** (schema 153), including items marked Only
+  me: open, edit, share, move, trash and delete. What was not shared with them stays out
+  of their own views and is listed under **Everything**; the item says so when opened, and
+  the Audit log records "Opened … as an admin; it was not shared with them" (once an hour
+  per admin and item). `relay_library_granted` is what a person was given;
+  `relay_library_access` adds the admin rule. Agents get nothing from this: an agent uses
+  only what it was given. Sample runs (rehearsals) also offer and accept only what was
+  shared with the person, so an admin opens another person's private item, audited, before
+  using it there.
 - Links do not grant access. There is no guest/public-link sharing.
 - Version history requires edit access; a viewer can fetch the current page version.
 
@@ -56,11 +64,8 @@ cannot recall an already downloaded copy or delivered private Chat answer.
 Membership removal deletes human grants, stars, upload sessions and request
 receipts through foreign keys. It clears current item stewardship while retaining
 the original author/history. Re-invitation does not revive private ownership or
-old grants. An admin can explicitly take over a workspace-visible orphaned item;
-an existing editor can take over a selected-people orphaned item. This does not
-grant an admin new read access to selected/private content. Private orphaned items
-remain retained and inaccessible; broader recovery/deletion policy is still a
-pilot decision. Selected items without surviving editors stay read-only.
+old grants. An admin can open and manage any orphaned item (above); an existing editor
+can still take over a selected-people orphaned item.
 
 ## Files and storage configuration
 
@@ -103,8 +108,35 @@ bounded; the size limit bounds buffered downloads.
 
 Reservations expire. Stored bytes from an upload that was cancelled or never finished
 are removed by the keeping sweep once no item uses them (each upload session is closed
-as `cleaned`, so its bytes are released once). File replacement/versioning and large
-multipart transfers remain follow-up work.
+as `cleaned`, so its bytes are released once). Large multipart transfers remain
+follow-up work.
+
+### File versions (schema 152)
+
+A file keeps versions like a page. People who can edit it choose **Upload new version**
+on the file: the upload names the file and the revision they were looking at
+(`POST …/library-uploads` with `replaces: {item, revision}`), and a file that changed
+meanwhile is not overwritten. The file keeps its id, title, sharing and folder; its text
+is read and indexed again. **Version history** lists the versions with who saved them and
+their size, offers each to download (`GET …/library/{id}/download?version=N`, for
+editors) and restores one as the next revision.
+
+- The latest 20 versions of a file are kept (pages and tables keep 50); versions an
+  agent's answer cited and everything on legal hold are kept too.
+- Each version names its own stored object. The 1 GiB quota counts every kept object
+  once, so old versions use storage until they are dropped.
+- Objects of dropped versions wait in `relay_library_discarded`; the keeping sweep
+  removes them from storage once no version names them. Deleting a file for good removes
+  every version's object.
+- Moving a file to Trash or back is not a version.
+
+Checks: PostgreSQL (`postgres/library_file_version_tests.rs`: viewers can't replace, a
+stale revision is refused, the same item gets revision 2 and is re-indexed, History lists
+both with sizes, viewers read only the current one, restoring is revision 3 with the
+first object, storage counts each object once; the 21st version drops the first object
+once, and deleting for good returns the 20 kept), web
+(`tests/library-file-versions.test.mjs`: the upload names the revision read, a failed
+transfer retries as the same upload, History offers downloads and restores).
 Do not enable a bucket lifecycle rule that can expire live Library objects; use
 keeping rules (below) instead.
 

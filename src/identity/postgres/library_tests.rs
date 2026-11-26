@@ -1,6 +1,8 @@
 use super::{tests::*, *};
 use crate::identity::library::model::*;
 use serde_json::json;
+#[path = "conversation_file_tests.rs"]
+mod conversation_files;
 #[path = "library_always_tests.rs"]
 mod always;
 #[path = "library_answer_tests.rs"]
@@ -9,12 +11,18 @@ mod answers;
 mod edits;
 #[path = "library_fence_tests.rs"]
 mod fence;
+#[path = "library_file_version_tests.rs"]
+mod file_versions;
 #[path = "library_folder_tests.rs"]
 mod folders;
 #[path = "library_keeping_tests.rs"]
 mod keeping;
 #[path = "library_meaning_tests.rs"]
 mod meaning;
+#[path = "library_merge_tests.rs"]
+mod merging;
+#[path = "library_nested_tests.rs"]
+mod nested;
 #[path = "library_passage_tests.rs"]
 mod passages;
 #[path = "library_table_tests.rs"]
@@ -27,6 +35,8 @@ mod trash;
 mod upkeep;
 #[path = "library_watching_tests.rs"]
 mod watching;
+#[path = "library_workbench_tests.rs"]
+mod workbench;
 fn page(title: &str) -> SavePage {
     SavePage {
         id: uuid::Uuid::new_v4().to_string(),
@@ -65,7 +75,11 @@ async fn library_private_pages_and_item_permissions_are_independent_of_roles() {
     let input = page("Private working plan");
     let id = &input.id;
     db.library_save(&writer, &w, &input).await.unwrap();
-    assert!(db.library_get(&owner, &w, id).await.is_err());
+    // An admin can open it, but it is not among what was shared with them.
+    assert_eq!(
+        db.library_get(&owner, &w, id).await.unwrap()["granted"],
+        false
+    );
     assert!(
         db.library_list(&owner, &w, "all", "", "", 0).await.unwrap()["items"]
             .as_array()
@@ -79,8 +93,9 @@ async fn library_private_pages_and_item_permissions_are_independent_of_roles() {
         db.library_get(&viewer, &w, id).await.unwrap()["editable"],
         false
     );
+    // Being given the item doesn't let a member reshare it (an admin could).
     assert!(
-        db.library_share(&owner, &w, id, &share(2, "workspace", vec![]))
+        db.library_share(&viewer, &w, id, &share(2, "workspace", vec![]))
             .await
             .is_err()
     );
@@ -198,7 +213,11 @@ async fn library_member_removal_and_reinvitation_do_not_reactivate_private_owner
     join(&db, &owner, &w, &writer, "Member").await;
     assert!(db.library_get(&writer, &w, &input.id).await.is_err());
     assert!(db.library_get(&writer, &w, &shared.id).await.is_err());
-    assert!(db.library_get(&owner, &w, &input.id).await.is_err());
+    // The admin can still reach what the removed member kept private.
+    assert_eq!(
+        db.library_get(&owner, &w, &input.id).await.unwrap()["granted"],
+        false
+    );
     assert_eq!(
         db.library_get(&owner, &w, &team_page.id).await.unwrap()["steward"],
         Value::Null
@@ -234,6 +253,7 @@ async fn library_file_sessions_reconcile_cancel_and_reserve_quota() {
         title: "reference.txt".into(),
         size: bytes.len() as i64,
         checksum: checksum(bytes),
+        replaces: None,
     };
     db.library_upload_start(&owner, &w, &input).await.unwrap();
     db.library_upload_start(&owner, &w, &input).await.unwrap();
@@ -275,7 +295,7 @@ async fn library_file_sessions_reconcile_cancel_and_reserve_quota() {
     );
     execute(
         &db.db,
-        "UPDATE relay_library_items SET size=$3 WHERE workspace=$1 AND id=$2",
+        "UPDATE relay_library_versions SET size=$3 WHERE workspace=$1 AND item=$2",
         vec![
             w.clone().into(),
             db.library_list(&owner, &w, "all", "", "", 0).await.unwrap()["items"][0]["id"]
@@ -293,12 +313,12 @@ async fn library_file_sessions_reconcile_cancel_and_reserve_quota() {
     // Pending file reservations and native pages share the same item budget.
     execute(
         &db.db,
-        "UPDATE relay_library_items SET size=21 WHERE workspace=$1",
+        "UPDATE relay_library_versions SET size=21 WHERE workspace=$1",
         vec![w.clone().into()],
     )
     .await
     .unwrap();
-    execute(&db.db,"INSERT INTO relay_library_uploads(workspace,id,actor,title,size,checksum,object_key,expires) SELECT $1,gen_random_uuid()::text,$2,'reserved.txt',1,$3,'library/capacity/'||n::text,$4 FROM generate_series(1,999) n",vec![w.clone().into(),owner.id.clone().into(),checksum(b"x").into(),(now()+86400).into()]).await.unwrap();
+    execute(&db.db,"INSERT INTO relay_library_uploads(workspace,id,actor,title,size,checksum,object_key,expires) SELECT $1,gen_random_uuid()::text,$2,'reserved.txt',1,$3,'library/capacity/'||n::text,$4 FROM generate_series(1,$5) n",vec![w.clone().into(),owner.id.clone().into(),checksum(b"x").into(),(now()+86400).into(),(MAX_ITEMS - 1).into()]).await.unwrap();
     assert!(
         db.library_save(&owner, &w, &page("Cannot exceed reserved capacity"))
             .await

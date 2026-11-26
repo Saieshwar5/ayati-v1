@@ -10,7 +10,8 @@ D242), schemas 69–74.
 
 Built 2026-11-05 from the Library plan (slice LB1, draft decision D242).
 
-**Folders.** One level: a folder holds pages and files, not other folders. Anyone can
+**Folders.** Folders hold pages, files, tables and, since schema 153, other folders
+(below). Anyone can
 create one (`POST /api/identity/workspaces/{w}/library-folders` with `{id, request,
 title}`); it is private to its creator until shared. Everything in a folder follows the
 folder's sharing: people (Only me, Selected people, Workspace; Can view or Can edit) and
@@ -65,6 +66,27 @@ for this answer**, links Cuckoo makes from its receipts, not the model, naming t
 read ("Support handbook › Refunds · revision 3"); documents only previewed by search
 aren't cited. Chat opens them in the same tab at the cited revision. Cited revisions are kept with page history.
 Agents given anything in the Library get one instruction line about these tools.
+
+### Folders inside folders (schema 153)
+
+- A folder can be made inside a folder the person can edit (`library-folders` with
+  `folder`), up to five levels, and moved like any item (never into itself).
+- An item follows **the nearest folder above it that has its own sharing**: a top-level
+  folder, or a subfolder shared on its own. A new subfolder follows its parent;
+  **Share separately** on it gives it sharing of its own, and **Follow <folder>**
+  (`action: follow_folder`) removes that again. Both raise the access revision of
+  everything inside, so answers that used those items are fenced as for any sharing change.
+- A folder lists what is directly in it. A legal hold on any folder above an item holds
+  it; the keeping rule of the nearest folder that has one applies.
+- `relay_library_source(workspace, item)` names the item whose sharing applies;
+  `relay_library_path` the folders above it. Moving offers top-level folders only for now.
+
+Checks: PostgreSQL (`postgres/library_nested_tests.rs`: sharing the top folder reaches a
+page two levels down and fences it, a viewer can't add a subfolder, a subfolder shared
+separately hides its pages and following again shows them, each level lists its own
+items; no loops, five levels, a hold and keeping rule from folders above), web
+(`tests/library-folders.test.mjs`: the path, "follows the sharing of", Share separately,
+a folder made inside names its parent).
 
 ### Passages and full-text search (schema 70, LB2a)
 
@@ -123,6 +145,40 @@ AYATI_LIBRARY_SUMMARY_MODEL=openai:gpt-5-mini                  # provider:model
   its current revision. The text of every document is sent to the configured provider
   for embedding and summarising, like any model request.
 
+### Words first; meaning search per folder (schema 156)
+
+Vectors are no longer made by default. The agent chooses how to find things, cheapest
+first: browse (`list_folder`), words (`search_library`), exact characters
+(`search_library` with `exact: true`), open the file on its computer
+(`open_document`), and meaning search only where a folder has it on.
+
+- **Exact search** finds exactly the characters asked for, ignoring case, in passages
+  and titles: invoice numbers, product codes, names, phrases. It uses the same grants and
+  audience as word search and never asks a model. A miss is not counted as an unanswered
+  question.
+- **Meaning search is off until a folder's manager turns it on** (**Turn on meaning
+  search** on the folder; `GET/POST …/library/{folder}/meaning` with `{on}`). It covers
+  everything in the folder at any depth. Only that text is sent to the embedding and
+  summary models; turning it off deletes the embeddings. The switch is audited ("Turned
+  on meaning search for "Policies": its text is sent to the model provider"). Agents' own
+  folders can't have it.
+- With no folder on, a question's meaning is never asked of the model, so the feature
+  costs nothing until someone chooses it. Upgrading deletes existing embeddings, since no
+  folder starts with it on; summaries already written stay.
+- **Agents propose, people decide**: `propose_meaning_search({folder, reason})` leaves a
+  note the folder's manager sees on the folder ("Nova suggests turning on meaning
+  search: …"), with **Turn on** or **Dismiss**.
+- An item moved out of such a folder keeps its embeddings unused until the folder is
+  switched off; they are never searched.
+
+Checks: PostgreSQL with pgvector 0.6.0 (`postgres/library_meaning_tests.rs`: nothing is
+embedded and the model is not asked by default; the agent proposes for a folder it may
+use and not for HR; a member can't turn it on; the manager sees the proposal and turns it
+on; only that folder's page is embedded and summarised and is then found by meaning;
+turning off deletes the embeddings. `postgres/library_passage_tests.rs`: exact search
+finds "30 DAYS from" and not a stem match, never HR, and records no unanswered question),
+web (`tests/library-meaning.test.mjs`).
+
 ### Text in images and "always read" documents (schema 73, LB2c)
 
 - **Images** (PNG, JPEG, up to 40 megapixels) are read by text recognition: Tesseract
@@ -170,6 +226,94 @@ checked like any page (60,000 characters at most). Agents never change who has a
   the agent) or rejects; a suggestion made on an older revision can only be rejected.
   `GET …/library/{id}/suggestions`, `POST …/library/{id}/suggestions/{s}` with
   `{request, action}`; decisions are audited and replay-safe.
+
+### Working on documents on the computer (schema 154)
+
+The Library keeps; the agent's computer works. Two tools join the Library to the
+agent's [computer](agent-computers.md):
+
+- **`open_document({id})`** puts an item the agent may use for this conversation in
+  `library/` in the request's folder: a file as it is, a page as Markdown
+  (`Returns policy.md`), a table as CSV (`Price list.csv`). It leaves a read receipt, so
+  it is cited and fenced like `read_document`, and remembers the revision opened
+  (`relay_library_opened`).
+- **`save_file({path, folder?, title?, note?})`** saves a file from the computer.
+  - A file that was opened becomes **that item's next version**, marked with the agent
+    and the person it worked for. The agent needs **Edit** and the person must be able to
+    edit the item. If the item changed in the Library meanwhile, nothing is written and
+    the tool says to open it again (`state: changed`). Saving the same file again
+    continues from the version just written.
+  - With **Suggest edits**, a page's change becomes a suggestion (with `note`); files and
+    tables are refused. With **Read**, saving is refused.
+  - Any other file is a **new file** in `folder`, which needs **Edit and save here** and
+    a person who can edit the folder; `title` names it.
+- A page keeps its headings, lists (nested, numbered, check lists), quotes, code blocks,
+  rules, line breaks, bold, italic, strike, underline, code and links through the round
+  trip (`library/page_markdown.rs`). A table's number columns stay numbers; a new column
+  is numbers when every value is (`library/tables_csv.rs`).
+- **Copies don't outlive the request.** When another request of the agent takes the
+  computer, the `library/` folders of earlier requests are deleted first: the next
+  request may be for someone who can't see that document.
+- Files are stored and read like uploads (25 MiB, the workspace quota, text for search).
+  Saves are in the Audit log ("Nova saved a new version of "prices.txt" (revision 2)",
+  "Nova saved "May report.txt" in "Policies"").
+
+Checks: unit (the page and table round trips), PostgreSQL
+(`postgres/library_workbench_tests.rs`, with the local stand-in computer and local file
+storage: a page opened as Markdown, changed with a shell command and saved as revision 2
+with its formatting, continued to revision 3, refused after a person's newer edit, and
+cited; read, suggest and edit levels, a colleague who can't edit, HR not opened for
+them, and earlier requests' copies gone; a stored file and a table changed and saved, a
+number column refusing text, a new file refused without "save here" and then filed).
+Not yet run with a real model or a real provider computer.
+
+### Fewer tools, access levels and merged saves (2026-11-26)
+
+- Agents are offered `list_folder`, `search_library`, `read_document`, `lookup`,
+  `open_document`, `save_file`, `file_document`, `set_document_fields`,
+  `propose_meaning_search`, `conversation_files` and `open_attachment`. A page or table
+  is changed by opening it and saving the file; `suggest_edit`, `edit_document`,
+  `save_document` and `set_table_row` were removed. On a Cuckoo without computers an
+  agent can therefore no longer change pages. Sections below that name those tools
+  describe how they worked before 2026-11-26.
+- `list_folder` and `open_document` say the agent's **level** on each document.
+- When someone saved meanwhile, `save_file` keeps both changes if they touched different
+  sections of a page (cut at its headings) or different rows of a table (by key), and
+  says so; the same section or row, or a changed set of sections or columns, is refused
+  as before (`library/page_merge.rs`, `library/tables_csv.rs`).
+
+Checks: unit (section and row merges), PostgreSQL (`postgres/library_merge_tests.rs`: a
+person changes Shipping while the agent changes Returns and both are in revision 4; the
+same section is refused; a table row each).
+
+### A conversation's files (schema 159)
+
+Files belong to their conversation, not to the Library. Schema 155 gave each agent a
+Library folder with a subfolder per conversation; schema 159 removed that (duplicate
+files across agents, a folder per conversation, Library items pointing at Chat's bytes).
+
+- **What they are**: what people attached to messages, and what an agent made there
+  (`relay_objects.made_by`). The people in the conversation open them, by Chat's own rule.
+- **Agents**: `conversation_files()` lists them; `open_attachment({id})` puts one in
+  `attachments/` on the agent's computer. `save_file` with no folder attaches the file to
+  the agent's reply (at most eight per reply); with a folder it is saved to the Library.
+- **People**: **Files** in a conversation's Details lists them
+  (`GET …/chats/{chat}/files`), each with a download and **Save to Library**
+  (`POST …/objects/{id}/keep` with `{id, folder?, title?}`): a copy, private or in a
+  folder the person can add to, read for search, audited, and the same item on a retry.
+- **An agent's Files** on its page (`GET …/agent-profiles/{agent}/artifacts`): files sent
+  to it or made by it, grouped by conversation. A person sees the conversations they are
+  in; the agent's owners and admins also see the names of the rest, without opening them.
+
+Checks: PostgreSQL (`postgres/conversation_file_tests.rs`: a file the agent makes is
+attached, listed as the agent's, not in the Library, hidden from someone outside the
+conversation, and capped at eight per reply; an attachment is listed and opened on the
+computer, not in another conversation; a person keeps it once, an admin outside the
+conversation can't), web (`tests/conversation-files.test.mjs`).
+
+An agent uses a Library document only for people it was shared with
+(`relay_library_granted`): an admin's access to everything is for opening things
+themselves, which is audited.
 
 **Fencing (schema 71).** Library edits and sharing changes no longer raise the
 workspace-wide context epoch, which used to hide every earlier agent answer in the

@@ -2,7 +2,7 @@
 //! rows. Agents look rows up exactly by key, and company rules can compare a request
 //! with a table's value, which text search can't do reliably for numbers.
 use anyhow::{Result, ensure};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 pub const MAX_COLUMNS: usize = 20;
 pub const MAX_ROWS: usize = 5000;
@@ -132,44 +132,6 @@ pub fn row(table: &Value, wanted: &Value) -> Option<Value> {
         })
 }
 
-/// Sets one row by key (adding it when new), keeping the column types.
-pub fn set_row(table: &Value, wanted: &Value, values: &Value) -> Result<Value> {
-    let columns = table["columns"].as_array().cloned().unwrap_or_default();
-    let values = values
-        .as_object()
-        .ok_or_else(|| anyhow::anyhow!("Give the row's values by column name"))?;
-    for name in values.keys() {
-        ensure!(
-            columns.iter().any(|c| c["name"] == name.as_str()),
-            "No column named {name}"
-        );
-    }
-    let mut table = table.clone();
-    let rows = table["rows"]
-        .as_array_mut()
-        .ok_or_else(|| anyhow::anyhow!("Not a table"))?;
-    let index = rows.iter().position(|r| key(&r[0]) == key(wanted));
-    let mut row = match index {
-        Some(i) => rows[i].as_array().cloned().unwrap_or_default(),
-        None => {
-            let mut fresh = vec![Value::Null; columns.len()];
-            fresh[0] = json!(wanted.as_str().map(str::trim).unwrap_or(""));
-            fresh
-        }
-    };
-    for (i, column) in columns.iter().enumerate().skip(1) {
-        if let Some(value) = values.get(column["name"].as_str().unwrap_or("")) {
-            row[i] = value.clone();
-        }
-    }
-    match index {
-        Some(i) => rows[i] = json!(row),
-        None => rows.push(json!(row)),
-    }
-    validate(&table)?;
-    Ok(table)
-}
-
 #[cfg(test)]
 mod tests {
     use serde_json::json;
@@ -178,7 +140,7 @@ mod tests {
             "rows":[["Standing desk",1250,10],["Chair",300,null]]})
     }
     #[test]
-    fn tables_are_checked_looked_up_by_key_and_changed_one_row_at_a_time() {
+    fn tables_are_checked_and_looked_up_by_key() {
         assert_eq!(
             super::validate(&prices()).unwrap(),
             "Product: Standing desk · Price: 1250 · Max discount: 10\nProduct: Chair · Price: 300\n"
@@ -188,12 +150,6 @@ mod tests {
             json!({"Product":"Standing desk","Price":1250,"Max discount":10})
         );
         assert!(super::row(&prices(), &json!("Lamp")).is_none());
-        let changed = super::set_row(&prices(), &json!("Chair"), &json!({"Price":320})).unwrap();
-        assert_eq!(changed["rows"][1], json!(["Chair", 320, null]));
-        let added = super::set_row(&prices(), &json!("Lamp"), &json!({"Price":45})).unwrap();
-        assert_eq!(added["rows"][2], json!(["Lamp", 45, null]));
-        assert!(super::set_row(&prices(), &json!("Chair"), &json!({"Price":"cheap"})).is_err());
-        assert!(super::set_row(&prices(), &json!("Chair"), &json!({"Colour":"red"})).is_err());
         let mut twice = prices();
         twice["rows"][1][0] = json!("standing desk");
         assert!(

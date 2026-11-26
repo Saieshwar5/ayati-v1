@@ -29,7 +29,7 @@ test('a folder is shared with an agent to answer all staff, and people can edit 
     await click(document.querySelector('input[type=checkbox]'));
     const useFor = document.querySelector('[aria-label="Use for, Nova"]');
     assert.equal(useFor.value, 'viewers', 'the safest audience is the default');
-    assert.deepEqual([...useFor.options].map(o => o.textContent), ['People who can see it', 'All staff']);
+    assert.deepEqual([...useFor.options].map(o => o.textContent), ['For people who can see it', 'For anyone in the company']);
     await change(useFor, 'staff');
     await click(button('Save changes'));
     assert.deepEqual(payload.agents, [{ agent: 'nova', level: 'suggest', use_for: 'staff' }]);
@@ -74,14 +74,14 @@ test('moving offers only folders the person can edit and sends the sharing revis
     const { MoveDialog } = await import('../src/react/library/folders.tsx');
     await render(MoveDialog, { item: page, close: () => {}, changed: () => {} });
     const choices = [...document.querySelector('[aria-label="Folder"]').options].map(o => o.textContent);
-    assert.deepEqual(choices, ['Not in a folder', 'Sales']);
+    assert.deepEqual(choices, ['Not in a folder', 'Sales', 'Quotes'], 'folders at any depth, never one they only view');
     assert.equal(button('Move').disabled, true, 'nothing to move yet');
     await change(document.querySelector('[aria-label="Folder"]'), 'sales');
     await click(button('Move'));
     assert.equal(moved.folder, 'sales'); assert.equal(moved.revision, 4); assert.ok(moved.request);
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
-    if (path.includes('/library?view=all')) return response({ items: [folder, { ...folder, id: 'hr', title: 'HR', editable: false }, { ...page, id: 'x' }], more: false, available: true, storage: 'local' });
+    if (path.endsWith('/library-folders')) return response({ folders: [{ id: 'sales', title: 'Sales', folder: null, editable: true }, { id: 'quotes', title: 'Quotes', folder: 'sales', editable: true }, { id: 'hr', title: 'HR', folder: null, editable: false }] });
     assert.ok(path.endsWith('/library/notes/move')); moved = JSON.parse(options.body); return response({ ok: true });
   } });
 });
@@ -94,14 +94,83 @@ test('an open folder lists its own items and says its sharing applies to them', 
     await render(LibraryPage, { href: `${url}&folder=sales` });
     assert.ok(listed.some(path => path.includes('folder=sales')));
     assert.equal(document.querySelector('.library-folder-header h2').textContent, 'Sales');
-    assert.match(document.querySelector('.library-folder-header').textContent, /Workspace · 1 agent \(all staff\)\. Pages and files here follow the folder's sharing\./);
+    assert.match(document.querySelector('.library-folder-header').textContent, /Workspace · 1 agent \(for anyone in the company\)\. Everything here follows the folder's sharing\./);
     assert.ok(document.querySelector('nav[aria-label="Folder path"] a'));
-    assert.equal([...document.querySelectorAll('button')].some(b => b.textContent === '＋ New folder'), false, 'one level of folders');
+    assert.ok([...document.querySelectorAll('button')].some(b => b.textContent === 'New folder'), 'folders go inside folders');
     assert.equal(document.querySelector('.library-name a').textContent, 'Quote template');
   }, { url: `${url}&folder=sales`, fetch: async path => {
     if (path.endsWith('/session')) return response(session);
     if (path.endsWith('/library/sales')) return response({ ...folder, visibility: 'workspace', agents: [{ agent: 'nova', level: 'read', use_for: 'staff' }] });
     listed.push(path);
     return response({ items: [{ ...folder, id: 'quote', kind: 'page', title: 'Quote template', folder: 'sales', folder_title: 'Sales', updated: 1 }], more: false, available: true, storage: 'local' });
+  } });
+});
+
+test('a subfolder follows its folder until it is shared separately, and a folder made inside names it', async () => {
+  const posted = [];
+  let quotes = { ...folder, id: 'quotes', title: 'Quotes', folder: 'sales', folder_title: 'Sales', source: 'sales', visibility: 'workspace', agents: [] };
+  await reactFixture(async ({ render, click, change, button }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { LibraryPage } = await import('../src/react/library/library-page.tsx');
+    await render(LibraryPage, { href: `${url}&folder=quotes` });
+    const header = () => document.querySelector('.library-folder-header').textContent;
+    assert.match(header(), /This folder follows the sharing of Sales\./);
+    assert.deepEqual([...document.querySelectorAll('nav[aria-label="Folder path"] a')].map(a => a.textContent), ['Library', 'Sales']);
+    assert.ok(button('Share separately'));
+    assert.equal(button('Follow Sales'), undefined, 'it already follows');
+    await click(button('New folder'));
+    await change(document.querySelector('[aria-label="Folder name"]'), 'Acme');
+    await click(button('Create folder'));
+    assert.deepEqual([posted[0].title, posted[0].folder], ['Acme', 'quotes']);
+    // Once shared on its own it can go back to following.
+    quotes = { ...quotes, source: 'quotes', visibility: 'private' };
+    await render(LibraryPage, { href: `${url}&folder=quotes&again=1` });
+  }, { url: `${url}&folder=quotes`, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return response(session);
+    if (options.body) { posted.push(JSON.parse(options.body)); return response({ id: posted.at(-1).id, ok: true }); }
+    if (path.endsWith('/library/quotes')) return response(quotes);
+    if (path.endsWith('/keeping')) return response({ keep_days: null, folder_keep_days: null, deletes_at: null, hold: null, can_change: false });
+    if (path.endsWith('/watch')) return response({ watcher: null, agents: [], can_change: false });
+    return response({ items: [], more: false, available: true, storage: 'local' });
+  } });
+});
+
+test('the Library has three places, a folder tree and filters that switch off again', async () => {
+  const listed = [], moved = [];
+  await reactFixture(async ({ render, click, button, update, dom }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { LibraryPage } = await import('../src/react/library/library-page.tsx');
+    await render(LibraryPage, { href: `${url}&folder=quotes` });
+    const places = [...document.querySelectorAll('nav[aria-label="Library views"] button')].map(b => b.textContent);
+    assert.deepEqual(places.slice(0, 3), ['Home', 'Shared with me', 'Trash']);
+    const tree = document.querySelector('nav[aria-label="Folders"]');
+    assert.deepEqual([...tree.querySelectorAll(':scope > ul > li > a')].map(a => a.textContent), ['Sales', 'Orphan']);
+    assert.equal(tree.querySelector('ul ul a').textContent, 'Quotes', 'a subfolder sits under its folder');
+    assert.equal(tree.querySelector('[aria-current="page"]').textContent, 'Quotes');
+    await render(LibraryPage, { href: url });
+    // Dropping a row on a folder they can add to files it there; not on one they only view.
+    const drop = async (label) => {
+      const target = [...document.querySelectorAll('nav[aria-label="Folders"] a')].find(a => a.textContent === label);
+      const event = new dom.window.Event('drop', { bubbles: true, cancelable: true });
+      event.dataTransfer = { types: ['application/x-cuckoo-library-item'], getData: () => JSON.stringify({ id: 'notes', revision: 4 }) };
+      await update(() => target.dispatchEvent(event));
+    };
+    await drop('Orphan');
+    assert.equal(moved.length, 0);
+    await drop('Sales');
+    assert.deepEqual([moved[0].folder, moved[0].revision], ['sales', 4]);
+    await click(button('Starred'));
+    assert.equal(button('Starred').getAttribute('aria-pressed'), 'true');
+    assert.ok(listed.at(-1).includes('view=starred'));
+    await click(button('Starred'));
+    assert.ok(listed.at(-1).includes('view=all'), 'choosing it again clears the filter');
+  }, { url: `${url}&folder=quotes`, fetch: async (path, options = {}) => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.endsWith('/move')) { moved.push(JSON.parse(options.body)); return response({ ok: true }); }
+    if (path.endsWith('/library-folders')) return response({ folders: [
+      { id: 'sales', title: 'Sales', folder: null, editable: true }, { id: 'quotes', title: 'Quotes', folder: 'sales', editable: true },
+      { id: 'orphan', title: 'Orphan', folder: 'hidden-parent', editable: false }] });
+    if (path.includes('/library?')) { listed.push(path); return response({ items: [], more: false, available: true, storage: 'local' }); }
+    return response({ ...folder, id: 'quotes', title: 'Quotes', agents: [], people: [] });
   } });
 });

@@ -10,7 +10,9 @@ pub(in crate::identity::postgres) async fn check(
     expected: &Source,
 ) -> Result<Value> {
     let sql = format!(
-        "SELECT i.revision,i.access_revision,jsonb_build_object('id',i.id,'title',i.title,'revision',i.revision,'access_revision',i.access_revision,'kind',i.kind) AS data FROM relay_library_items i WHERE i.workspace=$1 AND {ACCESS} AND i.id=$3 AND NOT i.trashed AND i.readiness IN ('ready','partial') AND length(trim(i.text))>0 AND EXISTS(SELECT 1 FROM relay_library_agents a WHERE a.workspace=i.workspace AND a.item=i.id AND a.agent=$4)"
+        // A sample run uses only what was shared with the person: an admin who wants another
+        // person's private item opens it first, which the Audit log records.
+        "SELECT i.revision,i.access_revision,jsonb_build_object('id',i.id,'title',i.title,'revision',i.revision,'access_revision',i.access_revision,'kind',i.kind) AS data FROM relay_library_items i WHERE i.workspace=$1 AND {GRANTED} AND i.id=$3 AND NOT i.trashed AND i.readiness IN ('ready','partial') AND length(trim(i.text))>0 AND EXISTS(SELECT 1 FROM relay_library_agents a WHERE a.workspace=i.workspace AND a.item=i.id AND a.agent=$4)"
     );
     let row = query(
         db,
@@ -77,7 +79,9 @@ pub(in crate::identity::postgres) async fn options(
 ) -> Result<Vec<Value>> {
     ensure!(search.len() <= 180, "Use a shorter knowledge search");
     let sql = format!(
-        "SELECT jsonb_build_object('id',i.id,'revision',i.revision,'access_revision',i.access_revision,'title',i.title,'kind',i.kind,'visibility',i.visibility,'readiness',i.readiness) AS data FROM relay_library_items i WHERE i.workspace=$1 AND {ACCESS} AND NOT i.trashed AND i.readiness IN ('ready','partial') AND length(trim(i.text))>0 AND EXISTS(SELECT 1 FROM relay_library_agents a WHERE a.workspace=i.workspace AND a.item=i.id AND a.agent=$3) AND ($4='' OR strpos(lower(i.title),lower($4))>0) ORDER BY i.updated DESC,i.id LIMIT 51"
+        // The sources offered are what was shared with the person; an admin's access to
+        // everything doesn't fill the picker with other people's private items.
+        "SELECT jsonb_build_object('id',i.id,'revision',i.revision,'access_revision',i.access_revision,'title',i.title,'kind',i.kind,'visibility',i.visibility,'readiness',i.readiness) AS data FROM relay_library_items i WHERE i.workspace=$1 AND {GRANTED} AND NOT i.trashed AND i.readiness IN ('ready','partial') AND length(trim(i.text))>0 AND EXISTS(SELECT 1 FROM relay_library_agents a WHERE a.workspace=i.workspace AND a.item=i.id AND a.agent=$3) AND ($4='' OR strpos(lower(i.title),lower($4))>0) ORDER BY i.updated DESC,i.id LIMIT 51"
     );
     json_rows(
         db,
