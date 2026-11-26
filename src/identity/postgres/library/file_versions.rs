@@ -116,6 +116,7 @@ impl PgStore {
         );
         let value = query(&tx, "SELECT jsonb_build_object('title',title,'object_key',object_key,'mime',mime,'size',size,'checksum',checksum) AS data FROM relay_library_versions WHERE workspace=$1 AND item=$2 AND revision=$3 AND object_key IS NOT NULL", vec![w.into(), id.into(), version.into()]).await?.context("Version unavailable")?.try_get("", "data")?;
         tx.commit().await?;
+        super::nested::admin_opened(self, user, w, &current).await?;
         Ok(value)
     }
 

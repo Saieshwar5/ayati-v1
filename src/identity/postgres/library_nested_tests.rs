@@ -262,6 +262,20 @@ async fn admins_open_everything_and_the_audit_log_says_so() {
         said,
         ["Opened \"Private plan\" as an admin; it was not shared with them"]
     );
+    // Looking inside a private folder and reading a page's history are audited as well.
+    let private = folder(&db, &writer, &w, "Drafts").await;
+    let draft = page("Draft", "Mine", Some(&private));
+    db.library_save(&writer, &w, &draft).await.unwrap();
+    db.library_list(&admin, &w, "all", "", &private, 0)
+        .await
+        .unwrap();
+    db.library_versions(&admin, &w, &draft.id).await.unwrap();
+    let opened: Vec<String> = rows(&db.db, "SELECT summary FROM relay_audit WHERE workspace=$1 AND action='library_admin_opened' ORDER BY id", vec![w.clone().into()]).await.unwrap().into_iter().map(|r| r.try_get("", "summary").unwrap()).collect();
+    assert_eq!(opened.len(), 3, "{opened:?}");
+    assert!(
+        opened[1].starts_with("Opened \"Drafts\"") && opened[2].starts_with("Opened \"Draft\""),
+        "{opened:?}"
+    );
     // What the writer opens themselves, or shares with the admin, isn't audited.
     db.library_get(&writer, &w, &diary.id).await.unwrap();
     db.library_share(

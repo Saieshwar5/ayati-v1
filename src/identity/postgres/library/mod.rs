@@ -152,11 +152,11 @@ impl PgStore {
         } else {
             GRANTED
         };
+        let mut opened = None;
         if !folder.is_empty() {
-            ensure!(
-                item(&tx, user, w, folder, false).await?["kind"] == "folder",
-                "This item is not a folder"
-            );
+            let inside = item(&tx, user, w, folder, false).await?;
+            ensure!(inside["kind"] == "folder", "This item is not a folder");
+            opened = Some(inside);
         }
         // Browsing All shows one level (folders first); other views and searches show
         // every item wherever it is filed.
@@ -180,6 +180,10 @@ impl PgStore {
         let more = items.len() > 50;
         items.truncate(50);
         tx.commit().await?;
+        // An admin looking inside a folder that was not shared with them is audited too.
+        if let Some(inside) = &opened {
+            nested::admin_opened(self, user, w, inside).await?;
+        }
         Ok(json!({"items":items,"more":more}))
     }
     pub async fn library_file(&self, user: &User, w: &str, id: &str) -> Result<Value> {

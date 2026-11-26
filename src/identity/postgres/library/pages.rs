@@ -90,7 +90,10 @@ impl PgStore {
             ""
         };
         let versions=json_rows(&tx,&format!("SELECT jsonb_build_object('revision',v.revision,'title',v.title,'created',v.created,'author',COALESCE(u.display_name,u.email){agent}{size}) AS data FROM relay_library_versions v JOIN relay_users u ON u.id=v.author WHERE v.workspace=$1 AND v.item=$2 ORDER BY revision DESC LIMIT 50"),vec![w.into(),id.into()]).await?;
+        let current = item(&tx, user, w, id, false).await?;
         tx.commit().await?;
+        // An admin reading the history of something not shared with them is audited.
+        super::nested::admin_opened(self, user, w, &current).await?;
         Ok(json!({"versions":versions}))
     }
     pub async fn library_version(
@@ -108,6 +111,7 @@ impl PgStore {
         );
         let value=query(&tx,"SELECT to_jsonb(v)-'text'-'object_key' AS data FROM relay_library_versions v WHERE workspace=$1 AND item=$2 AND revision=$3",vec![w.into(),id.into(),version.into()]).await?.context("Version unavailable")?.try_get::<Value>("","data")?;
         tx.commit().await?;
+        super::nested::admin_opened(self, user, w, &current).await?;
         Ok(value)
     }
 }
