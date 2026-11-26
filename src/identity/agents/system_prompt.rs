@@ -362,7 +362,8 @@ pub(crate) fn sections(name: &str, title: &str, f: &Features) -> Vec<Section> {
 pub(crate) fn prompt(name: &str, title: &str, settings: &Settings, f: &Features) -> String {
     let mut text = config::instructions(name, title, Some(settings));
     for part in sections(name, title, f) {
-        if part.state == INCLUDED && part.id != "identity" {
+        // A direct message in Cuckoo Chat also gets Pages, which other platforms don't.
+        if (part.state == INCLUDED || part.id == "pages") && part.id != "identity" {
             text.push_str(&part.text);
         }
     }
