@@ -299,7 +299,7 @@ async fn the_breaker_opens_after_repeated_failures_for_every_controller_and_lets
     let s = setup().await;
     let other = second_store(&s.db).await;
     let job = s.job().await;
-    s.fake.state.lock().unwrap().fail_execute = true;
+    s.fake.state.lock().unwrap().execute_down = true;
     for n in 0..BREAKER_FAILURES {
         assert_eq!(
             s.search(&s.db, &job, &format!("q{n}")).await["state"],
@@ -336,7 +336,7 @@ async fn the_breaker_opens_after_repeated_failures_for_every_controller_and_lets
     // The next trial succeeds: every call goes again.
     s.sql("UPDATE relay_connector_breakers SET open_until_ms=1")
         .await;
-    s.fake.state.lock().unwrap().fail_execute = false;
+    s.fake.state.lock().unwrap().execute_down = false;
     assert_eq!(
         s.search(&s.db, &job, "trial two").await["state"],
         "completed"
@@ -348,12 +348,12 @@ async fn the_breaker_opens_after_repeated_failures_for_every_controller_and_lets
     );
     assert_eq!(s.search(&other, &job, "back").await["state"], "completed");
     // A success ends a run of failures: four, a success, four more stay closed.
-    s.fake.state.lock().unwrap().fail_execute = true;
+    s.fake.state.lock().unwrap().execute_down = true;
     for n in 0..2 * (BREAKER_FAILURES - 1) {
         if n == BREAKER_FAILURES - 1 {
-            s.fake.state.lock().unwrap().fail_execute = false;
+            s.fake.state.lock().unwrap().execute_down = false;
             s.search(&s.db, &job, "between").await;
-            s.fake.state.lock().unwrap().fail_execute = true;
+            s.fake.state.lock().unwrap().execute_down = true;
         }
         s.search(&s.db, &job, &format!("r{n}")).await;
     }
@@ -369,6 +369,43 @@ async fn the_breaker_opens_after_repeated_failures_for_every_controller_and_lets
     .try_get("", "n")
     .unwrap();
     assert_eq!(refused, 2);
+}
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn errors_the_provider_answers_with_never_pause_it_for_other_workspaces() {
+    // One workspace asks for things that don't exist, again and again: Composio
+    // answers each time that the action failed. That says Composio is up, so the
+    // breaker every workspace shares stays closed.
+    let s = setup().await;
+    let job = s.job().await;
+    s.fake.state.lock().unwrap().fail_execute = true;
+    for n in 0..2 * BREAKER_FAILURES {
+        assert_eq!(
+            s.search(&s.db, &job, &format!("missing{n}")).await["state"],
+            "uncertain",
+            "for the action an answered error is still unconfirmed"
+        );
+    }
+    assert_eq!(s.breaker().await["state"], "closed");
+    s.fake.state.lock().unwrap().fail_execute = false;
+    assert_eq!(s.search(&s.db, &job, "real").await["state"], "completed");
+    // A request Composio refuses outright (a 4xx) is declining too, while a
+    // timeout, throttling or server error is not.
+    use crate::identity::connectors::Outcome;
+    for (status, declined) in [
+        (400, true),
+        (404, true),
+        (408, false),
+        (429, false),
+        (503, false),
+    ] {
+        assert_eq!(
+            matches!(Outcome::from_status(status), Outcome::Declined),
+            declined,
+            "{status}"
+        );
+    }
 }
 
 #[tokio::test]

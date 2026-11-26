@@ -20,7 +20,10 @@ pub(crate) struct Fake {
     pub accounts: HashMap<String, (String, String, String)>,
     pub auth_configs: Vec<(String, String)>,
     pub changed: bool,
+    /// Composio answers that the action failed (it is up).
     pub fail_execute: bool,
+    /// Composio itself is failing: actions get a server error.
+    pub execute_down: bool,
     pub executed: Vec<(String, Value)>,
     pub removed: Vec<String>,
     pub bad_keys: usize,
@@ -325,6 +328,9 @@ async fn execute(
     );
     assert_eq!(body["version"], VERSION, "the reviewed version is pinned");
     state.executed.push((slug, body["arguments"].clone()));
+    if state.execute_down {
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    }
     if state.fail_execute {
         return Ok(Json(
             json!({"data":{},"error":"Upstream refused","successful":false}),

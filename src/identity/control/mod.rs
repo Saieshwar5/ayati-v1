@@ -271,17 +271,19 @@ pub(crate) async fn dispatch_with(
         call.run(&dispatch.arguments, &dispatch.id),
     )
     .await;
+    // A provider that answered (even with an error) is up; only no answer, a
+    // timeout or a server error counts against its breaker.
+    let end = match &outcome {
+        Ok(Outcome::Completed(_)) => Ended::Completed,
+        Ok(Outcome::Declined) => Ended::Declined,
+        _ => Ended::Uncertain,
+    };
     let (value, success) = match outcome {
         Ok(Outcome::Completed(value)) => (value, true),
         _ => (
             json!({"message":"The external outcome could not be confirmed. Inspect the remote system before retrying; further writes are held."}),
             false,
         ),
-    };
-    let end = if success {
-        Ended::Completed
-    } else {
-        Ended::Uncertain
     };
     ended(pg, &record, end).await;
     pg.control_finish(w, &dispatch, value, success).await

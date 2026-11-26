@@ -123,11 +123,11 @@ async fn conformance(fixture: &dyn Fixture) {
         Outcome::Completed(_)
     ));
     assert_eq!(fixture.calls(), 2);
-    // 4. A result the provider doesn't confirm is uncertain, never a success.
+    // 4. A result the provider doesn't confirm is never a success.
     fixture.fail_calls(true);
-    assert!(matches!(
+    assert!(!matches!(
         run(provider.as_ref(), &saved, &write, &write_args).await,
-        Outcome::Uncertain
+        Outcome::Completed(_)
     ));
     fixture.fail_calls(false);
     let sent = fixture.calls();

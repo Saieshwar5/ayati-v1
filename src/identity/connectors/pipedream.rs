@@ -326,7 +326,8 @@ impl Call for PipedreamCall {
     async fn run(mut self: Box<Self>, arguments: &Value, _key: &str) -> Outcome {
         let Ok(Value::Object(mut props)) = curated::provider_arguments(&self.fields, arguments)
         else {
-            return Outcome::Uncertain;
+            // Nothing was sent: Cuckoo's own mapping refused it, not the provider.
+            return Outcome::Declined;
         };
         for (name, value) in props.iter_mut() {
             if self.lists.contains(name) && value.is_string() {
@@ -355,8 +356,13 @@ impl Call for PipedreamCall {
                     json!({"message":"The result was too large to return. Ask for fewer items or a narrower search."})
                 })
             }
-            // A timeout, an error, an asynchronous start (202) or anything unclear.
-            _ => Outcome::Uncertain,
+            // Pipedream ran it and reported an error: it is up.
+            Ok(Reply::Ok(_)) => Outcome::Declined,
+            // A refused request is the provider declining; an asynchronous start
+            // (202), throttling or a server error is unclear.
+            Ok(Reply::Status(status)) => Outcome::from_status(status),
+            // A timeout or no answer.
+            Err(_) => Outcome::Uncertain,
         }
     }
 }

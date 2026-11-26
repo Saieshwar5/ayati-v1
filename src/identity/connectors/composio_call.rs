@@ -22,7 +22,8 @@ pub(super) struct ComposioCall {
 impl Call for ComposioCall {
     async fn run(mut self: Box<Self>, arguments: &Value, _key: &str) -> Outcome {
         let Ok(arguments) = curated::provider_arguments(&self.fields, arguments) else {
-            return Outcome::Uncertain;
+            // Nothing was sent: Cuckoo's own mapping refused it, not the provider.
+            return Outcome::Declined;
         };
         self.body["arguments"] = arguments;
         let path = format!("tools/execute/{}", self.tool);
@@ -35,7 +36,11 @@ impl Call for ComposioCall {
                     json!({"message":"The result was too large to return. Ask for fewer items or a narrower search."})
                 })
             }
-            _ => Outcome::Uncertain,
+            // Composio answered, and said the action failed (a missing record,
+            // wrong input or the app's own refusal): it is up.
+            Ok(Reply::Ok(_)) => Outcome::Declined,
+            Ok(Reply::Status(status)) => Outcome::from_status(status),
+            Err(_) => Outcome::Uncertain,
         }
     }
 }
