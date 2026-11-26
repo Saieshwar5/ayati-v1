@@ -122,7 +122,6 @@ impl PgStore {
             folder["manageable"] == true,
             "Only the folder's manager turns meaning search on or off"
         );
-        agent_folders::not_agents(&tx, w, id).await?;
         execute(
             &tx,
             "UPDATE relay_library_items SET meaning=$3 WHERE workspace=$1 AND id=$2",

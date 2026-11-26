@@ -126,7 +126,7 @@ impl PgStore {
                 let key = found["object_key"]
                     .as_str()
                     .context("Stored file missing")?;
-                let Ok(bytes) = self.library_files.get(key).await else {
+                let Ok(bytes) = self.files.library.get(key).await else {
                     return Ok(
                         json!({"state":"unavailable","message":"This file's stored copy can't be reached from here. Tell the person."}),
                     );

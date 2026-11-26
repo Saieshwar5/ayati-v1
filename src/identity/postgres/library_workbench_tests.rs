@@ -21,7 +21,8 @@ pub(super) async fn bench() -> Bench {
     let fake = fake::start().await;
     let dir = tempfile::tempdir().unwrap();
     s.db.computers = Some(Computers::new(fake.providers_file(dir.path())));
-    s.db.library_files = crate::identity::library::Storage::Local(dir.path().join("objects"));
+    s.db.files.library = crate::identity::library::Storage::Local(dir.path().join("objects"));
+    s.db.files.chat_root = Some(dir.path().join("chat"));
     execute(
         &s.db.db,
         "UPDATE relay_shared_agents SET settings=jsonb_set(settings,'{computer}',$2) WHERE id=$1",
@@ -300,7 +301,7 @@ async fn files_and_tables_are_worked_on_and_new_files_saved_in_a_folder() {
     db.library_upload_start(&b.s.owner, &b.s.w, &upload)
         .await
         .unwrap();
-    db.library_files
+    db.files.library
         .put(
             &format!("library/{}/{}", b.s.w, upload.id),
             bytes.as_slice().into(),
@@ -350,7 +351,7 @@ async fn files_and_tables_are_worked_on_and_new_files_saved_in_a_folder() {
         .unwrap();
     assert_eq!(file["text"], "Desk: 1250\n");
     assert_eq!(
-        &db.library_files
+        &db.files.library
             .get(file["object_key"].as_str().unwrap())
             .await
             .unwrap()[..],

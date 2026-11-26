@@ -166,6 +166,7 @@ impl MigratorTrait for Migrator {
             Box::new(super::library::meaning_folders::LibraryMeaningFolders),
             Box::new(super::library::meaning_folders::LibraryGapQuestions),
             Box::new(super::library::descriptions::LibraryDescriptions),
+            Box::new(super::conversation_files::ConversationFiles),
         ]
     }
 }

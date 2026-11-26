@@ -43,7 +43,7 @@ pub(super) async fn present(db: &impl ConnectionTrait) -> Result<bool> {
 }
 
 /// Records the item as it is now as a version by `author`, for an agent's task if any.
-pub(super) async fn snapshot(
+pub(in crate::identity::postgres) async fn snapshot(
     db: &impl ConnectionTrait,
     w: &str,
     id: &str,
@@ -71,7 +71,7 @@ pub(in crate::identity::postgres) async fn storage_used(
     w: &str,
 ) -> Result<i64> {
     let stored = if present(db).await? {
-        "SELECT coalesce(sum(size),0)::bigint FROM (SELECT DISTINCT object_key,size FROM relay_library_versions WHERE workspace=$1 AND object_key IS NOT NULL AND object_key NOT LIKE 'chat/%') v"
+        "SELECT coalesce(sum(size),0)::bigint FROM (SELECT DISTINCT object_key,size FROM relay_library_versions WHERE workspace=$1 AND object_key IS NOT NULL) v"
     } else {
         "SELECT coalesce(sum(size),0)::bigint FROM relay_library_items WHERE workspace=$1"
     };
@@ -128,9 +128,8 @@ impl PgStore {
         let gone = rows(&self.db, "DELETE FROM relay_library_discarded d WHERE (d.workspace,d.object_key) IN (SELECT workspace,object_key FROM relay_library_discarded ORDER BY at LIMIT 200) RETURNING d.object_key, (EXISTS(SELECT 1 FROM relay_library_versions v WHERE v.workspace=d.workspace AND v.object_key=d.object_key) OR EXISTS(SELECT 1 FROM relay_library_items i WHERE i.workspace=d.workspace AND i.object_key=d.object_key)) AS used", vec![]).await?;
         let mut files = vec![];
         for row in gone {
-            let key: String = row.try_get("", "object_key")?;
-            if !row.try_get::<bool>("", "used")? && !key.starts_with("chat/") {
-                files.push(key);
+            if !row.try_get::<bool>("", "used")? {
+                files.push(row.try_get("", "object_key")?);
             }
         }
         Ok(files)

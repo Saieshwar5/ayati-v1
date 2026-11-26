@@ -26,7 +26,7 @@ impl MigrationTrait for LibraryFolders {
 }
 
 /// A folder this person may file items into: it exists, is not in Trash and they can edit it.
-pub(super) async fn open_folder(
+pub(in crate::identity::postgres) async fn open_folder(
     db: &impl ConnectionTrait,
     user: &User,
     w: &str,
@@ -113,7 +113,6 @@ impl PgStore {
         if current["access_revision"].as_i64() != Some(input.revision) {
             return Err(Conflict.into());
         }
-        super::agent_folders::not_agents(&tx, w, id).await?;
         let target = match &input.folder {
             Some(folder) => {
                 let target = open_folder(&tx, user, w, folder).await?;

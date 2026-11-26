@@ -206,23 +206,14 @@ impl PgStore {
         bytes: Vec<u8>,
     ) -> Result<Value> {
         let w = &job.workspace;
-        // With no folder named, the file goes to the agent's own folder for this conversation.
-        let folder = &match &input.folder {
-            Some(folder) => folder.clone(),
-            None => {
-                let tx = self.workspace_tx(w).await?;
-                super::super::control_actions::authorize(&tx, job, true).await?;
-                let own = super::agent_folders::for_conversation(
-                    &tx,
-                    w,
-                    &job.agent,
-                    &job.chat,
-                    &job.requester,
-                )
-                .await?;
-                tx.commit().await?;
-                own
-            }
+        // With no folder named, the file is attached to the reply: it is the
+        // conversation's, not the Library's.
+        let Some(folder) = &input.folder else {
+            let name = input
+                .title
+                .as_deref()
+                .unwrap_or_else(|| relative.rsplit('/').next().unwrap_or(relative));
+            return self.agent_attach_file(job, name, bytes).await;
         };
         let name = input
             .title
@@ -331,7 +322,7 @@ impl PgStore {
     /// Stores the bytes as a new object and reads what they are; none when there is no
     /// room or no file storage.
     async fn store_object(&self, w: &str, bytes: Vec<u8>) -> Result<Option<Stored>> {
-        if !self.library_files.enabled()
+        if !self.files.library.enabled()
             || super::file_versions::storage_used(&self.db, w).await? + bytes.len() as i64
                 > WORKSPACE_QUOTA
         {
@@ -339,7 +330,7 @@ impl PgStore {
         }
         let bytes = axum::body::Bytes::from(bytes);
         let key = format!("library/{w}/{}", uuid::Uuid::new_v4());
-        self.library_files.put(&key, bytes.clone()).await?;
+        self.files.library.put(&key, bytes.clone()).await?;
         let mime = file_mime(&bytes);
         let (text, readiness) = file_text(&bytes, mime).await;
         Ok(Some(Stored {

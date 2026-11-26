@@ -112,8 +112,6 @@ pub(super) async fn purge(
     {
         files.push(file);
     }
-    // A chat attachment's bytes belong to Chat.
-    files.retain(|key| !key.starts_with("chat/"));
     for table in ITEM_TABLES {
         // Meaning search tables exist only where pgvector is installed.
         let exists: bool = query(

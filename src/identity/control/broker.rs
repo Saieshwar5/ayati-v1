@@ -348,6 +348,14 @@ async fn invoke_tool(pg: &PgStore, job: &Job, tool: &str, arguments: Value) -> R
             pg.library_propose_meaning(job, &serde_json::from_value(arguments)?)
                 .await
         }
+        "conversation_files" => {
+            ensure!(arguments == json!({}), "Invalid request");
+            pg.agent_conversation_files(job).await
+        }
+        "open_attachment" => {
+            pg.agent_open_attachment(job, &serde_json::from_value(arguments)?)
+                .await
+        }
         "open_document" => {
             pg.library_open_document(job, &serde_json::from_value(arguments)?)
                 .await
