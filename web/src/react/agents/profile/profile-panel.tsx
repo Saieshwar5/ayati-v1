@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Button } from '../../ui';
 import { useMutation } from '../../requests';
 import { AlwaysRead } from '../../library/always-read';
+import { AgentArtifacts } from '../../chat/conversation-files';
 import { AssistantMemory } from '../assistant/memory';
 import { AboutMe } from '../../memory/about-me';
 import { MemoryBrowser } from '../../memory/memory-browser';
@@ -18,7 +19,7 @@ import { ProfileIcon } from './profile-parts';
 import type { ProfilePanel } from './profile-rows';
 
 const titles: Record<ProfilePanel['kind'], string> = {
-  assistant: 'Change with chat', notes: 'Notes', documents: 'Documents', lessons: 'Lessons from its work', memory: 'About you', 'agent-memory': 'Memory', 'about-me': 'About you', improving: 'Improving',
+  assistant: 'Change with chat', notes: 'Notes', documents: 'Documents', artifacts: 'Files', lessons: 'Lessons from its work', memory: 'About you', 'agent-memory': 'Memory', 'about-me': 'About you', improving: 'Improving',
   app: 'Can use', connections: 'Can use', automations: 'On its own', checks: 'Regular checks', model: 'Model',
 };
 
@@ -38,6 +39,7 @@ export function ProfilePanelView({ agent, directory, panel, close, changed, save
     case 'assistant': body = <AgentSkillChat agent={agent} rules={agent.settings.instructions} takeRules={agent.assistant ? undefined : takeRules} changed={changed} />; break;
     case 'notes': body = <><NotesSwitch agent={agent} saved={saved} /><Knowledge key={String(panel.adding)} agent={agent} adding={panel.adding} changed={changed} /><HistoryChoice agent={agent} saved={saved} /></>; break;
     case 'documents': body = <AlwaysRead agent={agent} changed={changed} />; break;
+    case 'artifacts': body = <AgentArtifacts agent={agent.id} name={agent.name} />; break;
     case 'lessons': body = <LearnedLessons agent={agent} saved={async () => { changed(); }} />; break;
     case 'memory': body = <AssistantMemory name={agent.name} />; break;
     case 'agent-memory': body = <><p className="ui-help">What {agent.name} learned about its own work, and in the channels you can open. Notes about one person stay with that person.</p><MemoryBrowser agent={agent.id} /></>; break;

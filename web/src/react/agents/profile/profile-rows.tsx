@@ -19,7 +19,7 @@ import { taskUrl } from '../../activity/model';
 
 /** What the right-hand column shows in place of Recent work. */
 export type ProfilePanel =
-  | { kind: 'assistant' } | { kind: 'notes'; adding?: boolean } | { kind: 'documents' } | { kind: 'lessons' } | { kind: 'memory' }
+  | { kind: 'assistant' } | { kind: 'notes'; adding?: boolean } | { kind: 'documents' } | { kind: 'artifacts' } | { kind: 'lessons' } | { kind: 'memory' }
   | { kind: 'agent-memory' } | { kind: 'about-me' } | { kind: 'improving' }
   | { kind: 'app'; id: string; focus?: string } | { kind: 'connections'; part?: 'servers' | 'computers' | 'web'; start?: boolean }
   | { kind: 'automations'; start?: boolean } | { kind: 'checks' } | { kind: 'model' };
@@ -102,6 +102,7 @@ export function KnowsRow({ agent, summary, panel, open }: RowProps) {
     {!agent.assistant && edit && <Chip open={() => open({ kind: 'agent-memory' })} current={is(panel, 'agent-memory')}><ProfileIcon name="bulb" size={14} />Memory</Chip>}
     {!agent.assistant && edit && <Chip open={() => open({ kind: 'improving' })} current={is(panel, 'improving')}><ProfileIcon name="bolt" size={14} />Improving</Chip>}
     {!agent.assistant && <Chip open={() => open({ kind: 'about-me' })} current={is(panel, 'about-me')}><ProfileIcon name="memory" size={14} />About you</Chip>}
+    <Chip open={() => open({ kind: 'artifacts' })} current={is(panel, 'artifacts')}><ProfileIcon name="doc" size={14} />Files</Chip>
     {edit ? (notes || documents ? <Plus label="Add a note or a document" items={add} /> : <AddWords items={add} />) : !any && <span className="profile-quiet">Nothing yet</span>}
     {!agent.assistant && <ContextPreviewButton agent={agent} quiet />}
   </div></Row>;

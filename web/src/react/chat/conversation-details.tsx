@@ -5,6 +5,7 @@ import { ChannelLeave } from './channel-leave';
 import { ArchiveReview } from './channel-lifecycle';
 import { ChannelPeople } from './channel-people';
 import { ChannelSettings } from './channel-settings';
+import { ConversationFiles } from './conversation-files';
 import { LockIcon } from './conversation-face';
 import { conversationName, directPartner, type Conversation, type Directory } from './model';
 import { NotifyMenu } from './notify-controls';
@@ -47,6 +48,7 @@ export function ChatPanel({ view, setView, chat, level, levelChanged, ...shared 
       {partner ? <ProfileDetails target={{ kind: partner.kind, id: partner.who.id }} directory={directory} chats={chats}
         conversation={<ConversationActions chat={chat} level={level} levelChanged={levelChanged} pins={shared.pins} />} />
         : <p className="chat-help">This person or agent is no longer in the workspace.</p>}
+      <ConversationFiles key={chat.id} chat={chat.id} />
     </SidePanel>;
   }
   if (view.step === 'settings' && chat.can_archive) return <SidePanel key="settings" label={`${name} settings`} close={close} title="Channel settings"
@@ -104,6 +106,7 @@ function ConversationDetails({ chat, directory, level, levelChanged, pins, revie
     {chat.can_archive && <button type="button" className="chat-details-link" aria-label="Channel settings" onClick={openSettings}>
       <Icon name="settings" /><span>Channel settings</span><small>Name, posting, agents</small><Icon name="chevron" />
     </button>}
+    <ConversationFiles chat={chat.id} />
     <ChannelLeave chat={chat} changed={changed} left={left} />
   </>;
 }
