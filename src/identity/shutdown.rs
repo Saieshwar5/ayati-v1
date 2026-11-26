@@ -28,7 +28,9 @@ pub(super) async fn serve(
     let stopping = app.runtimes.stopping.clone();
     let drain = Duration::from_secs(app.config.drain_seconds);
     let limit = Duration::from_secs(app.config.shutdown_seconds);
-    let server = axum::serve(listener, router(app.clone())).with_graceful_shutdown({
+    // The connection's address limits anonymous sign-in starts (`sign_in_limit`).
+    let service = router(app.clone()).into_make_service_with_connect_info::<std::net::SocketAddr>();
+    let server = axum::serve(listener, service).with_graceful_shutdown({
         let draining = draining.clone();
         async move {
             // An internal failure (stopping) skips the delay: the process is unhealthy.
