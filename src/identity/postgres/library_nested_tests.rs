@@ -277,3 +277,83 @@ async fn admins_open_everything_and_the_audit_log_says_so() {
         true
     );
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn ten_thousand_items_in_nested_folders_list_and_search_within_a_second() {
+    let db = fixture().await;
+    let owner = user(&db, "scale-owner").await;
+    let member = user(&db, "scale-member").await;
+    let w = workspace(&db, &owner).await;
+    join(&db, &owner, &w, &member, "Member").await;
+    // 100 top folders shared with the workspace, 4 levels of subfolders under each, and
+    // 9,500 pages spread over the deepest ones: every page is four folders from its sharing.
+    execute(&db.db, "INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,visibility,created,updated,folder) SELECT $1,'f'||l||'-'||n,'folder','Folder '||l||' '||n,$2,$2,CASE WHEN l=0 THEN 'workspace' ELSE 'private' END,1,1,CASE WHEN l=0 THEN NULL ELSE 'f'||(l-1)||'-'||n END FROM generate_series(0,4) l, generate_series(1,100) n ORDER BY l", vec![w.clone().into(), owner.id.clone().into()]).await.unwrap();
+    execute(&db.db, "INSERT INTO relay_library_items(workspace,id,kind,title,created_by,steward,document,text,created,updated,folder) SELECT $1,'p'||n,'page','Page '||n,$2,$2,'{\"type\":\"doc\"}','invoice '||n||' for desks',1,n,'f4-'||(1+n%100) FROM generate_series(1,9500) n", vec![w.clone().into(), owner.id.clone().into()]).await.unwrap();
+    let kept: i64 = query(
+        &db.db,
+        "SELECT count(*) AS n FROM relay_library_items WHERE workspace=$1 AND source LIKE 'f0-%'",
+        vec![w.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap();
+    assert_eq!(
+        kept, 10_000,
+        "every item knows the folder whose sharing it follows"
+    );
+    let timed = |view: &'static str, search: &'static str, folder: &'static str| {
+        let (db, member, w) = (&db, &member, &w);
+        async move {
+            let start = std::time::Instant::now();
+            let found = db
+                .library_list(member, w, view, search, folder, 0)
+                .await
+                .unwrap();
+            (found["items"].as_array().unwrap().len(), start.elapsed())
+        }
+    };
+    let mut took = vec![];
+    for (name, view, search, folder, expected) in [
+        ("home", "all", "", "", 50),
+        ("shared", "shared", "", "", 50),
+        ("search", "all", "invoice 77 ", "", 1),
+        ("folder", "all", "", "f4-7", 50),
+    ] {
+        let (found, time) = timed(view, search, folder).await;
+        assert_eq!(found, expected, "{name}");
+        took.push((name, time));
+    }
+    println!("Library with 10,000 items: {took:?}");
+    for (name, time) in took {
+        assert!(
+            time < std::time::Duration::from_secs(1),
+            "{name} took {time:?}"
+        );
+    }
+    // Sharing one top folder separately moves only what is inside it.
+    execute(
+        &db.db,
+        "UPDATE relay_library_items SET shares=true WHERE workspace=$1 AND id='f2-7'",
+        vec![w.clone().into()],
+    )
+    .await
+    .unwrap();
+    let moved: i64 = query(
+        &db.db,
+        "SELECT count(*) AS n FROM relay_library_items WHERE workspace=$1 AND source='f2-7'",
+        vec![w.clone().into()],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap();
+    assert_eq!(
+        moved,
+        3 + 95,
+        "the folder, the two below it and their pages"
+    );
+}

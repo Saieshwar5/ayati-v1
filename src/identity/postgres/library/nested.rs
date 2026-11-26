@@ -26,6 +26,28 @@ impl MigrationTrait for LibraryNested {
     }
 }
 
+/// Schema 160: each item keeps the item whose sharing it follows.
+pub(crate) struct LibrarySourceColumn;
+impl MigrationName for LibrarySourceColumn {
+    fn name(&self) -> &str {
+        "m20261126_000160_library_source_column"
+    }
+}
+#[async_trait::async_trait]
+impl MigrationTrait for LibrarySourceColumn {
+    async fn up(&self, m: &SchemaManager) -> std::result::Result<(), DbErr> {
+        m.get_connection()
+            .execute_unprepared(include_str!("source_column.sql"))
+            .await?;
+        Ok(())
+    }
+    async fn down(&self, _: &SchemaManager) -> std::result::Result<(), DbErr> {
+        Err(DbErr::Custom(
+            "The Library source column requires a forward migration".into(),
+        ))
+    }
+}
+
 /// Folders above an item, at most: a folder may sit four deep.
 pub(super) const DEPTH: i64 = 5;
 
