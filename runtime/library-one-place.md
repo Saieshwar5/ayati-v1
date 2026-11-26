@@ -37,22 +37,33 @@ checking who will read an answer before an agent may use a document for it.
 | D10 | Meaning search per folder, off by default (schema 156) | Built and tested; agents propose, the manager decides |
 | D11 | Descriptions instead of automatic summaries (schema 158) | Built and tested: a description line by editors and by agents in save_file, searched with the text |
 | D12 | Unanswered questions counted per question (schema 157) | Built and tested |
-| E13 | One share dialog for people and agents | Partly: agents are given access in people's words (Can view, Can edit, asks first); people and agents are still two lists |
-| E14 | Folder tree, "Made by agents", working note | Built: Made by agents view and the working note; no folder tree in the sidebar |
+| E13 | One share dialog for people and agents | Partly: agents are given access in people's words; people and agents are still two lists |
+| E14 | Folder tree, filters, one details panel | Built: three places, a folder tree, filters, a details panel with About, Sharing, History and Activity; Move offers any folder |
 | F15 | Keeping rule on agents' folders | Removed with the agents' folders |
 | F16 | Files above 25 MiB | Not started (the item limit is now 10,000) |
 | F17 | Remove the old tools and paths | Not started |
 
+## Also built
+
+- **Each item keeps its sharing source** (schema 160), kept by a trigger. With 10,000
+  items four folders deep, as a member: home 50 ms, a folder 165 ms, search 317 ms,
+  Shared 573 ms.
+- **Admin audit**: looking inside a private folder and reading an item's history are
+  audited, as opening and downloading were.
+- **The instructions preview** includes Pages, as a direct request does.
+
 ## Left to do
 
-1. **B5/F17** remove the old agent tools (`suggest_edit`, `edit_document`, `save_document`,
-   `set_table_row`, `set_document_fields`, `lookup`, `file_document`). They are still used
-   by watched folders, table lookups in company rules and their tests, and the new tools
-   have not run with a real model, so they stay until that is checked.
-2. **F16** files above 25 MiB: needs streamed uploads and streamed copies to the computer.
-3. **E13** people and agents in one list in the share dialog.
-4. Remove the computer on/off setting and `shared/`, now that computers are released after use.
-5. An agent's folder shown on the agent's page; a folder tree in the Library sidebar.
+1. **Run it with a real model and a real provider computer.** Nothing here has.
+2. **B5/F17** remove the old agent tools (`suggest_edit`, `edit_document`, `save_document`,
+   `set_table_row`, `set_document_fields`, `lookup`, `file_document`). Watched folders and
+   the table lookups of company rules still use them.
+3. **F16** files above 25 MiB: streamed uploads and streamed copies to the computer.
+4. **E13** people and agents in one list in the share dialog.
+5. Remove the computer on/off setting; `shared/` is no longer offered to agents but
+   still exists for workspaces that keep computers.
+6. Shared at 10,000 items is the slowest list (573 ms): it still asks what each row's
+   person was given.
 
 ## Known gaps in what is built
 
