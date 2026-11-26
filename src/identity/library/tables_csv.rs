@@ -135,6 +135,45 @@ pub fn from_csv(text: &str, current: Option<&Value>) -> Result<Value> {
     Ok(json!({"type":"table","columns":columns,"rows":out}))
 }
 
+/// Two changes to the same table, made from `base`, as one table: rows are matched by
+/// their key; none when both changed the same row, or the columns differ.
+pub fn merge(base: &Value, theirs: &Value, mine: &Value) -> Option<Value> {
+    if base["columns"] != theirs["columns"] || base["columns"] != mine["columns"] {
+        return None;
+    }
+    let keyed = |table: &Value| -> Vec<(String, Value)> {
+        table["rows"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|row| (crate::identity::library::tables::key(&row[0]), row.clone()))
+            .collect()
+    };
+    let (was, now, wanted) = (keyed(base), keyed(theirs), keyed(mine));
+    let of =
+        |rows: &[(String, Value)], key: &str| rows.iter().find(|r| r.0 == key).map(|r| r.1.clone());
+    // Rows keep the table's current order; rows the change adds come last.
+    let mut keys: Vec<String> = now.iter().map(|r| r.0.clone()).collect();
+    for (key, _) in &wanted {
+        if !keys.contains(key) {
+            keys.push(key.clone());
+        }
+    }
+    let mut rows = vec![];
+    for key in keys {
+        let (b, t, m) = (of(&was, &key), of(&now, &key), of(&wanted, &key));
+        let kept = if m == b || m == t {
+            t
+        } else if t == b {
+            m
+        } else {
+            return None;
+        };
+        rows.extend(kept);
+    }
+    Some(json!({"type":"table","columns":base["columns"],"rows":rows}))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +207,34 @@ mod tests {
         );
         assert!(from_csv("", None).is_err());
         assert!(from_csv("A,B\n1,2,3\n", None).is_err());
+    }
+
+    #[test]
+    fn changes_to_different_rows_merge_and_to_the_same_row_do_not() {
+        let table = |rows: Value| json!({"type":"table","columns":[{"name":"Product","type":"text"},{"name":"Price","type":"number"}],"rows":rows});
+        let base = table(json!([["Desk", 1200], ["Chair", 300]]));
+        let theirs = table(json!([["Desk", 1200], ["Chair", 320], ["Lamp", 40]]));
+        let mine = table(json!([["Desk", 1250], ["Chair", 300], ["Shelf", 90]]));
+        assert_eq!(
+            merge(&base, &theirs, &mine).unwrap()["rows"],
+            json!([["Desk", 1250], ["Chair", 320], ["Lamp", 40], ["Shelf", 90]])
+        );
+        assert!(
+            merge(
+                &base,
+                &table(json!([["Desk", 1300], ["Chair", 300]])),
+                &mine
+            )
+            .is_none(),
+            "the same row"
+        );
+        assert_eq!(
+            merge(&base, &table(json!([["Desk", 1200]])), &mine).unwrap()["rows"],
+            json!([["Desk", 1250], ["Shelf", 90]]),
+            "a row someone removed stays removed"
+        );
+        let other =
+            json!({"type":"table","columns":[{"name":"Product","type":"text"}],"rows":[["Desk"]]});
+        assert!(merge(&base, &other, &mine).is_none(), "different columns");
     }
 }

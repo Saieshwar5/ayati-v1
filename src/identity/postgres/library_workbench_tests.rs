@@ -13,7 +13,7 @@ pub(super) struct Bench {
     pub(super) s: Setup,
     _fake: fake::Fake,
     _dir: tempfile::TempDir,
-    policies: String,
+    pub(super) policies: String,
 }
 /// The Library setup with file storage, and the agent's computer switched on.
 pub(super) async fn bench() -> Bench {
@@ -45,7 +45,7 @@ pub(super) async fn bench() -> Bench {
     }
 }
 /// Gives the agent a level on Policies, for all staff.
-async fn level(b: &Bench, level: &str) {
+pub(super) async fn level(b: &Bench, level: &str) {
     let revision =
         b.s.db
             .library_get(&b.s.owner, &b.s.w, &b.policies)
@@ -301,7 +301,8 @@ async fn files_and_tables_are_worked_on_and_new_files_saved_in_a_folder() {
     db.library_upload_start(&b.s.owner, &b.s.w, &upload)
         .await
         .unwrap();
-    db.files.library
+    db.files
+        .library
         .put(
             &format!("library/{}/{}", b.s.w, upload.id),
             bytes.as_slice().into(),
@@ -351,7 +352,8 @@ async fn files_and_tables_are_worked_on_and_new_files_saved_in_a_folder() {
         .unwrap();
     assert_eq!(file["text"], "Desk: 1250\n");
     assert_eq!(
-        &db.files.library
+        &db.files
+            .library
             .get(file["object_key"].as_str().unwrap())
             .await
             .unwrap()[..],

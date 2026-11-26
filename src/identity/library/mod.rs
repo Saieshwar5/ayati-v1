@@ -7,6 +7,7 @@ pub(crate) mod model;
 pub(crate) mod models;
 mod office;
 pub(crate) mod page_markdown;
+pub(crate) mod page_merge;
 pub(crate) mod page_text;
 pub(crate) mod passages;
 mod storage;

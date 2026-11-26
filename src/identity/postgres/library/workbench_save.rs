@@ -85,6 +85,21 @@ impl PgStore {
                 let Ok(text) = as_text() else {
                     return Ok(invalid("A page is saved from a text file with Markdown."));
                 };
+                // Someone saved meanwhile: when they and the agent changed different
+                // sections, both changes are kept; otherwise the agent opens it again.
+                let now = item["revision"].as_i64().unwrap_or(base);
+                let together = match self.version_document(w, id, base).await? {
+                    Some(was) if may_edit && now != base => crate::identity::library::page_merge::merge(
+                        &page_markdown::to_markdown(&was),
+                        &page_markdown::to_markdown(&item["document"]),
+                        &text,
+                    ),
+                    _ => None,
+                };
+                let (text, base, merged) = match together {
+                    Some(text) => (text, now, true),
+                    None => (text, base, false),
+                };
                 let document = page_markdown::from_markdown(&text);
                 let plain = match document_text(&document) {
                     Ok(plain) => plain,
@@ -100,6 +115,10 @@ impl PgStore {
                 if saved["revision"].is_i64() {
                     saved["id"] = json!(id);
                 }
+                if merged && saved["state"] == "edited" {
+                    saved["merged"] =
+                        json!("Someone changed other sections meanwhile; both changes are kept.");
+                }
                 Ok(saved)
             }
             "table" => {
@@ -112,6 +131,16 @@ impl PgStore {
                 let table = match tables_csv::from_csv(&text, Some(&item["document"])) {
                     Ok(table) => table,
                     Err(error) => return Ok(invalid(&error.to_string())),
+                };
+                // Someone saved meanwhile: changes to different rows are both kept.
+                let now = item["revision"].as_i64().unwrap_or(base);
+                let together = match self.version_document(w, id, base).await? {
+                    Some(was) if now != base => tables_csv::merge(&was, &item["document"], &table),
+                    _ => None,
+                };
+                let (table, base) = match together {
+                    Some(table) => (table, now),
+                    None => (table, base),
                 };
                 let plain = match tables::validate(&table) {
                     Ok(plain) => plain,
@@ -279,6 +308,11 @@ impl PgStore {
             .await?;
         tx.commit().await?;
         Ok(json!({"state":"saved","id":id,"revision":1,"link":link(w, &id)}))
+    }
+
+    /// A page's or table's content as one of its versions held it.
+    async fn version_document(&self, w: &str, id: &str, revision: i64) -> Result<Option<Value>> {
+        Ok(query(&self.db, "SELECT document FROM relay_library_versions WHERE workspace=$1 AND item=$2 AND revision=$3 AND document IS NOT NULL", vec![w.into(), id.into(), revision.into()]).await?.map(|r| r.try_get("", "document")).transpose()?)
     }
 
     /// The item's revision and title when the agent may still change it for this person.

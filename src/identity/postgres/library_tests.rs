@@ -19,6 +19,8 @@ mod folders;
 mod keeping;
 #[path = "library_meaning_tests.rs"]
 mod meaning;
+#[path = "library_merge_tests.rs"]
+mod merging;
 #[path = "library_nested_tests.rs"]
 mod nested;
 #[path = "library_passage_tests.rs"]

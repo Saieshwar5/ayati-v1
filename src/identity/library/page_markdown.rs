@@ -186,7 +186,7 @@ fn marker(line: &str) -> Option<Marker<'_>> {
     item("orderedList", None, rest)
 }
 
-fn heading(line: &str) -> Option<(usize, &str)> {
+pub(super) fn heading(line: &str) -> Option<(usize, &str)> {
     let marks = line.chars().take_while(|c| *c == '#').count();
     ((1..=3).contains(&marks) && line[marks..].starts_with(' '))
         .then(|| (marks, line[marks..].trim()))

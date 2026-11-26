@@ -108,7 +108,7 @@ impl PgStore {
         super::super::control_actions::authorize(&tx, job, true).await?;
         let mut values = binds(job);
         values.push(input.id.clone().into());
-        let found = json_rows(&tx, &format!("SELECT jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'access_revision',i.access_revision,'object_key',i.object_key,'size',i.size,'checksum',i.checksum,'document',i.document) AS data FROM {USABLE} AND i.id=$4 AND i.kind<>'folder'"), values).await?.into_iter().next();
+        let found = json_rows(&tx, &format!("SELECT jsonb_build_object('id',i.id,'title',i.title,'kind',i.kind,'revision',i.revision,'access_revision',i.access_revision,'object_key',i.object_key,'size',i.size,'checksum',i.checksum,'document',i.document,'level',g.level) AS data FROM {USABLE} AND i.id=$4 AND i.kind<>'folder'"), values).await?.into_iter().next();
         let Some(found) = found else {
             tx.commit().await?;
             return Ok(
@@ -185,7 +185,7 @@ impl PgStore {
         let revision = found["revision"].as_i64().unwrap_or(1);
         self.opened(job, &relative, &input.id, revision).await?;
         Ok(
-            json!({"state":"opened","path":relative,"title":found["title"],"kind":kind,"revision":revision,"bytes":size,
+            json!({"state":"opened","path":relative,"title":found["title"],"kind":kind,"revision":revision,"bytes":size,"level":found["level"],
             "next":"Work on this file with computer_run. To keep a change, call save_file with this path: it becomes the next version in the Library."}),
         )
     }
