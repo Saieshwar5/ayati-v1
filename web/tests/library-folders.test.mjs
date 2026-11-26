@@ -74,14 +74,14 @@ test('moving offers only folders the person can edit and sends the sharing revis
     const { MoveDialog } = await import('../src/react/library/folders.tsx');
     await render(MoveDialog, { item: page, close: () => {}, changed: () => {} });
     const choices = [...document.querySelector('[aria-label="Folder"]').options].map(o => o.textContent);
-    assert.deepEqual(choices, ['Not in a folder', 'Sales']);
+    assert.deepEqual(choices, ['Not in a folder', 'Sales', 'Quotes'], 'folders at any depth, never one they only view');
     assert.equal(button('Move').disabled, true, 'nothing to move yet');
     await change(document.querySelector('[aria-label="Folder"]'), 'sales');
     await click(button('Move'));
     assert.equal(moved.folder, 'sales'); assert.equal(moved.revision, 4); assert.ok(moved.request);
   }, { url, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
-    if (path.includes('/library?view=all')) return response({ items: [folder, { ...folder, id: 'hr', title: 'HR', editable: false }, { ...page, id: 'x' }], more: false, available: true, storage: 'local' });
+    if (path.endsWith('/library-folders')) return response({ folders: [{ id: 'sales', title: 'Sales', folder: null, editable: true }, { id: 'quotes', title: 'Quotes', folder: 'sales', editable: true }, { id: 'hr', title: 'HR', folder: null, editable: false }] });
     assert.ok(path.endsWith('/library/notes/move')); moved = JSON.parse(options.body); return response({ ok: true });
   } });
 });
@@ -132,5 +132,33 @@ test('a subfolder follows its folder until it is shared separately, and a folder
     if (path.endsWith('/keeping')) return response({ keep_days: null, folder_keep_days: null, deletes_at: null, hold: null, can_change: false });
     if (path.endsWith('/watch')) return response({ watcher: null, agents: [], can_change: false });
     return response({ items: [], more: false, available: true, storage: 'local' });
+  } });
+});
+
+test('the Library has three places, a folder tree and filters that switch off again', async () => {
+  const listed = [];
+  await reactFixture(async ({ render, click, button }) => {
+    const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
+    const { LibraryPage } = await import('../src/react/library/library-page.tsx');
+    await render(LibraryPage, { href: `${url}&folder=quotes` });
+    const places = [...document.querySelectorAll('nav[aria-label="Library views"] button')].map(b => b.textContent);
+    assert.deepEqual(places.slice(0, 3), ['Home', 'Shared with me', 'Trash']);
+    const tree = document.querySelector('nav[aria-label="Folders"]');
+    assert.deepEqual([...tree.querySelectorAll(':scope > ul > li > a')].map(a => a.textContent), ['Sales', 'Orphan']);
+    assert.equal(tree.querySelector('ul ul a').textContent, 'Quotes', 'a subfolder sits under its folder');
+    assert.equal(tree.querySelector('[aria-current="page"]').textContent, 'Quotes');
+    await render(LibraryPage, { href: url });
+    await click(button('Starred'));
+    assert.equal(button('Starred').getAttribute('aria-pressed'), 'true');
+    assert.ok(listed.at(-1).includes('view=starred'));
+    await click(button('Starred'));
+    assert.ok(listed.at(-1).includes('view=all'), 'choosing it again clears the filter');
+  }, { url: `${url}&folder=quotes`, fetch: async (path) => {
+    if (path.endsWith('/session')) return response(session);
+    if (path.endsWith('/library-folders')) return response({ folders: [
+      { id: 'sales', title: 'Sales', folder: null, editable: true }, { id: 'quotes', title: 'Quotes', folder: 'sales', editable: true },
+      { id: 'orphan', title: 'Orphan', folder: 'hidden-parent', editable: false }] });
+    if (path.includes('/library?')) { listed.push(path); return response({ items: [], more: false, available: true, storage: 'local' }); }
+    return response({ ...folder, id: 'quotes', title: 'Quotes', agents: [], people: [] });
   } });
 });

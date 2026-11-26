@@ -70,3 +70,15 @@ pub(super) async fn admin_opened(db: &PgStore, user: &User, w: &str, item: &Valu
     tx.commit().await?;
     Ok(())
 }
+
+impl PgStore {
+    /// Every folder the person was given, with the folder it is in, for the folder tree
+    /// and for choosing where to move something.
+    pub(crate) async fn library_folders(&self, user: &User, w: &str) -> Result<Value> {
+        let tx = self.read_tx(w).await?;
+        role(&tx, w, &user.id).await?;
+        let folders = json_rows(&tx, "SELECT jsonb_build_object('id',i.id,'title',i.title,'folder',i.folder,'editable',relay_library_granted(i.workspace,i.id,$2)='edit') AS data FROM relay_library_items i WHERE i.workspace=$1 AND i.kind='folder' AND NOT i.trashed AND relay_library_granted(i.workspace,i.id,$2) IS NOT NULL ORDER BY lower(i.title),i.id LIMIT 500", vec![w.into(), user.id.clone().into()]).await?;
+        tx.commit().await?;
+        Ok(json!({"folders":folders}))
+    }
+}

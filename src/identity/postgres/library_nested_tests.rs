@@ -3,6 +3,7 @@
 use super::super::{tests::*, *};
 use super::folders::{folder, page, share};
 use crate::identity::library::model::*;
+use serde_json::json;
 
 async fn subfolder(
     db: &PgStore,
@@ -88,6 +89,22 @@ async fn a_subfolder_follows_its_folder_until_it_is_shared_itself() {
         .await
         .unwrap();
     assert!(db.library_get(&other, &w, &quote.id).await.is_ok());
+    // The folder tree names every folder the person was given, with its parent.
+    let tree = db.library_folders(&other, &w).await.unwrap();
+    let named: Vec<(String, Value)> = tree["folders"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| (f["title"].as_str().unwrap().to_owned(), f["folder"].clone()))
+        .collect();
+    assert_eq!(
+        named,
+        [
+            ("Quotes".to_owned(), json!(sales)),
+            ("Sales".to_owned(), Value::Null)
+        ]
+    );
+    assert_eq!(tree["folders"][0]["editable"], false);
     // A folder lists what is directly in it; the top lists only top-level items.
     let titles = |v: Value| -> Vec<String> {
         v["items"]

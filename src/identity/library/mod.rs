@@ -34,7 +34,7 @@ pub(super) fn routes() -> Router<Shared> {
         )
         .route(
             "/api/identity/workspaces/{w}/library-folders",
-            post(create_folder),
+            get(folders).post(create_folder),
         )
         .route(
             "/api/identity/workspaces/{w}/library/{id}/review",
@@ -404,6 +404,14 @@ async fn decide(
             .library_decide_suggestion(&user, &w, &id, &suggestion, &input)
             .await?,
     ))
+}
+async fn folders(
+    State(app): State<Shared>,
+    RoutePath(w): RoutePath<String>,
+    headers: axum::http::HeaderMap,
+) -> ApiResult<Json<Value>> {
+    let user = identity(&app, &headers).await?;
+    Ok(Json(app.store.library_folders(&user, &w).await?))
 }
 async fn create_folder(
     State(app): State<Shared>,

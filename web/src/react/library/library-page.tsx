@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { navigate } from '../../navigation';
-import { currentWorkspace, identityRequest, workspaceId } from '../../workspace-context';
+import { identityRequest, workspaceId } from '../../workspace-context';
 import { Button } from '../ui';
 import { useMutation, useResource } from '../requests';
 import { LibraryItem } from './item';
@@ -19,21 +19,8 @@ import {
 } from './model';
 import { useUploads } from './uploads';
 import { LibraryIcon } from './icon';
+import { LibraryFilters, LibraryNav, viewLabel } from './library-nav';
 import './library.css';
-const views = [
-  { id: 'all', label: 'All items' },
-  { id: 'private', label: 'Private' },
-  { id: 'shared', label: 'Shared' },
-  { id: 'starred', label: 'Starred' },
-  { id: 'agents', label: 'Made by agents' },
-  { id: 'review', label: 'Due for review' },
-  { id: 'trash', label: 'Trash' },
-];
-/** Admins also see what agents couldn't answer, and everything in the Library. */
-const adminViews = [
-  { id: 'gaps', label: 'Unanswered' },
-  { id: 'everything', label: 'Everything' },
-];
 export function LibraryPage({ href }: { href: string }) {
   const selected = new URL(href).searchParams.get('item');
   const folder = new URL(href).searchParams.get('folder');
@@ -180,30 +167,20 @@ export function LibraryPage({ href }: { href: string }) {
           </header>
           <div className="library-layout">
             <aside className="library-sidebar">
-              <span className="library-eyebrow">Browse</span>
-              <nav aria-label="Library views">
-                {[...views, ...(currentWorkspace()?.role === 'Admin' ? adminViews : [])].map((option) => (
-                  <Button
-                    key={option.id}
-                    aria-current={view === option.id ? 'page' : undefined}
-                    onClick={() => {
-                      setView(option.id);
-                      setOffset(0);
-                      if (folder) navigate(itemUrl());
-                    }}
-                  >
-                    <span>
-                      <LibraryIcon name={option.id} />
-                    </span>
-                    {option.label}
-                  </Button>
-                ))}
-              </nav>
+              <LibraryNav
+                view={view}
+                folder={folder}
+                refreshKey={refreshKey}
+                pick={(next) => {
+                  setView(next);
+                  setOffset(0);
+                  if (folder) navigate(itemUrl());
+                }}
+              />
               <p>
-                Start small.
-                <br />
                 New pages and files are private until you share them. Workspace admins can open
-                everything in the Library.
+                everything in the Library. Files from conversations are not here: open the
+                conversation, or the agent's Files.
               </p>
               {listing.data?.storage === 'local' && <small>Local development file storage</small>}
             </aside>
@@ -213,7 +190,7 @@ export function LibraryPage({ href }: { href: string }) {
               ) : (
                 <header>
                   <div>
-                    <h2>{view === 'gaps' ? 'Unanswered questions' : views.find((v) => v.id === view)?.label}</h2>
+                    <h2>{view === 'gaps' ? 'Unanswered questions' : viewLabel(view)}</h2>
                     <p>
                       {query
                         ? `Results for “${query}”`
@@ -250,6 +227,15 @@ export function LibraryPage({ href }: { href: string }) {
                     <Button onClick={() => void listing.refresh().catch(() => {})}>Refresh</Button>
                   </div>
                 </header>
+              )}
+              {!folder && view !== 'gaps' && view !== 'trash' && (
+                <LibraryFilters
+                  view={view}
+                  pick={(next) => {
+                    setView(next);
+                    setOffset(0);
+                  }}
+                />
               )}
               {view === 'gaps' && <UnansweredQuestions />}
               {(listing.error || mutation.status) && (

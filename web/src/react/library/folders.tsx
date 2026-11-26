@@ -7,6 +7,7 @@ import { ShareDialog, useAttempt } from './dialogs';
 import { KeepingControl } from './keeping';
 import { MeaningControl } from './meaning';
 import { FolderWatch } from './watching';
+import { loadFolders } from './library-nav';
 import {
   folderUrl,
   itemUrl,
@@ -14,7 +15,6 @@ import {
   useForName,
   visibilityName,
   type Item,
-  type Listing,
 } from './model';
 
 /** The open folder: its name, whose it is, and its sharing, which its items follow. */
@@ -188,13 +188,14 @@ export function MoveDialog({
   close: () => void;
   changed: () => void;
 }) {
-  const load = useCallback(() => request<Listing>('?view=all&q=&offset=0'), []);
+  // Any folder the person can add to, at any depth.
+  const load = useCallback(() => loadFolders(), []);
   const listing = useResource(load);
   const mutation = useMutation();
   const withRequest = useAttempt();
   const [target, setTarget] = useState(item.folder ?? '');
   const folders =
-    listing.data?.items.filter((i) => i.kind === 'folder' && i.editable && i.id !== item.id) ?? [];
+    listing.data?.folders?.filter((f) => f.editable && f.id !== item.id) ?? [];
   return (
     <Dialog
       title="Move to folder"

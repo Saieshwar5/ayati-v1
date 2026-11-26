@@ -1,19 +1,16 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
-import { navigate } from '../../navigation';
-import { currentWorkspace } from '../../workspace-context';
-import { Button } from '../ui';
-import { useMutation, useResource } from '../requests';
-import { AskDialog, HistoryDialog, ShareDialog } from './dialogs';
-import { MoveDialog } from './folders';
-import { Suggestions } from './suggestions';
-import { TableView } from './table-view';
-import { ReviewControl } from './upkeep';
-import { KeepingControl } from './keeping';
-import { ItemFields } from './watching';
-import { ReplaceFile } from './file-versions';
-import { DescriptionControl } from './description';
-import { PageEditor } from './editor';
-import { usePageSave } from './autosave';
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { navigate } from "../../navigation";
+import { currentWorkspace } from "../../workspace-context";
+import { Button } from "../ui";
+import { useMutation, useResource } from "../requests";
+import { AskDialog, HistoryDialog, ShareDialog } from "./dialogs";
+import { MoveDialog } from "./folders";
+import { Suggestions } from "./suggestions";
+import { TableView } from "./table-view";
+import { ReplaceFile } from "./file-versions";
+import { ItemDetails } from "./item-details";
+import { PageEditor } from "./editor";
+import { usePageSave } from "./autosave";
 import {
   bytesLabel,
   dateLabel,
@@ -24,9 +21,9 @@ import {
   request,
   visibilityName,
   type Item,
-} from './model';
+} from "./model";
 const PdfPreview = lazy(() =>
-  import('./pdf-preview').then((module) => ({ default: module.PdfPreview })),
+  import("./pdf-preview").then((module) => ({ default: module.PdfPreview })),
 );
 export function LibraryItem({
   id,
@@ -44,8 +41,8 @@ export function LibraryItem({
     } catch (error) {
       if (
         error &&
-        typeof error === 'object' &&
-        'status' in error &&
+        typeof error === "object" &&
+        "status" in error &&
         [400, 401, 403, 404].includes(Number(error.status))
       ) {
         try {
@@ -61,10 +58,10 @@ export function LibraryItem({
   useEffect(() => {
     const refresh = () => void resource.refresh().catch(() => {});
     const timer = window.setInterval(refresh, 15000);
-    window.addEventListener('focus', refresh);
+    window.addEventListener("focus", refresh);
     return () => {
       window.clearInterval(timer);
-      window.removeEventListener('focus', refresh);
+      window.removeEventListener("focus", refresh);
     };
   }, [resource.refresh]);
   const refresh = () => {
@@ -83,8 +80,12 @@ export function LibraryItem({
     return (
       <section className="library-detail">
         <Button onClick={() => navigate(itemUrl())}>‹ Library</Button>
-        <p role={resource.error ? 'alert' : 'status'}>{resource.error || 'Opening item…'}</p>
-        <Button onClick={() => void resource.refresh().catch(() => {})}>Retry</Button>
+        <p role={resource.error ? "alert" : "status"}>
+          {resource.error || "Opening item…"}
+        </p>
+        <Button onClick={() => void resource.refresh().catch(() => {})}>
+          Retry
+        </Button>
       </section>
     );
   return (
@@ -121,25 +122,31 @@ function ReadyItem({
   reload: () => void;
   changed: () => void;
   error: string;
-  acknowledged: (saved: Pick<Item, 'title' | 'document' | 'revision'>) => void;
+  acknowledged: (saved: Pick<Item, "title" | "document" | "revision">) => void;
 }) {
   const id = item.id;
   const mutation = useMutation();
-  const [dialog, setDialog] = useState<'share' | 'ask' | 'history' | 'move'>();
+  const [dialog, setDialog] = useState<"share" | "ask" | "history" | "move">();
   const back = item.folder ? folderUrl(item.folder) : itemUrl();
-  const saving = usePageSave(item, acknowledged, item.kind === 'page');
-  const stale = item.kind === 'page' && item.revision !== saving.revision;
+  const saving = usePageSave(item, acknowledged, item.kind === "page");
+  const stale = item.kind === "page" && item.revision !== saving.revision;
   return (
     <section className="library-detail">
       <header className="library-detail-header">
         <div>
-          <Button onClick={() => navigate(back)}>‹ {item.folder_title ?? 'Library'}</Button>
+          <Button onClick={() => navigate(back)}>
+            ‹ {item.folder_title ?? "Library"}
+          </Button>
           <span>
-            {item.kind === 'page' ? 'Page' : item.kind === 'table' ? 'Table' : 'File'} ·{' '}
-            {visibilityName(item.visibility)}
+            {item.kind === "page"
+              ? "Page"
+              : item.kind === "table"
+                ? "Table"
+                : "File"}{" "}
+            · {visibilityName(item.visibility)}
             {item.folder && item.folder_title && (
               <>
-                {' · in '}
+                {" · in "}
                 <a href={folderUrl(item.folder)}>{item.folder_title}</a>
               </>
             )}
@@ -148,36 +155,40 @@ function ReadyItem({
         <div>
           <Button
             disabled={mutation.busy}
-            aria-label={item.starred ? 'Remove star' : 'Star item'}
+            aria-label={item.starred ? "Remove star" : "Star item"}
             onClick={() =>
               void mutation.run(async () => {
                 await request(`/${id}/action`, {
                   request: crypto.randomUUID(),
                   revision: item.revision,
-                  action: item.starred ? 'unstar' : 'star',
+                  action: item.starred ? "unstar" : "star",
                 });
                 refresh();
               })
             }
           >
-            {item.starred ? '★' : '☆'}
+            {item.starred ? "★" : "☆"}
           </Button>
           <Button
             disabled={
-              saving.dirty || saving.busy || stale || !['ready', 'partial'].includes(item.readiness)
+              saving.dirty ||
+              saving.busy ||
+              stale ||
+              !["ready", "partial"].includes(item.readiness)
             }
             title={
               saving.dirty || saving.busy || stale
-                ? 'Save or reload the current page before asking'
+                ? "Save or reload the current page before asking"
                 : undefined
             }
-            onClick={() => setDialog('ask')}
+            onClick={() => setDialog("ask")}
           >
             Ask an agent
           </Button>
           {item.steward === null &&
-            ((item.visibility === 'workspace' && currentWorkspace()?.role === 'Admin') ||
-              (item.visibility === 'selected' && item.editable)) && (
+            ((item.visibility === "workspace" &&
+              currentWorkspace()?.role === "Admin") ||
+              (item.visibility === "selected" && item.editable)) && (
               <Button
                 disabled={mutation.busy}
                 onClick={() =>
@@ -185,7 +196,7 @@ function ReadyItem({
                     await request(`/${id}/action`, {
                       request: crypto.randomUUID(),
                       revision: item.revision,
-                      action: 'claim',
+                      action: "claim",
                     });
                     refresh();
                   })
@@ -198,29 +209,29 @@ function ReadyItem({
             <>
               {item.folder ? (
                 <Button
-                  title={`Sharing follows the folder ${item.folder_title ?? ''}`}
+                  title={`Sharing follows the folder ${item.folder_title ?? ""}`}
                   onClick={() => navigate(folderUrl(item.folder!))}
                 >
                   Folder sharing
                 </Button>
               ) : (
-                <Button onClick={() => setDialog('share')}>Share</Button>
+                <Button onClick={() => setDialog("share")}>Share</Button>
               )}
-              <Button onClick={() => setDialog('move')}>Move</Button>
+              <Button onClick={() => setDialog("move")}>Move</Button>
               <Button
                 disabled={mutation.busy}
                 onClick={() =>
                   void mutation.run(async () => {
                     if (
                       !confirm(
-                        'Move this item to Trash? People and agents will lose access until you restore it.',
+                        "Move this item to Trash? People and agents will lose access until you restore it.",
                       )
                     )
                       return;
                     await request(`/${id}/action`, {
                       request: crypto.randomUUID(),
                       revision: item.revision,
-                      action: 'trash',
+                      action: "trash",
                     });
                     changed();
                     navigate(back);
@@ -240,54 +251,81 @@ function ReadyItem({
       )}
       {item.working && item.working.length > 0 && (
         <p className="library-notice" role="status">
-          {item.working.join(', ')} {item.working.length === 1 ? 'is' : 'are'} working on this
-          now. A change you save first is kept; the agent then opens it again.
+          {item.working.join(", ")} {item.working.length === 1 ? "is" : "are"}{" "}
+          working on this now. A change you save first is kept; the agent then
+          opens it again.
         </p>
       )}
       {item.granted === false && (
         <p className="library-notice" role="status">
-          This was not shared with you. You can open it as a workspace admin, and the Audit log
-          records that you did.
+          This was not shared with you. You can open it as a workspace admin,
+          and the Audit log records that you did.
         </p>
       )}
       {stale && !saving.busy && (
         <p className="library-notice" role="status">
-          A newer saved revision is available. Your current draft stays in this browser.{' '}
-          <Button onClick={reload}>Load saved version</Button>
+          A newer saved revision is available. Your current draft stays in this
+          browser. <Button onClick={reload}>Load saved version</Button>
         </p>
       )}
-      {item.kind === 'page' && <Suggestions id={id} revision={item.revision} changed={reload} />}
-      <DescriptionControl key={`about:${item.id}`} item={item} changed={refresh} />
-      <ReviewControl key={`review:${item.revision}`} item={item} />
-      <KeepingControl key={`keeping:${item.revision}`} item={item} />
-      <ItemFields item={item} />
+      {item.kind === "page" && (
+        <Suggestions id={id} revision={item.revision} changed={reload} />
+      )}
       {sourceRevision && Number(sourceRevision) !== item.revision && (
         <p className="library-notice">
-          The agent used revision {sourceRevision}. You are viewing the current revision{' '}
-          {item.revision}; editors can inspect saved history.
+          The agent used revision {sourceRevision}. You are viewing the current
+          revision {item.revision}; editors can inspect saved history.
         </p>
       )}
-      {item.kind === 'table' ? (
-        <TableView key={item.revision} item={item} saved={reload} />
-      ) : item.kind === 'page' ? (
-        <PageEditor
+      <div className="library-item-body">
+        <div className="library-item-content">
+          {item.kind === "table" ? (
+            <TableView key={item.revision} item={item} saved={reload} />
+          ) : item.kind === "page" ? (
+            <PageEditor
+              item={item}
+              saving={saving}
+              history={() => setDialog("history")}
+              saved={reload}
+            />
+          ) : (
+            <FilePreview
+              item={item}
+              history={() => setDialog("history")}
+              replaced={reload}
+            />
+          )}
+        </div>
+        <ItemDetails
           item={item}
-          saving={saving}
-          history={() => setDialog('history')}
-          saved={reload}
+          refresh={refresh}
+          share={() => setDialog("share")}
+          history={() => setDialog("history")}
         />
-      ) : (
-        <FilePreview item={item} history={() => setDialog('history')} replaced={reload} />
+      </div>
+      {dialog === "share" && item.manageable && (
+        <ShareDialog
+          item={item}
+          close={() => setDialog(undefined)}
+          changed={refresh}
+        />
       )}
-      {dialog === 'share' && item.manageable && (
-        <ShareDialog item={item} close={() => setDialog(undefined)} changed={refresh} />
+      {dialog === "ask" && (
+        <AskDialog item={item} close={() => setDialog(undefined)} />
       )}
-      {dialog === 'ask' && <AskDialog item={item} close={() => setDialog(undefined)} />}
-      {dialog === 'move' && item.manageable && (
-        <MoveDialog item={item} close={() => setDialog(undefined)} changed={refresh} />
+      {dialog === "move" && item.manageable && (
+        <MoveDialog
+          item={item}
+          close={() => setDialog(undefined)}
+          changed={refresh}
+        />
       )}
-      {dialog === 'history' && item.editable && (
-        <HistoryDialog item={item} close={() => setDialog(undefined)} changed={reload} />
+      {dialog === "history" && item.editable && (
+        <HistoryDialog
+          item={item}
+          close={() => setDialog(undefined)}
+          changed={reload}
+        />
       )}
     </section>
   );
@@ -305,13 +343,17 @@ function FilePreview({
     <div className="library-file">
       <div className="library-file-main">
         <h1>{item.title}</h1>
-        {item.mime.startsWith('image/') ? (
-          <img className="library-image" src={downloadUrl(item.id, true)} alt={item.title} />
-        ) : item.mime === 'application/pdf' ? (
+        {item.mime.startsWith("image/") ? (
+          <img
+            className="library-image"
+            src={downloadUrl(item.id, true)}
+            alt={item.title}
+          />
+        ) : item.mime === "application/pdf" ? (
           <Suspense fallback={<p role="status">Opening PDF viewer…</p>}>
             <PdfPreview id={item.id} />
           </Suspense>
-        ) : item.mime === 'text/plain' ? (
+        ) : item.mime === "text/plain" ? (
           <iframe
             className="library-text-preview"
             src={downloadUrl(item.id, true)}
@@ -344,17 +386,17 @@ function FilePreview({
           <dd>{visibilityName(item.visibility)}</dd>
           <dt>Agent reading</dt>
           <dd>
-            {item.readiness === 'ready'
-              ? 'Text ready'
-              : item.readiness === 'partial'
-                ? 'Limited excerpt ready'
-                : 'Text extraction unavailable'}
+            {item.readiness === "ready"
+              ? "Text ready"
+              : item.readiness === "partial"
+                ? "Limited excerpt ready"
+                : "Text extraction unavailable"}
           </dd>
         </dl>
-        {item.readiness === 'partial' && (
+        {item.readiness === "partial" && (
           <p>
-            Agent context is limited. PDFs include text from at most the first 50 pages; each
-            question uses up to 12,000 characters.
+            Agent context is limited. PDFs include text from at most the first
+            50 pages; each question uses up to 12,000 characters.
           </p>
         )}
         <a className="ui-button primary" href={downloadUrl(item.id)}>
@@ -367,7 +409,8 @@ function FilePreview({
           </>
         )}
         <p className="library-muted">
-          Files stay private until the creator shares them. Sharing and agent access are separate.
+          Files stay private until the creator shares them. Sharing and agent
+          access are separate.
         </p>
       </aside>
     </div>
