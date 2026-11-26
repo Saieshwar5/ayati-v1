@@ -19,7 +19,7 @@ import {
 } from './model';
 import { useUploads } from './uploads';
 import { LibraryIcon } from './icon';
-import { LibraryFilters, LibraryNav, viewLabel } from './library-nav';
+import { LibraryFilters, LibraryNav, draggedItem, viewLabel } from './library-nav';
 import './library.css';
 export function LibraryPage({ href }: { href: string }) {
   const selected = new URL(href).searchParams.get('item');
@@ -154,15 +154,23 @@ export function LibraryPage({ href }: { href: string }) {
               >
                 ↑ Upload
               </Button>
-              <Button disabled={!listing.data?.available} onClick={() => setNaming(true)}>
-                ＋ New folder
-              </Button>
-              <Button disabled={!listing.data?.available || mutation.busy} onClick={createTable}>
-                ＋ New table
-              </Button>
-              <Button primary disabled={!listing.data?.available || mutation.busy} onClick={create}>
-                ＋ New page
-              </Button>
+              <details className="library-new">
+                <summary className="ui-button primary">＋ New</summary>
+                <div className="library-new-menu">
+                  <Button disabled={!listing.data?.available || mutation.busy} onClick={create}>
+                    New page
+                  </Button>
+                  <Button
+                    disabled={!listing.data?.available || mutation.busy}
+                    onClick={createTable}
+                  >
+                    New table
+                  </Button>
+                  <Button disabled={!listing.data?.available} onClick={() => setNaming(true)}>
+                    New folder
+                  </Button>
+                </div>
+              </details>
             </div>
           </header>
           <div className="library-layout">
@@ -171,6 +179,7 @@ export function LibraryPage({ href }: { href: string }) {
                 view={view}
                 folder={folder}
                 refreshKey={refreshKey}
+                moved={changed}
                 pick={(next) => {
                   setView(next);
                   setOffset(0);
@@ -184,7 +193,18 @@ export function LibraryPage({ href }: { href: string }) {
               </p>
               {listing.data?.storage === 'local' && <small>Local development file storage</small>}
             </aside>
-            <main className="library-list">
+            <main
+              className="library-list"
+              onDragOver={(event) => {
+                if (filesEnabled && event.dataTransfer.types.includes('Files'))
+                  event.preventDefault();
+              }}
+              onDrop={(event) => {
+                if (!filesEnabled || event.dataTransfer.files.length === 0) return;
+                event.preventDefault();
+                upload.choose(event.dataTransfer.files);
+              }}
+            >
               {folder && view === 'all' && !query ? (
                 <FolderHeader key={folder} id={folder} changed={changed} />
               ) : (
@@ -289,7 +309,18 @@ export function LibraryPage({ href }: { href: string }) {
                     <span role="columnheader">Actions</span>
                   </div>
                   {listing.data.items.map((item) => (
-                    <div className="library-table-row" role="row" key={item.id}>
+                    <div
+                      className="library-table-row"
+                      role="row"
+                      key={item.id}
+                      draggable={item.manageable && view !== 'trash'}
+                      onDragStart={(event) =>
+                        event.dataTransfer.setData(
+                          draggedItem,
+                          JSON.stringify({ id: item.id, revision: item.access_revision }),
+                        )
+                      }
+                    >
                       <div role="cell" className="library-name">
                         <span className={`library-type ${item.kind}`}>
                           <LibraryIcon name={item.kind} />

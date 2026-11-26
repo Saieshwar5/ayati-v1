@@ -59,9 +59,14 @@ export function FolderHeader({ id, changed }: { id: string; changed: () => void 
               : "Everything here follows the folder's sharing."}
           </p>
         )}
-        {item && <KeepingControl item={item} />}
-        {item && <MeaningControl item={item} />}
-        {item && <FolderWatch item={item} />}
+        {item && (
+          <details className="library-folder-details">
+            <summary>Folder details: keeping, meaning search and watching</summary>
+            <KeepingControl item={item} />
+            <MeaningControl item={item} />
+            <FolderWatch item={item} />
+          </details>
+        )}
         {(folder.error || mutation.status) && (
           <p className="library-notice" role="alert">
             {folder.error || mutation.status}

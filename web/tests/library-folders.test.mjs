@@ -96,7 +96,7 @@ test('an open folder lists its own items and says its sharing applies to them', 
     assert.equal(document.querySelector('.library-folder-header h2').textContent, 'Sales');
     assert.match(document.querySelector('.library-folder-header').textContent, /Workspace · 1 agent \(for anyone in the company\)\. Everything here follows the folder's sharing\./);
     assert.ok(document.querySelector('nav[aria-label="Folder path"] a'));
-    assert.ok([...document.querySelectorAll('button')].some(b => b.textContent === '＋ New folder'), 'folders go inside folders');
+    assert.ok([...document.querySelectorAll('button')].some(b => b.textContent === 'New folder'), 'folders go inside folders');
     assert.equal(document.querySelector('.library-name a').textContent, 'Quote template');
   }, { url: `${url}&folder=sales`, fetch: async path => {
     if (path.endsWith('/session')) return response(session);
@@ -118,7 +118,7 @@ test('a subfolder follows its folder until it is shared separately, and a folder
     assert.deepEqual([...document.querySelectorAll('nav[aria-label="Folder path"] a')].map(a => a.textContent), ['Library', 'Sales']);
     assert.ok(button('Share separately'));
     assert.equal(button('Follow Sales'), undefined, 'it already follows');
-    await click(button('＋ New folder'));
+    await click(button('New folder'));
     await change(document.querySelector('[aria-label="Folder name"]'), 'Acme');
     await click(button('Create folder'));
     assert.deepEqual([posted[0].title, posted[0].folder], ['Acme', 'quotes']);
@@ -136,8 +136,8 @@ test('a subfolder follows its folder until it is shared separately, and a folder
 });
 
 test('the Library has three places, a folder tree and filters that switch off again', async () => {
-  const listed = [];
-  await reactFixture(async ({ render, click, button }) => {
+  const listed = [], moved = [];
+  await reactFixture(async ({ render, click, button, update, dom }) => {
     const { enterWorkspace } = await import('../src/workspace-context.ts'); await enterWorkspace();
     const { LibraryPage } = await import('../src/react/library/library-page.tsx');
     await render(LibraryPage, { href: `${url}&folder=quotes` });
@@ -148,13 +148,25 @@ test('the Library has three places, a folder tree and filters that switch off ag
     assert.equal(tree.querySelector('ul ul a').textContent, 'Quotes', 'a subfolder sits under its folder');
     assert.equal(tree.querySelector('[aria-current="page"]').textContent, 'Quotes');
     await render(LibraryPage, { href: url });
+    // Dropping a row on a folder they can add to files it there; not on one they only view.
+    const drop = async (label) => {
+      const target = [...document.querySelectorAll('nav[aria-label="Folders"] a')].find(a => a.textContent === label);
+      const event = new dom.window.Event('drop', { bubbles: true, cancelable: true });
+      event.dataTransfer = { types: ['application/x-cuckoo-library-item'], getData: () => JSON.stringify({ id: 'notes', revision: 4 }) };
+      await update(() => target.dispatchEvent(event));
+    };
+    await drop('Orphan');
+    assert.equal(moved.length, 0);
+    await drop('Sales');
+    assert.deepEqual([moved[0].folder, moved[0].revision], ['sales', 4]);
     await click(button('Starred'));
     assert.equal(button('Starred').getAttribute('aria-pressed'), 'true');
     assert.ok(listed.at(-1).includes('view=starred'));
     await click(button('Starred'));
     assert.ok(listed.at(-1).includes('view=all'), 'choosing it again clears the filter');
-  }, { url: `${url}&folder=quotes`, fetch: async (path) => {
+  }, { url: `${url}&folder=quotes`, fetch: async (path, options = {}) => {
     if (path.endsWith('/session')) return response(session);
+    if (path.endsWith('/move')) { moved.push(JSON.parse(options.body)); return response({ ok: true }); }
     if (path.endsWith('/library-folders')) return response({ folders: [
       { id: 'sales', title: 'Sales', folder: null, editable: true }, { id: 'quotes', title: 'Quotes', folder: 'sales', editable: true },
       { id: 'orphan', title: 'Orphan', folder: 'hidden-parent', editable: false }] });

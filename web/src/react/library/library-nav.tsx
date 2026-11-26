@@ -1,9 +1,9 @@
 import { useCallback } from 'react';
 import { identityRequest, workspaceId, currentWorkspace } from '../../workspace-context';
 import { Button } from '../ui';
-import { useResource } from '../requests';
+import { useMutation, useResource } from '../requests';
 import { LibraryIcon } from './icon';
-import { folderUrl } from './model';
+import { folderUrl, request } from './model';
 
 /** Where people go in the Library. Everything else is a filter on the list. */
 export const places = [
@@ -34,17 +34,22 @@ export const loadFolders = (signal?: AbortSignal) =>
     signal,
   );
 
+/** What a dragged Library row carries: the item and its sharing revision. */
+export const draggedItem = 'application/x-cuckoo-library-item';
+
 /** The places and, under them, the folders as a tree. */
 export function LibraryNav({
   view,
   folder,
   pick,
   refreshKey,
+  moved,
 }: {
   view: string;
   folder: string | null;
   pick: (view: string) => void;
   refreshKey: number;
+  moved: () => void;
 }) {
   const options = [...places, ...(currentWorkspace()?.role === 'Admin' ? adminPlaces : [])];
   return (
@@ -63,14 +68,27 @@ export function LibraryNav({
           </Button>
         ))}
       </nav>
-      <FolderTree key={refreshKey} open={folder} />
+      <FolderTree key={refreshKey} open={folder} moved={moved} />
     </>
   );
 }
 
-function FolderTree({ open }: { open: string | null }) {
+function FolderTree({ open, moved }: { open: string | null; moved: () => void }) {
   const load = useCallback(() => loadFolders(), []);
   const tree = useResource(load);
+  const mutation = useMutation();
+  // Dropping a row on a folder files it there, like Move.
+  const drop = (target: TreeFolder, data: string) =>
+    void mutation.run(async () => {
+      const dragged = JSON.parse(data) as { id: string; revision: number };
+      if (dragged.id === target.id) return;
+      await request(`/${dragged.id}/move`, {
+        request: crypto.randomUUID(),
+        revision: dragged.revision,
+        folder: target.id,
+      });
+      moved();
+    });
   const folders = tree.data?.folders ?? [];
   if (folders.length === 0) return null;
   // A folder whose parent the person can't see is shown at the top.
@@ -84,7 +102,20 @@ function FolderTree({ open }: { open: string | null }) {
       <ul>
         {here.map((f) => (
           <li key={f.id}>
-            <a href={folderUrl(f.id)} aria-current={open === f.id ? 'page' : undefined}>
+            <a
+              href={folderUrl(f.id)}
+              aria-current={open === f.id ? 'page' : undefined}
+              onDragOver={(event) => {
+                if (f.editable && event.dataTransfer.types.includes(draggedItem))
+                  event.preventDefault();
+              }}
+              onDrop={(event) => {
+                const data = event.dataTransfer.getData(draggedItem);
+                if (!f.editable || !data) return;
+                event.preventDefault();
+                drop(f, data);
+              }}
+            >
               {f.title}
             </a>
             {level(f.id, depth + 1)}
@@ -96,6 +127,7 @@ function FolderTree({ open }: { open: string | null }) {
   return (
     <nav aria-label="Folders" className="library-tree">
       <span className="library-eyebrow">Folders</span>
+      {mutation.status && <small role="alert">{mutation.status}</small>}
       {level(null, 0)}
     </nav>
   );
