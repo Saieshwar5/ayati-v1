@@ -223,3 +223,4 @@
 .library-item-details dl { margin: 0; display: grid; gap: 4px; }
 .library-item-details dt { color: var(--muted); font-size: 12px; margin-top: 8px; }
 .library-item-details dd { margin: 0; }
+.library-snippet { display: block; color: var(--muted); overflow-wrap: anywhere; }

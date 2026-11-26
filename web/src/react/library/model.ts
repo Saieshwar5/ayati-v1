@@ -40,6 +40,8 @@ export type Item = {
   granted?: boolean;
   item_count?: number;
   review_due?: boolean;
+  /** The passage that matched a search. */
+  snippet?: string | null;
   /** Agents that have this open on their computer in a running request. */
   working?: string[];
   /** One line saying what the item is, searched with its text. */

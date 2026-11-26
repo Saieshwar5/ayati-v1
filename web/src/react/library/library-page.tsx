@@ -316,6 +316,7 @@ export function LibraryPage({ href }: { href: string }) {
                               item.folder !== folder &&
                               ` · in ${item.folder_title}`}
                           </small>
+                          {item.snippet && <small className="library-snippet">{item.snippet}</small>}
                         </div>
                       </div>
                       <span role="cell">{visibilityName(item.visibility)}</span>

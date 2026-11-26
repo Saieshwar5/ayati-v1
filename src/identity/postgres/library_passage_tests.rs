@@ -316,6 +316,27 @@ async fn exact_search_finds_these_characters_and_nothing_like_them() {
             .unwrap()
             .contains("30 days from delivery")
     );
+    // People search by word forms too, and see the passage that matched.
+    let listed = db
+        .library_list(&s.owner, &s.w, "all", "refunded windows", "", 0)
+        .await
+        .unwrap();
+    assert_eq!(listed["items"][0]["title"], "Returns policy");
+    assert!(
+        listed["items"][0]["snippet"]
+            .as_str()
+            .unwrap()
+            .contains("refund window"),
+        "{listed}"
+    );
+    assert!(
+        db.library_list(&s.member, &s.w, "all", "salary", "", 0)
+            .await
+            .unwrap()["items"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
     // HR is not for this colleague, exact or not, and a missed code is not an unanswered question.
     assert!(
         search("40k", true).await["results"]
