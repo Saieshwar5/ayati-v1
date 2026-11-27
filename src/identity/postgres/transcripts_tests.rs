@@ -429,3 +429,65 @@ async fn schema_95_keeps_earlier_voice_notes_as_not_transcribed() {
         .is_err()
     );
 }
+
+#[tokio::test]
+#[ignore = "requires disposable PostgreSQL"]
+async fn people_see_a_messages_files_in_the_order_they_were_attached() {
+    // The page and the live stream once listed a message's files in whatever order
+    // the database returned them, so files could swap places between reads.
+    let db = fixture().await;
+    let owner = user(&db, "attachment-order-owner").await;
+    let w = workspace(&db, &owner).await;
+    let (c, _) = agent(&db, &owner, &w).await;
+    let files = [
+        object("a.pdf", "application/pdf"),
+        object("b.pdf", "application/pdf"),
+        object("c.pdf", "application/pdf"),
+    ];
+    for file in &files {
+        db.save_object(&owner, &w, &c, file, false).await.unwrap();
+    }
+    let names = |message: &Value| -> Vec<String> {
+        message["attachments"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|f| f["name"].as_str().unwrap().to_owned())
+            .collect()
+    };
+    // Every order of the three, twice: a read that doesn't keep the order is very
+    // unlikely to pass them all by luck.
+    let orders = [
+        [0, 1, 2],
+        [0, 2, 1],
+        [1, 0, 2],
+        [1, 2, 0],
+        [2, 0, 1],
+        [2, 1, 0],
+    ];
+    for order in orders.iter().chain(&orders) {
+        let cursor = db.sync_page(&owner, &w, None).await.unwrap()["cursor"].as_i64();
+        let chosen: Vec<&Object> = order.iter().map(|&i| &files[i]).collect();
+        let sent = sharing("Three files", None, &chosen);
+        db.chat_send(&owner, &w, &c, &sent).await.unwrap();
+        let expected: Vec<String> = chosen.iter().map(|f| f.name.clone()).collect();
+        let page = db.chat_page(&owner, &w, &c, None).await.unwrap();
+        let shown = page["messages"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|m| m["id"] == sent.id)
+            .cloned()
+            .unwrap();
+        assert_eq!(names(&shown), expected, "the page");
+        let live = db.sync_page(&owner, &w, cursor).await.unwrap();
+        let streamed = live["events"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|e| e["message"]["id"] == sent.id)
+            .map(|e| e["message"].clone())
+            .unwrap();
+        assert_eq!(names(&streamed), expected, "the live stream");
+    }
+}
