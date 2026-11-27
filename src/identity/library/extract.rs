@@ -1,5 +1,40 @@
 use axum::body::Bytes;
-use std::process::Stdio;
+use std::{path::Path, process::Stdio};
+
+/// What each sandboxed reader needs, and what agents can't read without it. A
+/// missing one quietly marks those files "unsupported", so the controller names
+/// it at start (`role_startup`); the hosted image once shipped without Tesseract.
+const READERS: [(&str, &str); 5] = [
+    ("usr/bin/bwrap", "text in PDFs and images"),
+    ("usr/bin/prlimit", "text in PDFs and images"),
+    ("usr/bin/pdftotext", "text in PDFs"),
+    ("usr/bin/tesseract", "text in images"),
+    ("usr/share/tesseract-ocr", "text in images (English data)"),
+];
+
+/// The readers missing under `root` (`/` on a real machine), as "what: program".
+pub(in crate::identity) fn missing_readers(root: &Path) -> Vec<String> {
+    READERS
+        .iter()
+        .filter(|(path, _)| {
+            if path.ends_with("tesseract-ocr") {
+                !english_data(&root.join(path))
+            } else {
+                !root.join(path).is_file()
+            }
+        })
+        .map(|(path, what)| format!("{what}: /{path}"))
+        .collect()
+}
+
+/// Tesseract's English data, in whichever version folder the system installed.
+fn english_data(share: &Path) -> bool {
+    std::fs::read_dir(share).is_ok_and(|versions| {
+        versions
+            .flatten()
+            .any(|v| v.path().join("tessdata/eng.traineddata").is_file())
+    })
+}
 
 pub fn mime(bytes: &[u8]) -> &'static str {
     if bytes.starts_with(b"\x89PNG\r\n\x1a\n") {
@@ -246,5 +281,28 @@ mod tests {
         )
         .await;
         assert_eq!((none.as_str(), unsupported), ("", "unsupported"));
+    }
+}
+
+#[cfg(test)]
+mod reader_tests {
+    #[test]
+    fn missing_readers_are_named_with_what_they_read() {
+        let root = tempfile::tempdir().unwrap();
+        let all = super::missing_readers(root.path());
+        assert_eq!(all.len(), 5, "{all:?}");
+        for program in ["bwrap", "prlimit", "pdftotext", "tesseract"] {
+            let path = root.path().join("usr/bin").join(program);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(path, "").unwrap();
+        }
+        assert_eq!(
+            super::missing_readers(root.path()),
+            ["text in images (English data): /usr/share/tesseract-ocr"]
+        );
+        let data = root.path().join("usr/share/tesseract-ocr/5/tessdata");
+        std::fs::create_dir_all(&data).unwrap();
+        std::fs::write(data.join("eng.traineddata"), "").unwrap();
+        assert!(super::missing_readers(root.path()).is_empty());
     }
 }

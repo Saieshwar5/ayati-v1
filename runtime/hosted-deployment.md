@@ -195,6 +195,13 @@ PDF extraction keeps its existing bubblewrap isolation. Some container hosts
 disallow nested user namespaces; then extraction fails closed. Do not relax the
 container security profile merely to make that optional extractor work.
 
+The image installs every Library reader: `bubblewrap`, `prlimit` (util-linux),
+`pdftotext` (poppler-utils) and Tesseract with English data (`tesseract-ocr`,
+`tesseract-ocr-eng`). It shipped without Tesseract until 2026-11-27, so text in
+uploaded images was never read in hosted Cuckoo. A web controller with Library
+storage now logs "Library can't read some files' text" at start, naming each
+missing program and what it reads, instead of failing only as "unsupported".
+
 ## Several API replicas (rehearsal)
 
 `deploy/compose.replicas.yaml` runs the API as several replicas behind a Caddy proxy
