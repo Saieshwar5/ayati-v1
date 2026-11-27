@@ -9,6 +9,16 @@ use serde_json::{Value, json};
 /// with `tools/list` and `tools/call` in the shape this client reads.
 const VERSIONS: [&str; 3] = ["2025-11-25", "2025-06-18", "2025-03-26"];
 
+/// Where to connect. A connected system's address is checked again here, so one
+/// saved before loopback was refused can't reach this machine either.
+fn address(server: &Server, local: bool) -> Result<reqwest::Url> {
+    if crate::identity::connectors::systems::is_system(&server.id) {
+        super::system_endpoint(&server.url, local)
+    } else {
+        super::endpoint(&server.url)
+    }
+}
+
 pub(crate) struct Remote {
     client: reqwest::Client,
     server: Server,
@@ -30,7 +40,7 @@ impl Remote {
     /// Connects with a key held elsewhere (a connected system's sealed key);
     /// the caller has already checked it belongs to the reviewed connection.
     pub async fn connect_with(server: Server, bearer: Option<String>) -> Result<Self> {
-        let url = super::endpoint(&server.url)?;
+        let url = address(&server, super::LOCAL_SYSTEMS)?;
         let host = url.host_str().context("Missing MCP host")?;
         let mut builder = reqwest::Client::builder()
             .no_proxy()
@@ -252,5 +262,41 @@ mod tests {
         ] {
             assert!(crate::identity::control::endpoint(url).is_err());
         }
+    }
+
+    #[test]
+    fn a_connected_system_can_never_name_this_machine() {
+        use crate::identity::control::{endpoint, system_endpoint};
+        for url in ["http://127.0.0.1:8766/v1", "https://127.0.0.1/mcp"] {
+            let refused = system_endpoint(url, false).unwrap_err().to_string();
+            assert!(refused.contains("public HTTPS address"), "{url}: {refused}");
+            // The operator's own servers file may still use loopback.
+            assert!(endpoint(url).is_ok(), "{url}");
+        }
+        assert!(system_endpoint("https://erp.example.com/mcp", false).is_ok());
+        assert!(system_endpoint("http://erp.example.com/mcp", false).is_err());
+    }
+
+    #[test]
+    fn a_saved_loopback_system_is_refused_when_it_connects() {
+        let server = |id: &str| Server {
+            id: id.into(),
+            workspace: "w".into(),
+            name: id.into(),
+            account: None,
+            url: "http://127.0.0.1:1/mcp".into(),
+            bearer_file: None,
+            operations: vec![],
+        };
+        let system = server("system-00000000-0000-0000-0000-000000000001");
+        assert!(
+            address(&system, false).is_err(),
+            "a saved system on loopback"
+        );
+        assert!(address(&system, true).is_ok(), "tests' local stand-ins");
+        assert!(
+            address(&server("operator-erp"), false).is_ok(),
+            "operator's own server"
+        );
     }
 }

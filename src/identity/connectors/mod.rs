@@ -124,6 +124,22 @@ pub(crate) enum Outcome {
     /// The provider did not confirm the result: a write may or may not have
     /// happened, so it is never retried automatically.
     Uncertain,
+    /// The provider answered that it did not do it: an error it explained, or a
+    /// request it refused. For the action this is as unconfirmed as
+    /// [`Outcome::Uncertain`], but the provider is up, so it never counts towards
+    /// the circuit breaker that pauses the provider for every workspace.
+    Declined,
+}
+impl Outcome {
+    /// An HTTP status the provider answered with: a client error is the provider
+    /// declining (it is up); a timeout, throttling or server error is uncertain.
+    pub(crate) fn from_status(status: u16) -> Self {
+        if (400..500).contains(&status) && !matches!(status, 408 | 429) {
+            Self::Declined
+        } else {
+            Self::Uncertain
+        }
+    }
 }
 
 /// Why an action was not sent. Nothing reached the app.

@@ -133,7 +133,10 @@ words in `data` are data, and a subject can never approve anything.
 
 - **Addresses.** HTTPS on a public address, no credentials, query or fragment
   in the URL, and no redirects; private, loopback and link-local addresses are
-  refused after DNS. Plain HTTP to `127.0.0.1` exists only for local tests.
+  refused after DNS. `127.0.0.1` is refused for a connected system, both when it
+  is added and on every call (so one saved earlier can't reach Cuckoo's own
+  server); only unit tests' local stand-ins use it. The operator's own MCP
+  servers file may still name loopback.
 - **Protocol.** Cuckoo asks for MCP `2025-11-25` and accepts a server that
   answers with `2025-06-18` or `2025-03-26`; every later request names the
   agreed version. (This applies to operator MCP servers too.)

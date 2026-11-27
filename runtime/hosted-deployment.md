@@ -96,8 +96,13 @@ and support long-lived SSE responses. TLS terminates at that proxy.
 Both login and session cookies gain `Secure`; they remain HttpOnly, SameSite=Lax
 and host-only, including cookie deletion. Ten-minute PKCE login state is kept in
 PostgreSQL under the hashed flow-cookie value. Atomic deletion makes it single use
-across API replicas. Expired state is pruned during intake, which has a shared
-100-flow cap. This preserves the existing bound; it is not a public rate limiter.
+across API replicas. Expired state is pruned during intake. Each client address
+may start 20 sign-ins in ten minutes on each controller (`identity::sign_in_limit`;
+behind the proxy, the last `X-Forwarded-For` entry, and one /64 for IPv6); the
+21st gets 429 and saves nothing. Behind that, a shared storage guard of 50,000
+started sign-ins bounds the table. It was a shared cap of 100, which let anyone
+lock every person out with 100 requests every ten minutes. A flood from many
+addresses still needs the load balancer's or a firewall's rate limiting.
 Existing sessions already live in PostgreSQL and still undergo current provider
 session/email verification on authenticated requests.
 
@@ -189,6 +194,13 @@ APIs continue to enforce their existing PostgreSQL permissions.
 PDF extraction keeps its existing bubblewrap isolation. Some container hosts
 disallow nested user namespaces; then extraction fails closed. Do not relax the
 container security profile merely to make that optional extractor work.
+
+The image installs every Library reader: `bubblewrap`, `prlimit` (util-linux),
+`pdftotext` (poppler-utils) and Tesseract with English data (`tesseract-ocr`,
+`tesseract-ocr-eng`). It shipped without Tesseract until 2026-11-27, so text in
+uploaded images was never read in hosted Cuckoo. A web controller with Library
+storage now logs "Library can't read some files' text" at start, naming each
+missing program and what it reads, instead of failing only as "unsupported".
 
 ## Several API replicas (rehearsal)
 

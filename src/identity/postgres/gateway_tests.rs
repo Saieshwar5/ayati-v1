@@ -217,3 +217,46 @@ async fn expired_or_forged_sessions_and_invitations_grant_nothing() {
     assert!(db.role(&w, &employee.id).await.is_err());
     assert!(db.role(&w, &other.id).await.is_err());
 }
+
+#[tokio::test]
+#[ignore = "requires local PostgreSQL"]
+async fn one_address_cannot_use_up_sign_in_for_everyone_else() {
+    // Behind the hosted proxy, the last X-Forwarded-For entry is the client.
+    let app = app("https://workspace.example.test").await;
+    let start = |from: &str| {
+        router(app.clone()).oneshot(
+            Request::builder()
+                .uri("/auth/login")
+                .header("host", "workspace.example.test")
+                .header("x-forwarded-for", format!("10.9.9.9, {from}"))
+                .body(Body::empty())
+                .unwrap(),
+        )
+    };
+    for _ in 0..crate::identity::sign_in_limit::PER_ADDRESS {
+        assert_eq!(
+            start("203.0.113.7").await.unwrap().status(),
+            StatusCode::SEE_OTHER
+        );
+    }
+    let refused = start("203.0.113.7").await.unwrap();
+    assert_eq!(refused.status(), StatusCode::TOO_MANY_REQUESTS);
+    assert!(refused.headers().get(header::SET_COOKIE).is_none());
+    // Someone else, on another network, still signs in.
+    assert_eq!(
+        start("198.51.100.9").await.unwrap().status(),
+        StatusCode::SEE_OTHER
+    );
+    let saved: i64 = query(
+        &app.store.db,
+        "SELECT count(*) AS n FROM relay_login_flows",
+        vec![],
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .try_get("", "n")
+    .unwrap();
+    let limit = i64::from(crate::identity::sign_in_limit::PER_ADDRESS);
+    assert_eq!(saved, limit + 1, "the refused start saved nothing");
+}

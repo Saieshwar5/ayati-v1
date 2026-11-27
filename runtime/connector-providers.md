@@ -252,12 +252,16 @@ Before anything reaches a provider, after the switch and the field check:
   the last minute. Nothing was sent; try again in a minute."
 - **Circuit breaker per provider**, in `relay_connector_breakers`, so every
   controller agrees. Five provider failures in a row within two minutes
-  (`BREAKER_FAILURES`; uncertain outcomes, and errors or timeouts while the
-  provider checks the account) open it for three minutes
+  (`BREAKER_FAILURES`; no answer, a timeout, throttling or a server error, and
+  errors or timeouts while the provider checks the account) open it for three minutes
   (`BREAKER_COOLDOWN_MS`): calls are refused with "Cuckoo paused calls to this
   service for a few minutes after repeated failures. Nothing was sent." Then one
   trial call goes; its success closes the breaker, its failure reopens it. A
-  refusal the provider explains (reconnect, changed) is not a failure, and a
+  refusal the provider explains (reconnect, changed) is not a failure. Nor is an
+  action the provider answers did not succeed (Composio's `successful: false`,
+  Pipedream's reported error, or a 4xx other than 408 and 429): it stays
+  unconfirmed for the action, but the provider is up, so one workspace asking for
+  things that don't exist can't pause the provider for every workspace. A
   pinned Composio version that is gone is refused as changed. Operator MCP
   servers share one breaker under `mcp`.
 

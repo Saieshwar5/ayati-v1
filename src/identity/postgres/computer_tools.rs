@@ -267,6 +267,11 @@ impl PgStore {
         self.computer_used(job).await?;
         let bytes = match bytes {
             Ok(bytes) => bytes,
+            Err(error) if error.is::<crate::identity::computers::TooLarge>() => {
+                return Ok(
+                    json!({"state": "invalid", "message": format!("{} is larger than 25 MiB, so it can't be read whole. Use a command to read part of it, for example head, tail or grep.", shown(&path))}),
+                );
+            }
             Err(_) => {
                 return Ok(
                     json!({"state": "invalid", "message": format!("There is no file {} on your computer.", shown(&path))}),

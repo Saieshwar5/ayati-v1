@@ -16,6 +16,17 @@ pub(super) async fn start(app: &Shared) -> Result<Option<tokio::task::JoinHandle
     // background loops need work wake-ups.
     chat::start_dispatcher(app.clone());
     metrics::start(app.clone());
+    // Library uploads are read where people upload them. A missing reader would
+    // otherwise only show as files agents can't read.
+    if role.web() && app.library.enabled() {
+        let missing = library::extract::missing_readers(std::path::Path::new("/"));
+        if !missing.is_empty() {
+            tracing::warn!(
+                missing = missing.join("; "),
+                "Library can't read some files' text: install the missing programs"
+            );
+        }
+    }
     if role.work() {
         automations::start(app.clone()).await;
         communications::gateway::start(app.clone());

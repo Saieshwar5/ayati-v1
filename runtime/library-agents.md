@@ -185,7 +185,9 @@ web (`tests/library-meaning.test.mjs`).
   (English) in the same sandbox as PDF text, with 1 GiB of memory, 20 CPU seconds and
   25 seconds at most. The text becomes one "Text in the image" section, marked
   "partial" (recognition can be wrong); images without readable text stay downloadable.
-  Needs `tesseract-ocr` and `tesseract-ocr-eng` beside `bwrap`, `prlimit` and `pdftotext`.
+  Needs `tesseract-ocr` and `tesseract-ocr-eng` beside `bwrap`, `prlimit` and `pdftotext`;
+  the Dockerfile installs all of them (Tesseract only since 2026-11-27), and a web
+  controller with Library storage warns at start about any that are missing.
 - The sandbox's `/lib64` now follows the host (`usr/lib64` on Debian and Ubuntu,
   `usr/lib` elsewhere). Before, every sandboxed reader, PDF text included, failed on
   Ubuntu x86-64 and files stayed "unsupported".

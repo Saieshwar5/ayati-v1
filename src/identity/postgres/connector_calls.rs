@@ -73,6 +73,10 @@ pub(crate) enum Ended {
     Completed,
     /// Sent, but the provider did not confirm the result (or did not answer).
     Uncertain,
+    /// Sent, and the provider answered that it did not do it. Still unconfirmed,
+    /// but the provider is up: it never counts towards the breaker, which every
+    /// workspace shares, so one workspace's bad requests can't pause it for all.
+    Declined,
     /// Stopped before sending. `provider_error`: the provider failed or did not
     /// answer the account and action check; a refusal it explained is not one.
     PreflightFailed {
@@ -157,6 +161,7 @@ impl PgStore {
         let (outcome, provider_error, failed) = match ended {
             Ended::Completed => ("completed", false, false),
             Ended::Uncertain => ("uncertain", false, true),
+            Ended::Declined => ("uncertain", false, false),
             Ended::PreflightFailed { provider_error } => {
                 ("preflight_failed", provider_error, provider_error)
             }

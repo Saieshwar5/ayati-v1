@@ -29,10 +29,21 @@ fn safe_return(path: &str) -> bool {
 }
 pub(super) async fn login(
     State(app): State<Shared>,
+    headers: HeaderMap,
+    peer: Option<axum::Extension<axum::extract::ConnectInfo<std::net::SocketAddr>>>,
     Query(input): Query<LoginQuery>,
 ) -> ApiResult<Response> {
     if app.simulation.is_some() {
         return Ok(Redirect::to("/index.html?view=simulation").into_response());
+    }
+    let client = super::sign_in_limit::client(&headers, peer.map(|p| p.0.0), hosting::hosted(&app));
+    if !app.runtimes.sign_in_starts.allow(client) {
+        return Err(Error(
+            anyhow::anyhow!(
+                "Too many sign-in attempts from this network. Try again in a few minutes."
+            ),
+            StatusCode::TOO_MANY_REQUESTS,
+        ));
     }
     check(
         input

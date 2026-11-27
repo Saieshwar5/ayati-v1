@@ -150,15 +150,26 @@ async fn pipedream_calls_report_only_confirmed_results() {
     let args = json!({"to":"a@example.test","subject":"Hi","body":"Hello"});
     let thrown =
         json!({"ret":null,"os":[{"k":"error","ts":1,"err":{"name":"Error","message":"boom"}}]});
-    for (status, reply) in [
-        (500, json!({})),
-        (202, json!({})),
-        (429, json!({"error":"Throttled"})),
-        (200, thrown),
+    // None is a success. Pipedream reporting the run's own error, or refusing
+    // the request, says it is up (declined); the rest say nothing about that.
+    for (status, reply, declined) in [
+        (500, json!({}), false),
+        (202, json!({}), false),
+        (429, json!({"error":"Throttled"}), false),
+        (404, json!({"error":"Not found"}), true),
+        (200, thrown, true),
     ] {
         fake.state.lock().unwrap().run_reply = Some((status, reply));
         let call = provider.prepare(&saved(&account), &send).await.unwrap();
-        assert!(matches!(call.run(&args, "key").await, Outcome::Uncertain));
+        let outcome = call.run(&args, "key").await;
+        assert!(
+            if declined {
+                matches!(outcome, Outcome::Declined)
+            } else {
+                matches!(outcome, Outcome::Uncertain)
+            },
+            "{status}"
+        );
     }
     fake.state.lock().unwrap().run_reply = None;
     let call = provider.prepare(&saved(&account), &send).await.unwrap();

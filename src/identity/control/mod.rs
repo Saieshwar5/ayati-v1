@@ -271,17 +271,19 @@ pub(crate) async fn dispatch_with(
         call.run(&dispatch.arguments, &dispatch.id),
     )
     .await;
+    // A provider that answered (even with an error) is up; only no answer, a
+    // timeout or a server error counts against its breaker.
+    let end = match &outcome {
+        Ok(Outcome::Completed(_)) => Ended::Completed,
+        Ok(Outcome::Declined) => Ended::Declined,
+        _ => Ended::Uncertain,
+    };
     let (value, success) = match outcome {
         Ok(Outcome::Completed(value)) => (value, true),
         _ => (
             json!({"message":"The external outcome could not be confirmed. Inspect the remote system before retrying; further writes are held."}),
             false,
         ),
-    };
-    let end = if success {
-        Ended::Completed
-    } else {
-        Ended::Uncertain
     };
     ended(pg, &record, end).await;
     pg.control_finish(w, &dispatch, value, success).await
@@ -310,6 +312,21 @@ pub(crate) fn endpoint(input: &str) -> Result<reqwest::Url> {
         (url.scheme() == "https" && url.host_str().is_some())
             || (url.scheme() == "http" && url.host_str() == Some("127.0.0.1")),
         "MCP requires HTTPS; explicit loopback HTTP is available for local verification"
+    );
+    Ok(url)
+}
+
+/// Unit tests connect systems to local stand-ins; a running controller never does.
+pub(crate) const LOCAL_SYSTEMS: bool = cfg!(test);
+
+/// An address a workspace member typed for a connected system. Unlike the
+/// operator's own servers it may never name this machine, whose loopback reaches
+/// the controller's internal services; `local` is [`LOCAL_SYSTEMS`] outside tests.
+pub(crate) fn system_endpoint(input: &str, local: bool) -> Result<reqwest::Url> {
+    let url = endpoint(input)?;
+    ensure!(
+        local || url.host_str() != Some("127.0.0.1"),
+        "Use the system's public HTTPS address; an address on Cuckoo's own server can't be connected"
     );
     Ok(url)
 }

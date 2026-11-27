@@ -48,6 +48,7 @@ mod routes;
 mod secrets;
 mod settings;
 mod shutdown;
+pub(crate) mod sign_in_limit;
 pub mod simulation;
 pub(crate) mod skill_writer;
 mod skills;

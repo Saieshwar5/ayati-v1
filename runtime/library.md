@@ -90,7 +90,11 @@ privately and test the chosen provider's conditional-create behavior. This work
 does not provision a bucket or alter public-access/bucket policies. A local S3
 emulator round trip does not establish a real provider/region deployment.
 
-Uploads are limited to 25 MiB per file, with four active server transfers. This
+Uploads are limited to 25 MiB per file. A controller runs four uploads and
+downloads at once, at most two of them for one workspace, so one workspace can't
+hold every transfer (`library::transfer_slots`). A place is taken only after
+sign-in and access are checked; an upload's body must arrive within five minutes,
+and a download ends when its client reads nothing for a minute. This
 first version uses authenticated same-origin transfers through Cuckoo rather than
 browser-to-S3 signing or multipart upload. The queue survives same-workspace
 feature navigation. Reload recovery reuses upload metadata and asks for the source

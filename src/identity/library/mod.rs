@@ -1,5 +1,5 @@
 pub(in crate::identity) mod context;
-mod extract;
+pub(in crate::identity) mod extract;
 mod files;
 pub(in crate::identity) mod indexer;
 pub(in crate::identity) mod keeping;
@@ -12,6 +12,7 @@ pub(crate) mod page_text;
 pub(crate) mod passages;
 mod storage;
 pub(crate) mod tables;
+pub(in crate::identity) mod transfer_slots;
 pub(crate) mod tables_csv;
 use super::*;
 use axum::{

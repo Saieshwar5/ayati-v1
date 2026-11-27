@@ -221,11 +221,21 @@ async fn login_intake_is_bounded_and_concurrent_callbacks_consume_state_once() {
         usize::from(a.unwrap().is_some()) + usize::from(b.unwrap().is_some()),
         1
     );
-    for i in 0..100 {
-        db.save_login_flow(&identity::digest(&i.to_string()), &flow)
-            .await
-            .unwrap();
-    }
+    // Fill the storage guard directly; saving one more is refused.
+    execute(
+        &db.db,
+        "INSERT INTO relay_login_flows(hash,state,verifier,expires)
+         SELECT substr(md5(i::text)||md5(i::text),1,43),'s','v',$2 FROM generate_series(1,$1) i",
+        vec![
+            (super::login_flows::LOGIN_FLOW_LIMIT - 1).into(),
+            (now() + 600).into(),
+        ],
+    )
+    .await
+    .unwrap();
+    db.save_login_flow(&identity::digest("last"), &flow)
+        .await
+        .unwrap();
     assert!(other.save_login_flow(&hash, &flow).await.is_err());
     execute(&db.db, "UPDATE relay_login_flows SET expires=0", vec![])
         .await

@@ -385,6 +385,22 @@ impl Provider for E2b {
             "Reading the file failed ({})",
             response.status()
         );
-        Ok(response.bytes().await?.to_vec())
+        read_capped(response, super::MAX_READ).await
     }
+}
+
+/// A file's bytes, refused as soon as they pass `limit`: before reading when the
+/// computer states the size, otherwise at the first chunk past it.
+pub(super) async fn read_capped(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>> {
+    if response.content_length().is_some_and(|n| n > limit as u64) {
+        return Err(super::TooLarge.into());
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if bytes.len() + chunk.len() > limit {
+            return Err(super::TooLarge.into());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    Ok(bytes)
 }

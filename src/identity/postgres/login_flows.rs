@@ -1,6 +1,12 @@
 use super::*;
 use crate::identity::Pending;
 
+/// Started sign-ins kept at once, for every workspace together. This only bounds
+/// storage (each row is under 2 KB and lasts ten minutes); each client address
+/// is limited first (`identity::sign_in_limit`). It was 100, which let anyone
+/// lock every person out of signing in with 100 requests every ten minutes.
+pub(in crate::identity) const LOGIN_FLOW_LIMIT: i64 = 50_000;
+
 impl PgStore {
     pub(in crate::identity) async fn save_login_flow(
         &self,
@@ -8,20 +14,25 @@ impl PgStore {
         flow: &Pending,
     ) -> Result<()> {
         let tx = self.db.begin().await?;
-        // Serialize the bounded anonymous intake across API replicas, not just one process.
-        tx.execute_unprepared("LOCK TABLE relay_login_flows IN EXCLUSIVE MODE")
-            .await?;
         execute(
             &tx,
             "DELETE FROM relay_login_flows WHERE expires <= $1",
             vec![now().into()],
         )
         .await?;
-        let count: i64 = query(&tx, "SELECT count(*) AS n FROM relay_login_flows", vec![])
-            .await?
-            .context("Cannot count sign-in attempts")?
-            .try_get("", "n")?;
-        ensure!(count < 100, "Too many sign-in attempts. Try again later");
+        // A storage guard, so it needn't be exact across replicas: no table lock.
+        let count: i64 = query(
+            &tx,
+            "SELECT count(*) AS n FROM (SELECT 1 FROM relay_login_flows LIMIT $1) f",
+            vec![LOGIN_FLOW_LIMIT.into()],
+        )
+        .await?
+        .context("Cannot count sign-in attempts")?
+        .try_get("", "n")?;
+        ensure!(
+            count < LOGIN_FLOW_LIMIT,
+            "Too many sign-in attempts. Try again later"
+        );
         // return_to (schema 42) is only named when used, so older schemas keep working.
         let (column, value) = if flow.return_to.is_some() {
             (",return_to", ",$6")

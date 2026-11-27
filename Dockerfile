@@ -46,8 +46,11 @@ RUN python3 -m venv /opt/ayati/bridge \
        -r /tmp/bridge-requirements.lock
 
 FROM debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS runtime
+# Library text: bubblewrap sandboxes the readers, util-linux gives prlimit,
+# poppler-utils reads PDFs and Tesseract reads text in images (library/extract.rs).
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libstdc++6 bubblewrap poppler-utils util-linux python3 \
+    tesseract-ocr tesseract-ocr-eng \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 ayati \
     && useradd --uid 10001 --gid 10001 --home-dir /var/lib/ayati --no-create-home ayati \

@@ -78,7 +78,7 @@ async fn library_http_upload_download_ranges_revocation_and_mutation_guards() {
             paused: std::sync::atomic::AtomicBool::new(true),
         }),
     });
-    let router = identity::router(app);
+    let router = identity::router(app.clone());
     let bytes = b"A reference file. Confirm delivery with the owner.";
     let id = uuid::Uuid::new_v4().to_string();
     let upload = json!({"id":id,"request":uuid::Uuid::new_v4().to_string(),"title":"reference.txt","size":bytes.len(),"checksum":checksum(bytes)});
@@ -139,6 +139,33 @@ async fn library_http_upload_download_ranges_revocation_and_mutation_guards() {
     let complete = call(&router, "GET", &download, "owner-token", vec![], None).await;
     assert_eq!(complete.0, 200);
     assert_eq!(complete.2, bytes);
+    // While this workspace's transfers are all running, it waits; a request
+    // that isn't signed in is refused as such and takes no place at all.
+    let running: Vec<_> = (0..identity::library::transfer_slots::PER_WORKSPACE)
+        .map(|_| app.runtimes.library_transfers.take(&w).unwrap())
+        .collect();
+    let busy = call(&router, "GET", &download, "owner-token", vec![], None).await;
+    assert_eq!(busy.0, 429);
+    assert!(String::from_utf8_lossy(&busy.2).contains("in this workspace"));
+    assert_eq!(
+        call(&router, "GET", &download, "stranger", vec![], None)
+            .await
+            .0,
+        401
+    );
+    assert!(
+        app.runtimes
+            .library_transfers
+            .take("another-workspace")
+            .is_ok()
+    );
+    drop(running);
+    assert_eq!(
+        call(&router, "GET", &download, "owner-token", vec![], None)
+            .await
+            .0,
+        200
+    );
     assert_eq!(complete.1["cache-control"], "no-store");
     let range = call(
         &router,

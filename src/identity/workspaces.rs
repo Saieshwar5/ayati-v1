@@ -14,6 +14,10 @@ pub(super) struct Runtimes {
     pub draining: tokio_util::sync::CancellationToken,
     /// Set when draining ends: background loops stop claiming work.
     pub stopping: tokio_util::sync::CancellationToken,
+    /// Sign-ins started per client address (`sign_in_limit`).
+    pub sign_in_starts: super::sign_in_limit::SignInStarts,
+    /// Library file transfers running now (`library::transfer_slots`).
+    pub library_transfers: super::library::transfer_slots::Transfers,
 }
 impl Runtimes {
     pub fn new(root: PathBuf) -> Self {
@@ -24,6 +28,8 @@ impl Runtimes {
             chat_slots: Arc::new(tokio::sync::Semaphore::new(4)),
             draining: tokio_util::sync::CancellationToken::new(),
             stopping: tokio_util::sync::CancellationToken::new(),
+            sign_in_starts: Default::default(),
+            library_transfers: Default::default(),
         }
     }
     pub fn object_root(&self, id: &str) -> PathBuf {
